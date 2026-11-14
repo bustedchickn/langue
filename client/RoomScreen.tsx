@@ -9,6 +9,7 @@ import { minigames } from './minigames/registry'
 import { languageTags } from '../shared/types'
 import { Avatar, flags } from './PlayerIdentity'
 import { MicrophoneTest } from './MicrophoneTest'
+import { codenamesCopy } from './minigames/codenames/copy'
 
 const prompts = {
   English: ['Hello!', 'My name is…', 'How are you?'],
@@ -82,6 +83,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const peer = host ? 'guest' : 'host'
   const partner = session?.[peer]
   const language = session?.[seat]?.learningLanguage
+  const fluentLanguage = session?.[seat]?.fluentLanguage
   const connected = !!room && !!session?.host?.connected && !!session.guest?.connected
   const voted = session?.ready[seat]
   const partnerVoted = session?.ready[peer]
@@ -145,7 +147,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
               {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
             </select>
           </label>}
-          {game && <div><h2>{game.name}</h2><p className="muted">{game.description}</p></div>}
+          {game && <div><h2>{game.name}</h2><p className="muted">{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p></div>}
           {readyButton('I’m ready!')}
         </>}
         {phase === 'introduction' && <>
@@ -159,12 +161,12 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         </>}
         {phase === 'game' && <>
           {partner && <p className="muted">Playing with @{partner.username}</p>}
-          {game && <p>{game.description}</p>}
-          {session?.progress && <ActiveGame progress={session.progress} view={view} ready={connected}
+          {game && <p>{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p>}
+          {session?.progress && <ActiveGame progress={session.progress} view={view} ready={connected} fluentLanguage={fluentLanguage}
             send={payload => room?.send('game-action', payload)} />}
         </>}
         {phase === 'results' && <div className="results-transition stack">
-          {session?.results && <Results result={session.results} seat={session.rolesSwapped ? peer : seat} />}
+          {session?.results && <Results result={session.results} seat={session.rolesSwapped ? peer : seat} fluentLanguage={fluentLanguage} />}
           {session?.matchType && session.friendship && <section className="friend-celebration stack">
             {session.friendship.accepted ? <>
               <div className="friend-animation" role="img" aria-label="High five and hug">

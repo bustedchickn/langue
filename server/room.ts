@@ -349,8 +349,8 @@ export class DuoRoom extends Room {
     const { displayName: hostName, learningLanguage: hostLanguage } = hostProfile
     const { displayName: guestName, learningLanguage: guestLanguage } = guestProfile
     this.game = game.start(randomUUID(), {
-      host: { name: hostName, learningLanguage: hostLanguage },
-      guest: { name: guestName, learningLanguage: guestLanguage },
+      host: { name: hostName, learningLanguage: hostLanguage, fluentLanguage: hostProfile.fluentLanguage },
+      guest: { name: guestName, learningLanguage: guestLanguage, fluentLanguage: guestProfile.fluentLanguage },
     }, Date.now(), this.log)
     this.phase = 'game'
     this.log('game-initialized', { game: game.config.id })

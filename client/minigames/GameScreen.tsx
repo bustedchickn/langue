@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
 import './confetti.css'
+import type { Language } from '../../shared/types'
+import { codenamesCopy } from './codenames/copy'
 
-export function ActiveGame({ progress, view, ready, send }: {
-  progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void
+export function ActiveGame({ progress, view, ready, send, fluentLanguage }: {
+  progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void; fluentLanguage?: Language
 }) {
   // Anchor each server timestamp to the local monotonic clock so wall-clock skew cannot shift the countdown.
   const [anchor, setAnchor] = useState(() => ({ timestamp: progress.serverNow, local: performance.now() }))
@@ -18,23 +20,25 @@ export function ActiveGame({ progress, view, ready, send }: {
   const counting = serverNow < progress.startsAt
   const seconds = Math.max(0, Math.ceil(((counting ? progress.startsAt : progress.endsAt) - serverNow) / 1000))
   const game = minigames.get(progress.gameId)
+  const words = progress.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'] : undefined
   const current = view?.gameId === progress.gameId && view.matchId === progress.matchId &&
     (view.round === progress.round || game?.continuousView)
   if (!game) return <p>Game unavailable.</p>
   return <>
     <div className="game-progress">
-      <strong>Round {progress.round}{progress.rounds !== undefined && ' of ' + progress.rounds}</strong>
-      {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? 'Starts in ' : 'Time left '}<time>{seconds}s</time></span>}
+      <strong>{words?.round ?? 'Round'} {progress.round}{progress.rounds !== undefined && ' of ' + progress.rounds}</strong>
+      {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? (words?.start ?? 'Starts in') + ' ' : 'Time left '}<time>{seconds}s</time></span>}
     </div>
-    <p role="status">{progress.completed} solved · {progress.score} points</p>
-    {!ready && <p role="status">Waiting for both players. The timer is still running.</p>}
+    <p role="status">{words ? words.found + ' ' + progress.completed + ' · ' + words.score + ' ' + progress.score : progress.completed + ' solved · ' + progress.score + ' points'}</p>
+    {!ready && <p role="status">{words?.waitingPartner ?? 'Waiting for both players. The timer is still running.'}</p>}
     {current ? <game.View key={progress.matchId} data={view.data} progress={progress} disabled={!ready || counting || seconds === 0 || view.round !== progress.round}
-      send={action => send({ matchId: progress.matchId, action })} /> : <p>Loading your role…</p>}
+      send={action => send({ matchId: progress.matchId, action })} /> : <p>{words?.loading ?? 'Loading your role…'}</p>}
   </>
 }
 
-export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
+export function Results({ result, seat, fluentLanguage }: { result: GameResults; seat: Seat; fluentLanguage?: Language }) {
   const CustomResults = minigames.get(result.gameId)?.Results
+  const words = result.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'] : undefined
   return <>
     {result.outcome === 'victory' && <div className="results-confetti" aria-hidden="true">
       {Array.from({ length: 32 }, (_, index) => <i key={index} style={{
@@ -42,7 +46,15 @@ export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
         animationDelay: (index % 8) * .07 + 's', animationDuration: (1.3 + index % 6 * .15) + 's',
       }} />)}
     </div>}
-    {CustomResults ? <CustomResults result={result} seat={seat} /> : <>
+    {words ? <>
+      <h3 className="game-outcome">{result.outcome === 'victory' ? words.victory : words.defeat}</h3>
+      <p>{result.players.join(' & ')}</p>
+      <dl className="game-results">
+        <div><dt>{words.found}</dt><dd>{result.completed}</dd></div>
+        <div><dt>{words.attempted}</dt><dd>{result.attempted}</dd></div>
+        <div><dt>{words.score}</dt><dd>{result.score}</dd></div>
+      </dl>
+    </> : CustomResults ? <CustomResults result={result} seat={seat} /> : <>
     <h3 className="game-outcome">{result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">

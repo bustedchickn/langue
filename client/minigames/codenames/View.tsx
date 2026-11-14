@@ -2,12 +2,14 @@ import { useState, type FormEvent } from 'react'
 import type { GameProgress } from '../../../shared/minigames/contracts'
 import { codenamesTeamWords, wordCards, type CodenamesView } from '../../../shared/minigames/codenames'
 import { languageTags } from '../../../shared/types'
+import { codenamesCopy } from './copy'
 import './codenames.css'
 
 export function CodenamesView({ data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
 }) {
   const view = data as CodenamesView
+  const text = codenamesCopy[view.fluentLanguage]
   const [word, setWord] = useState('')
   const [count, setCount] = useState(1)
   const [showDefinition, setShowDefinition] = useState<string>()
@@ -21,21 +23,19 @@ export function CodenamesView({ data, disabled, send }: {
     setWord('')
   }
 
-  return <section className="codenames stack">
-    <p><strong>{view.role === 'clue-giver' ? 'Clue giver' : 'Guesser'}</strong> · Practice {view.language}</p>
-    <p>{view.role === 'clue-giver'
-      ? 'Give a one-word clue for the lavender cards. Avoid saying a word on the board.'
-      : 'Listen for a clue, then find the matching words. Avoid the dark card!'}</p>
-    <p role="status">{view.suddenDeath ? 'Sudden death — find the remaining words. Any wrong guess ends the game.' : view.turnsLeft + (view.turnsLeft === 1 ? ' turn left' : ' turns left')}</p>
-    {view.role === 'clue-giver' && <p className="codenames-legend">🟣 Team &nbsp; ◻️ Neutral &nbsp; ⬛ Assassin</p>}
-    {view.suddenDeath ? null : view.clue ? <p className="codenames-clue" role="status">Clue <strong>{view.clue}</strong> · {view.remaining} {view.remaining === 1 ? 'guess' : 'guesses'} left</p>
-      : <p role="status">Waiting for a clue…</p>}
+  return <section className="codenames stack" lang={languageTags[view.fluentLanguage]}>
+    <p><strong>{view.role === 'clue-giver' ? text.clueGiver : text.guesser}</strong> · {text.practice} {text.languages[view.language]}</p>
+    <p>{view.role === 'clue-giver' ? text.giverHelp : text.guesserHelp}</p>
+    <p role="status">{view.suddenDeath ? text.sudden : text.turns(view.turnsLeft)}</p>
+    {view.role === 'clue-giver' && <p className="codenames-legend">{text.legend}</p>}
+    {view.suddenDeath ? null : view.clue ? <p className="codenames-clue" role="status">{text.clue} <strong>{view.clue}</strong> · {text.guesses(view.remaining)}</p>
+      : <p role="status">{text.waiting}</p>}
     {view.role === 'clue-giver' && !view.remaining && !view.suddenDeath && <form className="clue-form" onSubmit={giveClue}>
-      <label>One-word clue<input value={word} maxLength={30} onChange={event => setWord(event.target.value)} /></label>
-      <label>Number of words<input type="number" min={1} max={codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}
+      <label>{text.clueLabel}<input value={word} maxLength={30} onChange={event => setWord(event.target.value)} /></label>
+      <label>{text.number}<input type="number" min={1} max={codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}
         value={count} onChange={event => setCount(Number(event.target.value))} /></label>
-      <button disabled={disabled || invalid || count < 1 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>Give clue</button>
-      {word && invalid && <p className="error">Use one word that is not on the board.</p>}
+      <button disabled={disabled || invalid || count < 1 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>{text.give}</button>
+      {word && invalid && <p className="error">{text.invalid}</p>}
     </form>}
     <div className="codenames-grid">
       {view.cards.map(card => {
@@ -45,17 +45,21 @@ export function CodenamesView({ data, disabled, send }: {
         return <div className="word-card-wrap" key={card.id}>
           <button className="word-card" data-id={card.id} data-kind={kind} data-revealed={!!card.revealed}
             disabled={disabled || view.role !== 'guesser' || (!view.remaining && !view.suddenDeath) || !!card.revealed}
+            aria-label={card.revealed ? word + ' — ' + text[card.revealed] : word}
             lang={languageTags[view.language]} onClick={() => send({ type: 'guess', id: card.id, revision: view.revision })}>
-            {word}
+            <span>{word}</span>{card.revealed && <span className="word-revealed-mark" aria-hidden="true">
+              {card.revealed === 'team' ? '✓' : card.revealed === 'assassin' ? '✕' : '–'}
+            </span>}
           </button>
-          <button type="button" className="word-info" aria-label={'Definition of ' + word}
+          <button type="button" className="word-info" aria-label={text.definition(word)}
             aria-expanded={showDefinition === card.id}
             onClick={() => setShowDefinition(showDefinition === card.id ? undefined : card.id)}>i</button>
-          <span className={'word-definition' + (showDefinition === card.id ? ' is-open' : '')} role="tooltip">{item.definition}</span>
+          <span className={'word-definition' + (showDefinition === card.id ? ' is-open' : '')}
+            lang={languageTags[view.fluentLanguage]} role="tooltip">{item.definitions[view.fluentLanguage]}</span>
         </div>
       })}
     </div>
     {view.role === 'guesser' && view.remaining > 0 && <button className="secondary" disabled={disabled}
-      onClick={() => send({ type: 'pass', revision: view.revision })}>Pass remaining guesses</button>}
+      onClick={() => send({ type: 'pass', revision: view.revision })}>{text.pass}</button>}
   </section>
 }

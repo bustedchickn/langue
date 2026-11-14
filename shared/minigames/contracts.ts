@@ -1,7 +1,7 @@
 import type { Language } from '../types'
 
 export type Seat = 'host' | 'guest'
-export type GamePlayers = Record<Seat, { name: string; learningLanguage: Language }>
+export type GamePlayers = Record<Seat, { name: string; learningLanguage: Language; fluentLanguage?: Language }>
 
 export interface GameConfig {
   id: string

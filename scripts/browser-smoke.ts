@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
 import { puzzles } from '../server/minigames/lost-instructions/puzzles'
 import type { Piece } from '../shared/minigames/lost-instructions'
+import { wordCards } from '../shared/minigames/codenames'
 
 const url = process.env.IDLE_BROWSER_URL ?? 'http://localhost:5173'
 const tag = Date.now().toString(36)
@@ -171,17 +172,22 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await startGame(host, guest)
       await host.getByLabel('One-word clue').fill('animal')
       await button(host, 'Give clue').click()
-      await guest.getByText('Clue', { exact: false }).first().waitFor()
+      await guest.getByText(/Indice.*animal/).waitFor()
       const team = host.locator('.word-card[data-kind="team"]').first()
       assert.equal(await guest.locator('.word-card').count(), 25)
       const id = await team.getAttribute('data-id')
+      const item = wordCards.find(entry => entry.id === id)!
       assert.equal(await guest.locator('.word-card[data-kind]').count(), 0)
       const card = guest.locator('.word-card[data-id="' + id + '"]')
-      const info = card.locator('..').getByRole('button', { name: /^Definition of/ })
+      assert.equal((await team.innerText()).trim(), item.words.French)
+      assert.equal((await card.innerText()).trim(), item.words.English)
+      const info = card.locator('..').getByRole('button', { name: /^Définition de/ })
       await info.click()
       assert.equal(await info.getAttribute('aria-expanded'), 'true')
+      assert.equal((await card.locator('..').getByRole('tooltip').innerText()).trim(), item.definitions.French)
       await card.click()
-      await host.getByText('1 solved · 1 points').waitFor()
+      await host.getByText('Team words found 1 · Team score 1').waitFor()
+      assert.equal(await card.getAttribute('data-revealed'), 'true')
       assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
       return
     }

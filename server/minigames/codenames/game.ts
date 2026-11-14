@@ -37,7 +37,8 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
     progress: time => ({ gameId: config.id, matchId, round: 1, completed, score: completed, startsAt, endsAt, serverNow: time, untimed: true }),
     view(seat): CodenamesView {
       return {
-        role: seat === 'host' ? 'clue-giver' : 'guesser', language: players.host.learningLanguage,
+        role: seat === 'host' ? 'clue-giver' : 'guesser', language: players[seat].learningLanguage,
+        fluentLanguage: players[seat].fluentLanguage ?? 'English',
         cards: cards.map((card, index) => ({
           id: card.id, ...(revealed.has(card.id) ? { revealed: kinds[index] } : {}),
           ...(seat === 'host' ? { kind: kinds[index] } : {}),
