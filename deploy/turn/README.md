@@ -1,5 +1,13 @@
 # Production voice relay
 
+## Managed relay on Render
+
+Create a TURN key under **Realtime → TURN** in the [Cloudflare dashboard](https://dash.cloudflare.com/). In the Render service's Environment settings, set `CLOUDFLARE_TURN_KEY_ID` and `CLOUDFLARE_TURN_API_TOKEN` to the key ID and its token. Save and redeploy. Keep both values server-side. Cloudflare issues temporary credentials after the game server verifies room membership. The default lifetime is one hour and can be set with `TURN_CREDENTIAL_TTL_SECONDS`.
+
+Verify voice with two signed-in players and confirm that a relay candidate carries audio using the browser checks below.
+
+## Self-hosted coturn
+
 The game server already authenticates Firebase players and signs temporary TURN credentials. The files here deploy the matching coturn service. A successful app build does **not** create a relay: provision a Linux VM, a public address, DNS, and a trusted certificate before enabling production voice.
 
 ## Host, DNS, and ports

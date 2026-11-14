@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: langue-game
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        value: lost-in-translation-langue
+      - key: CLIENT_ORIGIN
+        value: https://lost-in-translation-langue.web.app,https://lost-in-translation-langue.firebaseapp.com
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-admin.json
