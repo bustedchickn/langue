@@ -24,6 +24,7 @@ export class DuoRoom extends Room {
   private waiting?: ReturnType<typeof setTimeout>
   private game?: ActiveMinigame
   private gameTimer?: ReturnType<typeof setTimeout>
+  private gameId = defaultMinigame
   private automatic?: { host: string; guest: string; type: MatchType; secret: string }
 
   onCreate() {
@@ -43,7 +44,11 @@ export class DuoRoom extends Room {
     this.onMessage('phase', (client, action) => {
       const seat = this.seat(client)
       if (!seat || this.closing) return
-      if (action === 'lobby' && this.phase === 'results') {
+      if (this.phase === 'lobby' && seat === 'host' && typeof action === 'object' && action &&
+          typeof action.gameId === 'string' && minigames.has(action.gameId)) {
+        this.gameId = action.gameId
+        this.broadcastSnapshot()
+      } else if (action === 'lobby' && this.phase === 'results') {
         this.phase = 'lobby'
         this.game = undefined
         this.broadcastSnapshot()
@@ -60,7 +65,10 @@ export class DuoRoom extends Room {
       if (matchId !== game.progress(now).matchId) return
       if (this.updateGame(now)) return
       if (!this.host?.connected || !this.guest?.connected) return
-      if (game.act(seat, action, now) && !this.updateGame(now)) this.publishGame()
+      if (game.act(seat, action, now) && !this.updateGame(now)) {
+        this.publishGame()
+        this.scheduleGame()
+      }
     })
     this.onMessage('chat', (client, input: unknown) => {
       const member = this.member(client)
@@ -244,7 +252,7 @@ export class DuoRoom extends Room {
       learningLanguage: member.profile.learningLanguage, connected: member.connected,
     } : null
     return {
-      host: player(this.host), guest: player(this.guest), gameId: defaultMinigame, phase: this.phase, chat: this.chat,
+      host: player(this.host), guest: player(this.guest), gameId: this.gameId, phase: this.phase, chat: this.chat,
       matchType: this.automatic?.type,
       ...(this.phase === 'game' && this.game ? { progress: this.game.progress(Date.now()) } : {}),
       ...(this.phase === 'results' && this.game ? { results: this.game.results() } : {}),
@@ -261,7 +269,7 @@ export class DuoRoom extends Room {
 
   private startGame() {
     if (!this.host?.connected || !this.guest?.connected) return
-    const game = minigames.get(defaultMinigame)!
+    const game = minigames.get(this.gameId)!
     const seats = [this.host, this.guest]
     if (seats.length < game.config.minPlayers || seats.length > game.config.maxPlayers) return
     const { displayName: hostName, learningLanguage: hostLanguage } = this.host.profile

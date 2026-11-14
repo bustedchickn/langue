@@ -9,9 +9,9 @@ export interface GameConfig {
   description: string
   minPlayers: number
   maxPlayers: number
-  durationMs: number
-  rounds: number
-  countdownMs: number
+  durationMs?: number
+  rounds?: number
+  countdownMs?: number
   scoring: Readonly<Record<string, number>>
   supportedLanguages: readonly Language[]
   assets: Readonly<Record<string, string>>
@@ -21,7 +21,8 @@ export interface GameProgress {
   gameId: string
   matchId: string
   round: number
-  rounds: number
+  rounds?: number
+  hidePreparationTimer?: boolean
   completed: number
   score: number
   startsAt: number

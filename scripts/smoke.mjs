@@ -35,8 +35,8 @@ function observe(start, select, timeout = 8000) {
   })
 }
 
-const message = (room, type, select = value => value) =>
-  observe(next => room.onMessage(type, next), select)
+const message = (room, type, select = value => value, timeout) =>
+  observe(next => room.onMessage(type, next), select, timeout)
 const documents = (request, select) =>
   observe((next, fail) => onSnapshot(request, next, fail), snap => snap.docs.find(select))
 
@@ -269,7 +269,51 @@ try {
   matchedAlice.send('sync')
   assert.equal((await state).matchType, 'reciprocal')
   assert.equal((await alice.request(queue, 'POST')).status, 409)
-  const matchEnded = message(matchedBob, 'ended')
+  const iconViews = []
+  unsubscribes.push(matchedAlice.onMessage('game-view', event => iconViews.push(event)))
+  unsubscribes.push(matchedAlice.onMessage('*', (type, data) => {
+    if (type === 'target') iconViews.push({ data })
+  }))
+  const picked = message(matchedAlice, 'session', value => value.gameId === 'icon-communication' && value)
+  matchedAlice.send('phase', { gameId: 'icon-communication' })
+  await picked
+  const reveal = message(matchedBob, 'game-view', event => event.data.target && event, 13000)
+  const selectorReveal = message(matchedAlice, 'game-view', event => event.data.revealed && event, 13000)
+  matchedAlice.send('phase', 'game')
+  const [icon, selector] = await Promise.all([reveal, selectorReveal])
+  assert.equal(selector.data.grid.length, 9)
+  assert.ok(iconViews.every(event => !Object.hasOwn(event.data, 'target')))
+  assert.equal(Object.hasOwn(icon.data, 'grid'), false)
+  const droppedIcon = message(matchedAlice, 'session', value => value.guest && !value.guest.connected && value)
+  const reconnectToken = matchedBob.reconnectionToken
+  await matchedBob.leave(false)
+  await droppedIcon
+  const iconPartner = await bob.client.reconnect(reconnectToken)
+  rooms.push(iconPartner)
+  const restoredIcon = message(iconPartner, 'game-view', event => event.data.target && event)
+  iconPartner.send('sync')
+  assert.deepEqual(await restoredIcon, icon)
+  const checkClock = message(iconPartner, 'session', value => value.progress && value)
+  iconPartner.send('sync')
+  const beforePenalty = (await checkClock).progress.endsAt
+  const wrong = selector.data.grid.find(id => id !== icon.data.target)
+  const payload = { matchId: icon.matchId, action: { type: 'guess', icon: wrong, round: icon.round, revision: 0 } }
+  iconPartner.send('game-action', { ...payload, action: { ...payload.action, icon: icon.data.target } })
+  const hostPenalty = message(matchedAlice, 'session', value => value.progress?.endsAt === beforePenalty - 2000 && value)
+  const guestPenalty = message(iconPartner, 'session', value => value.progress?.endsAt === beforePenalty - 2000 && value)
+  matchedAlice.send('game-action', payload)
+  const [firstClock, secondClock] = await Promise.all([hostPenalty, guestPenalty])
+  assert.deepEqual(firstClock.progress, secondClock.progress)
+  assert.equal(firstClock.progress.completed, 0)
+  const results = message(iconPartner, 'session', value => value.results && value.results, 12000)
+  assert.equal((await results).incorrectGuesses, 1)
+  const iconReplay = message(iconPartner, 'session', value => value.progress && value)
+  matchedAlice.send('phase', 'game')
+  const replayedIcon = await iconReplay
+  assert.equal(replayedIcon.progress.round, 1)
+  assert.equal(replayedIcon.progress.score, 0)
+  assert.notEqual(replayedIcon.progress.matchId, icon.matchId)
+  const matchEnded = message(iconPartner, 'ended')
   await matchedAlice.leave()
   await matchEnded
   assert.equal((await bob.request('/profile', 'PUT', { ...bob.profile, fluentLanguage: 'Spanish', learningLanguage: 'French' })).status, 200)
@@ -296,4 +340,3 @@ try {
   await Promise.allSettled(apps.map(deleteApp))
   await pause(50)
 }
-

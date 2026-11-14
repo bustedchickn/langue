@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { GameProgress, GameResults, PrivateGameView } from '../../shared/minigames/contracts'
+import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
 
 export function ActiveGame({ progress, view, ready, send }: {
@@ -21,8 +21,8 @@ export function ActiveGame({ progress, view, ready, send }: {
   if (!game) return <p>Game unavailable.</p>
   return <>
     <div className="game-progress">
-      <strong>Round {progress.round} of {progress.rounds}</strong>
-      <span>{counting ? 'Starts in ' : 'Time left '}<time>{seconds}s</time></span>
+      <strong>Round {progress.round}{progress.rounds !== undefined && ' of ' + progress.rounds}</strong>
+      {(!counting || !progress.hidePreparationTimer) && <span>{counting ? 'Starts in ' : 'Time left '}<time>{seconds}s</time></span>}
     </div>
     <p role="status">{progress.completed} solved · {progress.score} points</p>
     {!ready && <p role="status">Waiting for both players. The timer is still running.</p>}
@@ -31,7 +31,9 @@ export function ActiveGame({ progress, view, ready, send }: {
   </>
 }
 
-export function Results({ result }: { result: GameResults }) {
+export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
+  const CustomResults = minigames.get(result.gameId)?.Results
+  if (CustomResults) return <CustomResults result={result} seat={seat} />
   return <>
     <h3 className="game-outcome">{result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
     <p>{result.players.join(' & ')}</p>

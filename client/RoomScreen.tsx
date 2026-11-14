@@ -81,6 +81,11 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
           <Slot label="Host" player={session?.host ?? null} />
           <Slot label="Partner" player={session?.guest ?? null} />
           {game && <div><h3>{game.name}</h3><p className="muted">{game.description}</p></div>}
+          {host && session && <label>Minigame
+            <select value={session.gameId} disabled={!room} onChange={event => room?.send('phase', { gameId: event.target.value })}>
+              {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
+            </select>
+          </label>}
           {host && <div className="actions">
             <button disabled={!ready} onClick={() => phaseAction('game')}>Start Game</button>
             {!session?.matchType && !session?.guest && <button className="secondary" disabled={!room} onClick={invite}>Invite Friend</button>}
@@ -89,7 +94,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         {session?.progress && <ActiveGame progress={session.progress} view={view} ready={ready}
           send={payload => room?.send('game-action', payload)} />}
         {phase === 'results' && <>
-          {session?.results && <Results result={session.results} />}
+          {session?.results && <Results result={session.results} seat={host ? 'host' : 'guest'} />}
           <div className="actions">
             {host && <button disabled={!ready} onClick={() => phaseAction('game')}>Play Again</button>}
             <button className="secondary" disabled={!room} onClick={() => phaseAction('lobby')}>Return to Lobby</button>
