@@ -61,6 +61,7 @@ export async function saveProfile(uid: string, input: Partial<ProfileFields>) {
     const profile: UserProfile = {
       uid, username, displayName, fluentLanguage, learningLanguage,
       ...(existing?.assessments ? { assessments: existing.assessments } : {}),
+      ...(existing?.scores ? { scores: existing.scores } : {}),
       createdAt: existing?.createdAt ?? now, lastSeenAt: now,
     }
     tx.set(ref, profile)

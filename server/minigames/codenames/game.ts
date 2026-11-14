@@ -13,7 +13,6 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
     ;[kinds[index], kinds[next]] = [kinds[next], kinds[index]]
   }
   const revealed = new Set<string>()
-  const hintsUnlocked = new Set<string>()
   const startsAt = now + 3000
   const endsAt = Number.MAX_SAFE_INTEGER
   let clue: string | undefined
@@ -21,14 +20,13 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
   let completed = 0
   let wrongGuesses = 0
   let revision = 0
-  let turnsLeft = 9
+  let turnsLeft = codenamesTeamWords
   let suddenDeath = false
   let result: CodenamesResults | undefined
-  const score = () => completed * config.scoring.pointsPerWord -
-    hintsUnlocked.size * config.scoring.hintPenalty - wrongGuesses * config.scoring.incorrectPenalty
+  const score = () => completed * config.scoring.pointsPerWord - wrongGuesses * config.scoring.incorrectPenalty
   function finish(outcome: CodenamesResults['outcome'], time: number, lossReason?: CodenamesResults['lossReason'], endedEarly = false) {
     result = { gameId: config.id, outcome, completed, attempted: revealed.size,
-      elapsedMs: Math.max(0, time - startsAt), score: score(), hintsUsed: hintsUnlocked.size, wrongGuesses,
+      elapsedMs: Math.max(0, time - startsAt), score: score(), wrongGuesses,
       players: [players.host.name, players.guest.name],
       ...(lossReason ? { lossReason } : {}) }
     if (endedEarly) result.endedEarly = true
@@ -50,7 +48,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
           id: card.id, ...(revealed.has(card.id) ? { revealed: kinds[index] } : {}),
           ...(seat === 'host' ? { kind: kinds[index] } : {}),
         })),
-        ...(clue ? { clue } : {}), remaining, revision, turnsLeft, suddenDeath, hintsUnlocked: [...hintsUnlocked],
+        ...(clue ? { clue } : {}), remaining, revision, turnsLeft, suddenDeath,
       }
     },
     tick() {},
@@ -60,12 +58,6 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
       if (result || time < startsAt || !input || typeof input !== 'object') return false
       const action = input as Record<string, unknown>
       if (action.revision !== revision) return false
-      if (action.type === 'hint' && typeof action.id === 'string' &&
-          cards.some(card => card.id === action.id) && !hintsUnlocked.has(action.id)) {
-        hintsUnlocked.add(action.id)
-        revision++
-        return true
-      }
       if (seat === 'host' && action.type === 'clue' && remaining === 0 && !suddenDeath &&
           typeof action.word === 'string' && /^[\p{L}\p{M}]+$/u.test(action.word.trim()) &&
           action.word.trim().length <= 30 && Number.isInteger(action.count) &&

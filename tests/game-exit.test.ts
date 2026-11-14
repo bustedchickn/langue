@@ -128,19 +128,17 @@ test('ending driving releases both held thrusters', () => {
   assert.equal(view.right, false)
 })
 
-test('ending Codenames retains hint deductions, found words, and the shared score', () => {
+test('ending Codenames retains found words and the shared score', () => {
   const game = games[5][1]()
   const time = game.progress(1000).startsAt
   const target = (game.view('host', time) as CodenamesView).cards.find(card => card.kind === 'team')!
-  assert.equal(game.act('guest', { type: 'hint', id: target.id, revision: 0 }, time), true)
-  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 1, revision: 1 }, time), true)
-  assert.equal(game.act('guest', { type: 'guess', id: target.id, revision: 2 }, time), true)
+  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 1, revision: 0 }, time), true)
+  assert.equal(game.act('guest', { type: 'guess', id: target.id, revision: 1 }, time), true)
   game.finishEarly(time + 500)
   const result = game.results() as CodenamesResults
   assert.equal(result.completed, 1)
   assert.equal(result.attempted, 1)
-  assert.equal(result.hintsUsed, 1)
-  assert.equal(result.score, codenamesConfig.scoring.pointsPerWord - codenamesConfig.scoring.hintPenalty)
+  assert.equal(result.score, codenamesConfig.scoring.pointsPerWord)
   assert.equal(result.lossReason, undefined)
 })
 

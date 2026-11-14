@@ -12,7 +12,7 @@ export function FittedWord({ word, revealed }: { word: string; revealed: boolean
     const fit = () => {
       if (!active || !container.clientWidth || !container.clientHeight) return
       let lower = 6
-      let upper = 20
+      let upper = 15
       for (let iteration = 0; iteration < 9; iteration++) {
         const size = (lower + upper) / 2
         text.style.fontSize = size + 'px'

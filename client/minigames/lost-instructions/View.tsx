@@ -106,7 +106,8 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
   const view = data as LostView
   if (view.role === 'instructor') return <>
     <p>Instructor · Only you can see the solution. Tell your partner the color, shape, and position of each piece, from left to right. Read the clue aloud or send it in chat.</p>
-    {view.instruction ? <div className="card slot">
+    {view.instruction ? <div key={progress.matchId + ':' + progress.round} className="card slot lost-instruction-card"
+      data-prompt-color={progress.round % 4} aria-live="polite">
       <strong>Your private instruction</strong>
       <div className="lost-spoken-text">
         <p className="lost-instruction" lang={view.language && languageTags[view.language]}>{view.instruction}</p>

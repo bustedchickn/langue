@@ -1,0 +1,20 @@
+.leaderboard-page { width: 100%; }
+.leaderboard-header { display: flex; align-items: center; gap: 1rem; padding: .5rem 0; }
+.leaderboard-header h1 { font-size: clamp(2.5rem, 8vw, 4rem); margin-bottom: .2rem; }
+.leaderboard-header p { margin: 0; }
+.leaderboard-emblem { display: grid; place-items: center; flex: none; width: 4rem; height: 4rem; border-radius: 1rem; background: #b7b1f2; color: #422c6c; font-size: 2.5rem; }
+.leaderboard-tabs { display: flex; flex-wrap: wrap; gap: .45rem; }
+.leaderboard-tabs button { min-height: 2.5rem; padding: .4rem .7rem; border: 1px solid #b7b1f2; border-radius: 999px; }
+.leaderboard-tabs button.selected { background: #b7b1f2; color: #251d44; }
+.leaderboard-my-score { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.leaderboard-my-score > div { display: grid; gap: .1rem; padding: .9rem 1rem; border: 1px solid #b7b1f2; border-radius: .9rem; background: #fffaf2; }
+.leaderboard-my-score span { font-size: .85rem; }
+.leaderboard-my-score strong { font-size: 1.65rem; }
+.leaderboard-ranking h2 { margin: 0; }
+.leaderboard-ranking ol { list-style: none; display: grid; gap: .4rem; margin: 1rem 0 0; padding: 0; }
+.leaderboard-ranking li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: .6rem; padding: .7rem; border-radius: .7rem; background: #f8f0ff; }
+.leaderboard-ranking li.is-you { background: #fff0bd; }
+.leaderboard-rank { font-weight: 800; text-align: center; }
+.leaderboard-name { min-width: 0; overflow-wrap: anywhere; }
+.leaderboard-name small { margin-left: .3rem; color: #71587e; }
+.leaderboard-ranking li strong { font-variant-numeric: tabular-nums; }

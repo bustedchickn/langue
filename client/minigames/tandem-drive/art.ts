@@ -2,6 +2,11 @@ import { gateDistance, lanes, laneX, stages, switchDistance, type DriveView } fr
 
 const carImage = typeof Image === 'undefined' ? undefined : new Image()
 if (carImage) carImage.src = '/lostintranslationcar.png'
+const roadImage = typeof Image === 'undefined' ? undefined : new Image()
+if (roadImage) roadImage.src = '/lostintranslationroad.png'
+// Two full dash cycles, cut in the gaps so repeated tiles join cleanly.
+const ROAD_TILE_Y = 375
+const ROAD_TILE_HEIGHT = 740
 
 // Canvas artwork adapted from the supplied Tandem Drive prototype.
 export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
@@ -9,7 +14,6 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   const ROAD_HALF_WIDTH = 240
   const FINISH_Y = -stages * gateDistance
   const car = { x: view.x, y: -view.distance, angle: view.angle }
-  const role = view.role === 'navigation' ? 'P1' : 'P2'
   const staticObstacles = view.hazards
   const linguisticGates = [{
     y: -(view.stage + 1) * gateDistance,
@@ -19,7 +23,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   ctx.fillRect(0, 0, 500, 378)
   ctx.save()
   ctx.translate(250, 290 - car.y)
-  drawRoadAndGrid(role)
+  drawRoad()
   if (view.stage > 0) {
     const clearedY = -view.stage * gateDistance
     ctx.fillStyle = '#34d39955'
@@ -107,45 +111,27 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   }
   ctx.restore()
 
-  function drawRoadAndGrid(role: string) {
+  function drawRoad() {
     const topY = FINISH_Y - 500;
     const botY = 300;
     const height = botY - topY;
 
-    // Road Asphalt Base
-    ctx.fillStyle = palette.road;
+    ctx.fillStyle = '#8be4e6';
     ctx.fillRect(-ROAD_HALF_WIDTH, topY, ROAD_HALF_WIDTH * 2, height);
-
-    // Tactical Grid Lines
-    ctx.strokeStyle = palette.grid;
-    ctx.lineWidth = 1;
-    const gridStep = 90;
-    const startGridY = Math.floor((car.y - 900) / gridStep) * gridStep;
-    const endGridY = Math.ceil((car.y + 500) / gridStep) * gridStep;
-
-    for (let gy = startGridY; gy <= endGridY; gy += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(-ROAD_HALF_WIDTH, gy);
-      ctx.lineTo(ROAD_HALF_WIDTH, gy);
-      ctx.stroke();
+    if (roadImage?.complete && roadImage.naturalWidth) {
+      const tileHeight = ROAD_HALF_WIDTH * 2 * ROAD_TILE_HEIGHT / roadImage.naturalWidth
+      const viewTop = Math.max(topY, car.y - 290)
+      const viewBottom = Math.min(botY, car.y + 88)
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(-ROAD_HALF_WIDTH, topY, ROAD_HALF_WIDTH * 2, height)
+      ctx.clip()
+      for (let y = Math.floor(viewTop / tileHeight) * tileHeight; y < viewBottom; y += tileHeight) {
+        ctx.drawImage(roadImage, 0, ROAD_TILE_Y, roadImage.naturalWidth, ROAD_TILE_HEIGHT,
+          -ROAD_HALF_WIDTH, y, ROAD_HALF_WIDTH * 2, tileHeight)
+      }
+      ctx.restore()
     }
-    for (let gx = -ROAD_HALF_WIDTH; gx <= ROAD_HALF_WIDTH; gx += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(gx, startGridY);
-      ctx.lineTo(gx, endGridY);
-      ctx.stroke();
-    }
-
-    // Centerline & Lane Dividers
-    ctx.save();
-    ctx.setLineDash([22, 22]);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, startGridY);
-    ctx.lineTo(0, endGridY);
-    ctx.stroke();
-    ctx.restore();
 
     // Left & Right Road Guardrails (Color-coded Amber Left / Cyan Right!)
     ctx.lineWidth = 6;
@@ -225,11 +211,11 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
         // Only the navigation feed can color-code the safe gate.
 
         if (isRevealed) {
-          ctx.fillStyle = lane.safe ? 'rgba(16, 185, 129, 0.24)' : 'rgba(244, 63, 94, 0.26)';
-          ctx.strokeStyle = lane.safe ? '#34d399' : '#fb7185';
+          ctx.fillStyle = lane.safe ? '#176b57' : '#743452';
+          ctx.strokeStyle = lane.safe ? '#fbf3b9' : '#ffdccc';
         } else {
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.16)';
-          ctx.strokeStyle = '#fbbf24';
+          ctx.fillStyle = '#3b315c';
+          ctx.strokeStyle = '#fbf3b9';
         }
 
         ctx.lineWidth = 2.5;
@@ -238,7 +224,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
         ctx.stroke();
 
         // Phonetic Code Word Label
-        ctx.fillStyle = isRevealed ? (lane.safe ? '#6ee7b7' : '#fda4af') : '#fde68a';
+        ctx.fillStyle = isRevealed ? (lane.safe ? '#fbf3b9' : '#ffe0ec') : '#fbf3b9';
         ctx.font = '800 13px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

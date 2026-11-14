@@ -10,6 +10,7 @@ import { DuoRoom, rooms } from './room'
 import { searchStatus, startSearch, stopSearch } from './matchmaking'
 import { activity } from './participation'
 import { issueCloudflareVoiceConfiguration, issueVoiceConfiguration, voiceSettings } from './voice'
+import { getLeaderboards } from './leaderboard'
 import {
   db, friendshipRef, getProfile, profileRef, publicProfile,
   RequestError, requireProfile, saveAssessment, saveProfile, usernameKey, verify,
@@ -45,6 +46,9 @@ api.get('/profile', async (_, res) => {
 api.put('/profile', async (req, res) => res.json(await saveProfile(res.locals.uid, req.body ?? {})))
 api.put('/profile/languages/:language', async (req, res) =>
   res.json(await saveAssessment(res.locals.uid, req.params.language, req.body)))
+api.get('/leaderboard', async (_, res) => {
+  res.set('Cache-Control', 'no-store').json(await getLeaderboards(res.locals.uid))
+})
 api.post('/presence', async (_, res) => {
   await profileRef(res.locals.uid).update({ lastSeenAt: Date.now() })
   res.json({ ok: true })

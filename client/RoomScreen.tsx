@@ -8,7 +8,6 @@ import { minigames } from './minigames/registry'
 
 import { languageTags } from '../shared/types'
 import { Avatar, flags } from './PlayerIdentity'
-import { MicrophoneTest } from './MicrophoneTest'
 import { codenamesCopy } from './minigames/codenames/copy'
 import { GameInstructions } from './minigames/instructions'
 import { playEffect } from './sounds'
@@ -95,9 +94,9 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const connected = !!room && !!session?.host?.connected && !!session.guest?.connected
   const voted = session?.ready[seat]
   const partnerVoted = session?.ready[peer]
-  const communication = phase === 'introduction' || phase === 'game' || phase === 'results'
+  const communication = phase === 'confirmation' || phase === 'introduction' || phase === 'game' || phase === 'results'
   const returningHome = phase === 'results' && !voted
-  const title = phase === 'confirmation' ? 'You found a partner!'
+  const title = phase === 'confirmation' ? 'Play again together?'
     : phase === 'introduction' ? 'Meet your partner!'
     : phase === 'game' ? game?.name ?? 'Game'
     : phase === 'results' ? session?.results?.endedEarly ? 'Your results' : 'Great teamwork!'
@@ -105,7 +104,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
 
   useEffect(() => { heading.current?.focus() }, [phase])
   useEffect(() => {
-    if (session?.matchType && phase === 'confirmation' && connected && room && announcedMatch.current !== room.roomId) {
+    if (session?.matchType && phase === 'introduction' && connected && room && announcedMatch.current !== room.roomId) {
       announcedMatch.current = room.roomId
       playEffect('connected')
     }
@@ -148,30 +147,35 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
       </div>
     </dialog>
     <div className={communication ? 'room-grid' : 'room-stage'} data-game={session?.gameId}>
-      <section className="panel stack stage-card" key={phase}>
+      <section className="panel stack stage-card">
         <h1 ref={heading} tabIndex={-1}>{title}</h1>
         {(reconnecting || (partner && !partner.connected)) && <p className="notice" role="status">
           {reconnecting ? 'Reconnecting to the room…' : 'Your partner is reconnecting…'}
         </p>}
         {language && <p className="language-chip"><span aria-hidden="true">{flags[language]}</span> Practicing {language}</p>}
         {phase === 'lobby' && host && !session?.matchType && <button onClick={invite} disabled={!room}>Invite a friend</button>}
+        {phase === 'introduction' && partner && <Partner player={partner} />}
+        {communication && <Voice room={room} host={host} />}
         {phase === 'confirmation' && <>
           {partner && language !== partner.learningLanguage && <p>Your partner is practicing {partner.learningLanguage}.</p>}
           {session?.matchType && <p className="muted">{session.matchType === 'reciprocal' ? 'Reciprocal match' : 'Shared learning match'}</p>}
-          {host && <label>Minigame
+          {host && !session?.matchType && <label>Minigame
             <select value={session?.gameId} disabled={!connected || voted || partnerVoted}
               onChange={event => room?.send('phase', { gameId: event.target.value })}>
               {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
             </select>
           </label>}
           {game && <div><h2>{game.name}</h2><p className="muted">{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p></div>}
-          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
           {readyButton('I’m ready!')}
         </>}
         {phase === 'introduction' && <>
-          {partner && <Partner player={partner} />}
+          {host && !session?.matchType && <label>Minigame
+            <select value={session?.gameId} disabled={!connected || voted || partnerVoted}
+              onChange={event => room?.send('phase', { gameId: event.target.value })}>
+              {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
+            </select>
+          </label>}
           {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
-          <MicrophoneTest />
           {language && <section className="prompt-card">
             <h2>Say hello!</h2>
             <ul lang={languageTags[language]}>{prompts[language].map(prompt => <li key={prompt}>{prompt}</li>)}</ul>
@@ -218,10 +222,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
           </div>
         </div>}
       </section>
-      {communication && <aside className="stack" aria-label="Communication">
-        <Voice room={room} host={host} />
-        <Chat room={room} messages={session?.chat ?? []} />
-      </aside>}
+      {communication && <aside className="stack" aria-label="Communication"><Chat room={room} messages={session?.chat ?? []} /></aside>}
     </div>
   </>
 }

@@ -339,12 +339,8 @@ async function agree(host: Page, guest: Page, label: string) {
 }
 
 async function startGame(host: Page, guest: Page) {
-  await agree(host, guest, 'I’m ready!')
   await guest.reload()
   await guest.getByRole('heading', { name: 'Meet your partner!' }).waitFor()
-  await button(host, 'Test mic').click()
-  await host.getByRole('meter', { name: 'Microphone level' }).waitFor()
-  await button(host, 'Stop test').click()
   await button(host, 'Join Voice').click()
   await button(guest, 'Join Voice').click()
   await Promise.all([assertVoice(host), assertVoice(guest)])
@@ -357,6 +353,14 @@ async function startGame(host: Page, guest: Page) {
       })
     }
   }
+  await agree(host, guest, 'I’m ready to play!')
+}
+
+async function replayGame(host: Page, guest: Page) {
+  await agree(host, guest, 'Play Again')
+  await guest.getByRole('heading', { name: 'Play again together?' }).waitFor()
+  await agree(host, guest, 'I’m ready!')
+  await guest.getByRole('heading', { name: 'Meet your partner!' }).waitFor()
   await agree(host, guest, 'I’m ready to play!')
 }
 
@@ -480,7 +484,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await host.getByRole('textbox', { name: 'Message', exact: true }).fill('We can still chat after ending early')
       await button(host, 'Send').click()
       await guest.getByText('We can still chat after ending early', { exact: true }).waitFor()
-      await agree(host, guest, 'Play Again')
+      await replayGame(host, guest)
       await button(host, 'End early').waitFor()
       if (endGameId === 'tandem-drive') {
         await host.locator('.game-exit-controls').getByRole('button', { name: 'Quit', exact: true }).click()
@@ -514,20 +518,18 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await button(host, 'Give clue').click()
       await guest.getByText(/Indice.*animal/).waitFor()
       const team = host.locator('.word-card[data-kind="team"]').first()
-      assert.equal(await guest.locator('.word-card').count(), 25)
+      assert.equal(await guest.locator('.word-card').count(), 16)
       const id = await team.getAttribute('data-id')
       const item = wordCards.find(entry => entry.id === id)!
       assert.equal(await guest.locator('.word-card[data-kind]').count(), 0)
       const card = guest.locator('.word-card[data-id="' + id + '"]')
       assert.equal((await team.innerText()).trim(), item.words.French)
       assert.equal((await card.innerText()).trim(), item.words.English)
-      const info = card.locator('..').getByRole('button', { name: /^Définition de/ })
-      await info.click()
-      await guest.waitForFunction(() => !!document.querySelector('.word-info[aria-expanded="true"]'))
-      assert.equal(await info.getAttribute('aria-expanded'), 'true')
-      assert.equal((await card.locator('..').getByRole('tooltip').innerText()).trim(), item.definitions.French)
       await card.click()
-      await host.getByText('Team words found 1 · Team score ' + (codenamesConfig.scoring.pointsPerWord - codenamesConfig.scoring.hintPenalty)).waitFor()
+      assert.equal((await guest.locator('.word-preview p').innerText()).trim(), item.definitions.French)
+      assert.equal(await card.getAttribute('data-revealed'), 'false')
+      await guest.getByRole('button', { name: 'Confirmer le choix' }).click()
+      await host.getByText('Team words found 1 · Team score ' + codenamesConfig.scoring.pointsPerWord).waitFor()
       assert.equal(await card.getAttribute('data-revealed'), 'true')
       await assertWordsFit(guest)
       assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
@@ -563,7 +565,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await button(guest, 'Accept friendship').click()
       await Promise.all([host, guest].map(page => page.getByText('You’re friends!').waitFor()))
       await Promise.all([host, guest].map(page => page.getByRole('img', { name: 'High five and hug' }).waitFor()))
-      await agree(host, guest, 'Play Again')
+      await replayGame(host, guest)
       await Promise.all([assertVoice(host), assertVoice(guest)])
       return
     }
@@ -713,7 +715,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         await assertVoice(page)
       }
       assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
-      await agree(host, guest, 'Play Again')
+      await replayGame(host, guest)
       await guest.locator('.game-progress + p[role=status]').filter({ hasText: /\b0\b.*\b0\b/ }).waitFor()
       await Promise.all([assertVoice(host), assertVoice(guest)])
       return
@@ -804,7 +806,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await assertVoice(page)
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
-    await agree(host, guest, 'Play Again')
+    await replayGame(host, guest)
     await guest.locator('.game-progress + p[role=status]').filter({ hasText: /\b0\b.*\b0\b/ }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
   } catch (error) {

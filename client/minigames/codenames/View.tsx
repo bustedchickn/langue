@@ -14,7 +14,7 @@ export function CodenamesView({ data, disabled, send }: {
   const text = codenamesCopy[view.fluentLanguage]
   const [word, setWord] = useState('')
   const [count, setCount] = useState(1)
-  const [showDefinition, setShowDefinition] = useState<string>()
+  const [selectedCard, setSelectedCard] = useState<string>()
   const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
   useEffect(() => {
     for (const card of view.cards) {
@@ -25,6 +25,9 @@ export function CodenamesView({ data, disabled, send }: {
     }
   }, [view.cards])
   const cards = new Map(wordCards.map(card => [card.id, card]))
+  const selected = view.cards.find(card => card.id === selectedCard)
+  const selectedWord = selected && cards.get(selected.id)
+  const canConfirm = view.role === 'guesser' && (view.remaining > 0 || view.suddenDeath) && !selected?.revealed
   const invalid = !/^[\p{L}\p{M}]+$/u.test(word.trim()) ||
     view.cards.some(card => cards.get(card.id)?.words[view.language].toLocaleLowerCase() === word.trim().toLocaleLowerCase())
   function giveClue(event: FormEvent) {
@@ -53,28 +56,29 @@ export function CodenamesView({ data, disabled, send }: {
         const item = cards.get(card.id)!
         const word = item.words[view.language]
         const kind = card.revealed ?? card.kind
-        const hintOpen = showDefinition === card.id && view.hintsUnlocked.includes(card.id)
         return <div className="word-card-wrap" key={card.id}>
           <button className="word-card" data-id={card.id} data-kind={kind} data-revealed={!!card.revealed}
-            disabled={disabled || view.role !== 'guesser' || (!view.remaining && !view.suddenDeath) || !!card.revealed}
+            disabled={disabled} aria-pressed={selectedCard === card.id}
             aria-label={card.revealed ? word + ' — ' + text[card.revealed] : word}
-            lang={languageTags[view.language]} onClick={() => send({ type: 'guess', id: card.id, revision: view.revision })}>
+            lang={languageTags[view.language]} onClick={() => setSelectedCard(selectedCard === card.id ? undefined : card.id)}>
             <FittedWord word={word} revealed={!!card.revealed} />{card.revealed && <span className="word-revealed-mark" aria-hidden="true">
               {card.revealed === 'team' ? '✓' : card.revealed === 'assassin' ? '✕' : '–'}
             </span>}
           </button>
-          <button type="button" className="word-info" disabled={disabled}
-            aria-label={view.hintsUnlocked.includes(card.id) ? text.definition(word) : text.definition(word) + ', ' + text.hintCost}
-            aria-expanded={hintOpen}
-            onClick={() => {
-              setShowDefinition(hintOpen ? undefined : card.id)
-              if (!view.hintsUnlocked.includes(card.id)) send({ type: 'hint', id: card.id, revision: view.revision })
-            }}>{text.hint}</button>
-          {hintOpen && <span className="word-definition is-open"
-            lang={languageTags[view.fluentLanguage]} role="tooltip">{item.definitions[view.fluentLanguage]}</span>}
         </div>
       })}
     </div>
+    {selected && selectedWord && <section className="word-preview" aria-live="polite">
+      <h3 lang={languageTags[view.language]}>{selectedWord.words[view.language]}</h3>
+      <p lang={languageTags[view.fluentLanguage]}>{selectedWord.definitions[view.fluentLanguage]}</p>
+      <div className="actions">
+        <button type="button" className="secondary" onClick={() => setSelectedCard(undefined)}>{text.close}</button>
+        {canConfirm && <button type="button" disabled={disabled} onClick={() => {
+          send({ type: 'guess', id: selected.id, revision: view.revision })
+          setSelectedCard(undefined)
+        }}>{text.confirm}</button>}
+      </div>
+    </section>}
     {view.role === 'guesser' && view.remaining > 0 && <button className="secondary" disabled={disabled}
       onClick={() => send({ type: 'pass', revision: view.revision })}>{text.pass}</button>}
   </section>
@@ -96,7 +100,6 @@ export function CodenamesResultsView({ result }: { result: GameResults }) {
     <dl className="game-results">
       <div><dt>Words found</dt><dd>{result.completed} / {codenamesTeamWords}</dd></div>
       <div><dt>Incorrect guesses</dt><dd>{data.wrongGuesses}</dd></div>
-      <div><dt>Hints used</dt><dd>{data.hintsUsed}</dd></div>
       <div><dt>Final score</dt><dd>{result.score}</dd></div>
     </dl>
   </section>

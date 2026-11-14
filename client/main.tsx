@@ -12,13 +12,14 @@ import { QuickPlay } from './QuickPlay'
 import { Avatar } from './PlayerIdentity'
 import { LanguageAssessments } from './LanguageAssessments'
 import { LanguagePicker } from './LanguagePicker'
+import { Leaderboard } from './Leaderboard'
 import { playEffect, setSoundsEnabled, soundsEnabled, startSearchMusic } from './sounds'
 import './style.css'
 
-type Page = 'home' | 'friends' | 'profile'
+type Page = 'home' | 'friends' | 'profile' | 'leaderboard'
 
 function Logo() {
-  const logos = ['/lostintranslationspanish.png', '/lostintranslationfrench.png']
+  const logos = ['/lostintranslation.png', '/lostintranslationspanish.png', '/lostintranslationfrench.png']
   const [current, setCurrent] = useState(() => Math.floor(Math.random() * logos.length))
   const [previous, setPrevious] = useState<number | null>(null)
 
@@ -67,6 +68,13 @@ function App() {
   const session = useSession(uid, setNotice)
   const invitations = useInvitations(profile?.uid, setNotice)
   const inRoom = !!session.room || session.reconnecting
+
+  useEffect(() => {
+    if (session.session?.phase !== 'results' || !uid) return
+    void api<UserProfile | null>('/profile').then(value => {
+      if (value?.uid === uid) setProfile(value)
+    }).catch(() => {})
+  }, [session.session?.phase, uid])
 
   useEffect(() => onAuthStateChanged(auth, value => {
     setUser(value)
@@ -235,8 +243,11 @@ function App() {
           }} />}
           {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>Back to home</button>}
           {page === 'home' && !assessing && <section className="home-screen">
-            <button className="profile-access" aria-label="Open profile and settings" disabled={savingLanguage || joining}
-              onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
+            <div className="home-top-actions">
+              <button className="leaderboard-access" aria-label="Open leaderboard" title="Leaderboard" onClick={() => navigate('leaderboard')}>★</button>
+              <button className="profile-access" aria-label="Open profile and settings" disabled={savingLanguage || joining}
+                onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
+            </div>
             <div className="home-content">
               <Logo />
               <LanguagePicker value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
@@ -264,10 +275,15 @@ function App() {
             </div>
           </section>}
           {page === 'friends' && <Friends key={uid} uid={user.uid} invite={invite} />}
+          {page === 'leaderboard' && <Leaderboard uid={user.uid} />}
           {page === 'profile' && <div className="stack">
             <section className="panel profile-identity">
               <Avatar name={currentProfile.displayName} photo={user.photoURL} />
               <div><h1>{currentProfile.displayName}</h1><p>@{currentProfile.username} · Learning {currentProfile.learningLanguage}</p></div>
+            </section>
+            <section className="panel stack"><h2>Your scores</h2>
+              <p>{currentProfile.scores?.total ?? 0} points across {currentProfile.scores?.gamesPlayed ?? 0} games</p>
+              <button onClick={() => navigate('leaderboard')}>View leaderboard</button>
             </section>
             <Profile key={uid} profile={currentProfile} user={user} onSave={setProfile} />
             <LanguageAssessments profile={currentProfile} onSave={setProfile} />

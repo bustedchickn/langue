@@ -18,8 +18,34 @@ export interface UserProfile {
   fluentLanguage: Language
   learningLanguage: Language
   assessments?: Partial<Record<Language, LanguageAssessment>>
+  scores?: ProfileScores
   createdAt: number
   lastSeenAt: number
+}
+
+export interface GameScore {
+  highScore: number
+  totalScore: number
+  gamesPlayed: number
+}
+
+export interface ProfileScores {
+  total: number
+  gamesPlayed: number
+  games: Record<string, GameScore>
+}
+
+export interface LeaderboardEntry {
+  uid: string
+  displayName: string
+  score: number
+  gamesPlayed: number
+}
+
+export interface Leaderboards {
+  overall: LeaderboardEntry[]
+  games: Record<string, LeaderboardEntry[]>
+  mine: ProfileScores
 }
 
 export type ProfileFields = Pick<UserProfile, 'username' | 'displayName' | 'fluentLanguage' | 'learningLanguage'>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { startCodenames } from '../server/minigames/codenames/game'
-import { wordCards, type CodenamesResults, type CodenamesView } from '../shared/minigames/codenames'
+import { codenamesTeamWords, wordCards, type CodenamesResults, type CodenamesView } from '../shared/minigames/codenames'
 
 test('dictionary contains 100 unique translated terms and definitions', () => {
   assert.equal(wordCards.length, 100)
@@ -22,13 +22,13 @@ test('codenames keeps the key private and validates turns, guesses and duplicate
   }, 0, () => 0)
   const host = () => game.view('host', 3000) as CodenamesView
   const guest = () => game.view('guest', 3000) as CodenamesView
-  assert.equal(host().cards.length, 25)
+  assert.equal(host().cards.length, 16)
   assert.deepEqual(host().cards.map(card => card.id), guest().cards.map(card => card.id))
   assert.equal(host().language, 'French')
   assert.equal(host().fluentLanguage, 'Spanish')
   assert.equal(guest().language, 'English')
   assert.equal(guest().fluentLanguage, 'French')
-  assert.equal(host().cards.filter(card => card.kind === 'team').length, 9)
+  assert.equal(host().cards.filter(card => card.kind === 'team').length, codenamesTeamWords)
   assert.ok(guest().cards.every(card => !('kind' in card)))
   assert.equal(game.act('guest', { type: 'clue', word: 'fruit', count: 2, revision: 0 }, 3000), false)
   assert.equal(game.act('host', { type: 'clue', word: 'Pomme', count: 2, revision: 0 }, 3000), false)
@@ -43,7 +43,7 @@ test('codenames keeps the key private and validates turns, guesses and duplicate
   assert.equal(guest().remaining, 0)
 })
 
-test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cost 50', () => {
+test('card previews leave scoring unchanged; correct guesses add 50 and wrong guesses cost 50', () => {
   const players = {
     host: { name: 'A', learningLanguage: 'English' as const },
     guest: { name: 'B', learningLanguage: 'French' as const },
@@ -52,16 +52,13 @@ test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cos
   const host = () => game.view('host', 3000) as CodenamesView
   const team = host().cards.find(card => card.kind === 'team')!
   const neutral = host().cards.find(card => card.kind === 'neutral')!
-  assert.equal(game.act('host', { type: 'hint', id: team.id, revision: 0 }, 3000), true)
-  assert.equal(game.progress(3000).score, -10)
-  assert.deepEqual(host().hintsUnlocked, [team.id])
-  assert.equal(game.act('guest', { type: 'hint', id: team.id, revision: 1 }, 3000), false)
-  assert.equal(game.progress(3000).score, -10)
-  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 2, revision: 1 }, 3000), true)
-  assert.equal(game.act('guest', { type: 'guess', id: team.id, revision: 2 }, 3000), true)
-  assert.equal(game.progress(3000).score, 40)
-  assert.equal(game.act('guest', { type: 'guess', id: neutral.id, revision: 3 }, 3000), true)
-  assert.equal(game.progress(3000).score, -10)
+  assert.equal(game.act('host', { type: 'hint', id: team.id, revision: 0 }, 3000), false)
+  assert.equal(game.progress(3000).score, 0)
+  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 2, revision: 0 }, 3000), true)
+  assert.equal(game.act('guest', { type: 'guess', id: team.id, revision: 1 }, 3000), true)
+  assert.equal(game.progress(3000).score, 50)
+  assert.equal(game.act('guest', { type: 'guess', id: neutral.id, revision: 2 }, 3000), true)
+  assert.equal(game.progress(3000).score, 0)
 })
 
 test('codenames uses turns and ends when the assassin is chosen', () => {
@@ -76,7 +73,7 @@ test('codenames uses turns and ends when the assassin is chosen', () => {
   const timed = startCodenames('b', players, 0, () => 0)
   timed.tick(1000000000)
   assert.equal(timed.results(), undefined)
-  for (let turn = 0; turn < 9; turn++) {
+  for (let turn = 0; turn < codenamesTeamWords; turn++) {
     const view = timed.view('host', 1000000000) as CodenamesView
     const neutral = view.cards.find(card => card.kind === 'neutral' && !card.revealed)!
     assert.equal(timed.act('host', { type: 'clue', word: 'danger', count: 1, revision: view.revision }, 1000000000), true)

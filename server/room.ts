@@ -11,6 +11,7 @@ import { matchmakingConfig } from './matchmaking-rules'
 import { activity, claimRoom, release } from './participation'
 import { parseVoiceSignal } from './voice'
 import { assessmentLevel } from '../shared/minigames/timing'
+import { recordGameScore } from './leaderboard'
 
 const disconnectGrace = 30
 const waitingTime = 30 * 60 * 1000
@@ -52,8 +53,8 @@ export class DuoRoom extends Room {
     this.onMessage('phase', (client, action) => {
       const seat = this.seat(client)
       if (!seat || this.closing) return
-      if (((this.phase === 'lobby' || this.phase === 'confirmation') && seat === 'host' ||
-          (this.phase === 'results' && !this.automatic)) &&
+      if (!this.automatic && (((this.phase === 'lobby' || this.phase === 'confirmation' || this.phase === 'introduction') && seat === 'host') ||
+          this.phase === 'results') &&
           !this.ready.host && !this.ready.guest && typeof action === 'object' && action &&
           typeof action.gameId === 'string' && minigames.has(action.gameId)) {
         this.gameId = action.gameId
@@ -73,18 +74,17 @@ export class DuoRoom extends Room {
       if (phase === 'confirmation') {
         this.phase = 'introduction'
         this.broadcastSnapshot()
-      } else {
-        if (phase === 'results') {
-          if (this.automatic) {
-            const games = [...minigames.keys()]
-            this.gameId = games[randomInt(games.length)]
-            this.rolesSwapped = randomInt(2) === 1
-          } else {
-            this.rolesSwapped = !this.rolesSwapped
-          }
+      } else if (phase === 'results') {
+        if (this.automatic) {
+          const games = [...minigames.keys()]
+          this.gameId = games[randomInt(games.length)]
+          this.rolesSwapped = randomInt(2) === 1
+        } else {
+          this.rolesSwapped = !this.rolesSwapped
         }
-        this.startGame()
-      }
+        this.phase = 'confirmation'
+        this.broadcastSnapshot()
+      } else this.startGame()
     })
     this.onMessage('friend', client => {
       const seat = this.seat(client)
@@ -182,6 +182,8 @@ export class DuoRoom extends Room {
 
   configureMatch(host: string, guest: string, type: MatchType, secret: string) {
     this.automatic = { host, guest, type, secret }
+    const games = [...minigames.keys()]
+    this.gameId = games[randomInt(games.length)]
     this.setSeatReservationTime(matchmakingConfig.seatTimeoutMs / 1000)
     clearTimeout(this.waiting)
     this.waiting = setTimeout(() => this.end('The other player could not join. Select Play to search again.'), matchmakingConfig.seatTimeoutMs)
@@ -234,7 +236,7 @@ export class DuoRoom extends Room {
       }
       this.host = member
     }
-    if (this.host && this.guest) this.phase = 'confirmation'
+    if (this.host && this.guest) this.phase = 'introduction'
     this.log('player-joined', { seat: this.seat(client) })
     this.broadcastSnapshot()
     void getAuth().getUser(profile.uid).then(({ photoURL }) => {
@@ -386,10 +388,16 @@ export class DuoRoom extends Room {
   private updateGame(now = Date.now()) {
     if (!this.game || this.phase !== 'game') return false
     this.game.tick(now)
-    if (!this.game.results()) return false
+    const result = this.game.results()
+    if (!result) return false
     this.phase = 'results'
     clearTimeout(this.gameTimer)
-    this.broadcastSnapshot()
+    if (this.host && this.guest) {
+      const matchId = this.game.progress(now).matchId
+      void recordGameScore(matchId, result, [this.host.profile.uid, this.guest.profile.uid])
+        .catch(error => console.error('Could not save game score.', error))
+        .finally(() => this.broadcastSnapshot())
+    } else this.broadcastSnapshot()
     return true
   }
 
