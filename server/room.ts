@@ -9,6 +9,7 @@ import { getAuth } from 'firebase-admin/auth'
 import type { MatchType } from '../shared/matchmaking'
 import { matchmakingConfig } from './matchmaking-rules'
 import { activity, claimRoom, release } from './participation'
+import { parseVoiceSignal } from './voice'
 
 const disconnectGrace = 30
 const waitingTime = 30 * 60 * 1000
@@ -29,6 +30,7 @@ export class DuoRoom extends Room {
   private gameId = defaultMinigame
   private rolesSwapped = false
   private friendship = { host: false, guest: false, accepted: false }
+  private voiceNegotiationId?: string
   private automatic?: { host: string; guest: string; type: MatchType; secret: string }
 
   onCreate(options: { gameId?: unknown }) {
@@ -137,31 +139,23 @@ export class DuoRoom extends Room {
     })
     this.onMessage('voice', (client, input: unknown) => {
       const member = this.member(client)
-      if (!member || !input || typeof input !== 'object') return
-      const signal = input as Record<string, unknown>
+      const signal = parseVoiceSignal(input)
+      if (!member?.connected || this.closing || !signal) return
       const peer = this.peer(client)
-      if (signal.kind === 'state' && typeof signal.joined === 'boolean') {
+      if (signal.kind === 'state') {
         member.voice = signal.joined
+        if (!member.voice) this.voiceNegotiationId = undefined
         if (peer?.connected) peer.client.send('voice', { kind: 'state', joined: member.voice })
+        if (member.voice) client.send('voice', { kind: 'state', joined: !!peer?.connected && peer.voice })
       } else if (member.voice && peer?.connected && peer.voice) {
-        if (signal.kind === 'description') {
-          const value = signal.description as Record<string, unknown> | undefined
-          if (value && (value.type === 'offer' || value.type === 'answer') &&
-              typeof value.sdp === 'string' && value.sdp.length <= 16000) {
-            peer.client.send('voice', { kind: 'description', description: { type: value.type, sdp: value.sdp } })
-          }
-        }
-        if (signal.kind === 'candidate') {
-          const value = signal.candidate as Record<string, unknown> | undefined
-          if (value && typeof value.candidate === 'string' && value.candidate.length <= 2048 &&
-              (value.sdpMid == null || (typeof value.sdpMid === 'string' && value.sdpMid.length <= 64)) &&
-              (value.sdpMLineIndex == null || Number.isInteger(value.sdpMLineIndex))) {
-            peer.client.send('voice', {
-              kind: 'candidate',
-              candidate: { candidate: value.candidate, sdpMid: value.sdpMid, sdpMLineIndex: value.sdpMLineIndex },
-            })
-          }
-        }
+        // The host alone creates offers, avoiding glare during simultaneous network changes.
+        if (signal.kind === 'restart' && this.seat(client) !== 'guest') return
+        if (signal.kind === 'description' && signal.description.type !== (this.seat(client) === 'host' ? 'offer' : 'answer')) return
+        if (signal.kind === 'description' && signal.description.type === 'offer') {
+          this.voiceNegotiationId = signal.negotiationId
+        } else if ((signal.kind === 'description' || signal.kind === 'candidate') &&
+            signal.negotiationId !== this.voiceNegotiationId) return
+        peer.client.send('voice', signal)
       }
     })
   }
@@ -248,6 +242,7 @@ export class DuoRoom extends Room {
     this.game?.suspend?.(Date.now())
     this.log('player-disconnected', { seat: this.seat(client), consented })
     member.voice = false
+    this.voiceNegotiationId = undefined
     this.broadcastSnapshot()
     this.peer(client)?.client.send('voice', { kind: 'state', joined: false })
     if (!consented) {
@@ -281,6 +276,10 @@ export class DuoRoom extends Room {
 
   hasJoined(uid: string) {
     return this.host?.profile.uid === uid || this.guest?.profile.uid === uid
+  }
+
+  hasConnectedPlayer(uid: string) {
+    return !this.closing && [this.host, this.guest].some(member => member?.connected && member.profile.uid === uid)
   }
 
   cancelPendingMatch() {

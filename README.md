@@ -47,12 +47,22 @@ The server keeps one in-memory queue and room-ownership map per deployment. A he
 
 ### Automated tests
 
-- `npm test` runs the minigame logic tests.
+- `npm test` runs minigame logic and voice configuration/signaling tests.
 - `npm run smoke` tests the Firebase and Colyseus integration, including role privacy, gameplay, reconnection, and replay. Run it with the emulators and game server running.
 - Set `IDLE_TEST_TIMEOUT=true` before running `npm run smoke` to also test the live 90-second deadline and shared defeat screen.
 - `npm run test:browser` uses Playwright Chromium against the running Vite app with the Firebase emulators. It exercises mouse and emulated touch at 320 px, gameplay chat, results, and persistent WebRTC audio with fake microphones. Set `IDLE_CHROMIUM_PATH` to an installed Chrome executable to use it instead of the Playwright download.
+- Set `IDLE_TEST_VOICE=true` for the focused voice regression: guest-first joining, temporary-credential refresh, ICE recovery from both seats, room reconnection, mute/unmute, leaving/rejoining, retry, and text chat during voice failure. It uses two isolated browser contexts and fake microphones. With the emulators and `npm run dev` running, use PowerShell:
 
-The smoke tests create example documents in the local emulator. Chromium tests do not verify iOS Safari or real-world TURN relay.
+  ```powershell
+  $env:IDLE_TEST_VOICE = 'true'
+  # Optional when Playwright's Chromium is not installed:
+  $env:IDLE_CHROMIUM_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+  npm.cmd run test:browser
+  Remove-Item Env:IDLE_TEST_VOICE
+  Remove-Item Env:IDLE_CHROMIUM_PATH -ErrorAction SilentlyContinue
+  ```
+
+The smoke tests create example documents in the local emulator. These browser tests verify local WebRTC behavior and audio packet flow, with simulated failure events and expiry metadata; they do not verify physical devices, iOS Safari, or real UDP/TCP/TLS TURN paths across separate networks. Complete the [real-device acceptance checks](deploy/turn/README.md#real-device-acceptance-record) against a running relay before claiming production connectivity.
 
 See the [minigame developer guide](MINIGAMES.md) for configuration, asset replacement, and the server/client integration points.
 
@@ -83,6 +93,6 @@ The game server's `CLIENT_ORIGIN` setting includes the Firebase Hosting domains.
 2. Set the public `VITE_FIREBASE_*` web app settings, set `VITE_USE_EMULATORS=false`, and set the server's `FIREBASE_PROJECT_ID` to the same project. Remove both emulator host variables. Give the backend Firebase Admin access through Application Default Credentials.
 3. Deploy the Firestore rules with `npx --yes firebase-tools@14.17.0 deploy --only firestore:rules --project YOUR_PROJECT_ID`.
 4. Run `npm run build` followed by `npm start`. Point your HTTPS reverse proxy at the server and forward WebSocket upgrades. The server serves the built frontend from `dist` and expects same-origin API requests. Run one server instance, since active rooms live in its memory.
-5. Set `TURN_URLS` and the backend-only `TURN_SECRET` for a TURN server that supports shared-secret authentication, such as coturn. The game server issues short-lived relay credentials to signed-in players. Test voice between devices on different networks, including a restrictive network. Browsers require HTTPS or localhost for microphone access.
+5. Deploy the [production TURN relay](deploy/turn/README.md) on a dedicated public Linux host. The included coturn configuration exposes UDP/TCP 3478, TLS 5349, TLS on TCP 443, and a fixed UDP relay range. Configure `TURN_URLS`, the backend-only `TURN_SECRET`, and `TURN_CREDENTIAL_TTL_SECONDS`; production reports missing relay transports as voice unavailable while keeping text chat working. The guide covers DNS, certificates, firewall/NAT rules, secret handling, and a real-device acceptance matrix. Browsers require HTTPS or localhost for microphone access. TURN over TLS on 443 can still be blocked by traffic inspection, hostname/IP restrictions, or proxies that refuse TURN/CONNECT tunnels or require authentication the browser's WebRTC stack cannot satisfy; text chat remains available while voice retries.
 
 `INVITE_SECONDS` controls invitation lifetime and defaults to 300 seconds. Rooms waiting for a partner expire after 30 minutes. A disconnected player's spot is held for 30 seconds. Chat lives in room memory until the session ends. The game and results screens share the same chat and voice controls as the lobby.

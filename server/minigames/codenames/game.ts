@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto'
-import type { GamePlayers, GameResults, Seat } from '../../../shared/minigames/contracts'
-import { codenamesBoardSize, codenamesTeamWords, codenamesConfig as config, wordCards, type CardKind, type CodenamesView } from '../../../shared/minigames/codenames'
+import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
+import { codenamesBoardSize, codenamesTeamWords, codenamesConfig as config, wordCards, type CardKind, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 
 export function startCodenames(matchId: string, players: GamePlayers, now: number, pick = randomInt): ActiveMinigame {
@@ -21,10 +21,11 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
   let revision = 0
   let turnsLeft = 9
   let suddenDeath = false
-  let result: GameResults | undefined
-  function finish(outcome: GameResults['outcome'], time: number) {
+  let result: CodenamesResults | undefined
+  function finish(outcome: CodenamesResults['outcome'], time: number, lossReason?: CodenamesResults['lossReason']) {
     result = { gameId: config.id, outcome, completed, attempted: revealed.size,
-      elapsedMs: Math.max(0, time - startsAt), score: completed, players: [players.host.name, players.guest.name] }
+      elapsedMs: Math.max(0, time - startsAt), score: completed, players: [players.host.name, players.guest.name],
+      ...(lossReason ? { lossReason } : {}) }
   }
   function endTurn() {
     turnsLeft--
@@ -68,12 +69,12 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
         if (index < 0 || revealed.has(action.id)) return false
         revealed.add(action.id)
         revision++
-        if (kinds[index] === 'assassin') finish('defeat', time)
+        if (kinds[index] === 'assassin') finish('defeat', time, 'assassin')
         else if (kinds[index] === 'team') {
           completed++
           if (!suddenDeath) remaining--
           if (completed === codenamesTeamWords) finish('victory', time)
-        } else if (suddenDeath) finish('defeat', time)
+        } else if (suddenDeath) finish('defeat', time, 'neutral')
         else remaining = 0
         if (!result && !suddenDeath && remaining === 0) endTurn()
         return true

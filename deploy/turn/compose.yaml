@@ -1,0 +1,42 @@
+services:
+  turn:
+    image: coturn/coturn:4.18.0-r0-debian
+    restart: unless-stopped
+    user: "65534:65534"
+    # Bypass the image's argument-expanding entrypoint. The secret stays in a file.
+    entrypoint: ["/bin/sh", "/opt/turn/start-turn.sh"]
+    environment:
+      TURN_DOMAIN: "${TURN_DOMAIN:?Set TURN_DOMAIN in deploy/turn/.env}"
+      TURN_EXTERNAL_IP: "${TURN_EXTERNAL_IP:?Set TURN_EXTERNAL_IP in deploy/turn/.env}"
+    secrets:
+      - turn_shared_secret
+    volumes:
+      - ./turnserver.conf:/opt/turn/turnserver.conf:ro
+      - ./start-turn.sh:/opt/turn/start-turn.sh:ro
+      - ./private/certs:/certs:ro
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      # A second public TCP route to the same real TLS listener.
+      - "443:5349/tcp"
+      # Keep this range identical to min-port/max-port in turnserver.conf.
+      - "49160-49359:49160-49359/udp"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m,mode=1777
+      - /var/lib/coturn:rw,noexec,nosuid,size=8m,uid=65534,gid=65534,mode=0700
+    cap_drop: [ALL]
+    # The upstream binary has this file capability. Keep it in the bounding set
+    # so exec is portable; no-new-privileges prevents gaining new privileges.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+secrets:
+  turn_shared_secret:
+    # Local Compose bind-mounts this file; set its host ownership as documented.
+    file: ./private/turn-secret

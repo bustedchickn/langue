@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { GameProgress } from '../../../shared/minigames/contracts'
-import { codenamesTeamWords, wordCards, type CodenamesView } from '../../../shared/minigames/codenames'
+import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
+import { codenamesTeamWords, wordCards, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
 import { languageTags } from '../../../shared/types'
 import { codenamesCopy } from './copy'
 import { playEffect } from '../../sounds'
@@ -71,5 +71,25 @@ export function CodenamesView({ data, disabled, send }: {
     </div>
     {view.role === 'guesser' && view.remaining > 0 && <button className="secondary" disabled={disabled}
       onClick={() => send({ type: 'pass', revision: view.revision })}>{text.pass}</button>}
+  </section>
+}
+
+export function CodenamesResultsView({ result }: { result: GameResults }) {
+  const data = result as CodenamesResults
+  const message = data.lossReason === 'assassin'
+    ? 'You lost by guessing the black square.'
+    : data.lossReason === 'neutral'
+      ? 'You lost by guessing a neutral square in sudden death.'
+      : result.outcome === 'victory'
+        ? 'You found all the purple squares!'
+        : 'The round is over.'
+  return <section className="stack">
+    <h3 className="game-outcome">{result.outcome === 'victory' ? 'You won!' : 'You lost'}</h3>
+    <p role="status">{message}</p>
+    <p>{result.players.join(' & ')}</p>
+    <dl className="game-results">
+      <div><dt>Words found</dt><dd>{result.completed} / {codenamesTeamWords}</dd></div>
+      <div><dt>Final score</dt><dd>{result.score}</dd></div>
+    </dl>
   </section>
 }

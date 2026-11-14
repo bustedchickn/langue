@@ -1,7 +1,6 @@
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'node:http'
-import { createHmac } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Server, matchMaker } from '@colyseus/core'
@@ -10,6 +9,7 @@ import type { Friendship, Invitation } from '../shared/types'
 import { DuoRoom, rooms } from './room'
 import { searchStatus, startSearch, stopSearch } from './matchmaking'
 import { activity } from './participation'
+import { issueVoiceConfiguration, voiceSettings } from './voice'
 import {
   db, friendshipRef, getProfile, profileRef, publicProfile,
   RequestError, requireProfile, saveAssessment, saveProfile, usernameKey, verify,
@@ -22,6 +22,10 @@ app.use(express.json({ limit: '4kb' }))
 
 const api = express.Router()
 app.use('/api', api)
+api.use('/voice', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 api.use(async (req, res, next) => {
   try {
     res.locals.uid = await verify(req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1])
@@ -168,19 +172,14 @@ api.post('/invites/:id/decline', async (req, res) => {
   res.json({ ok: true })
 })
 
-const stunUrls = (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean)
-const turnUrls = (process.env.TURN_URLS ?? '').split(',').filter(Boolean)
-const turnSecret = process.env.TURN_SECRET
-if (turnUrls.length && !turnSecret) throw new Error('TURN_URLS requires TURN_SECRET.')
-
-api.get('/voice', (_, res) => {
-  const iceServers: RTCIceServer[] = stunUrls.length ? [{ urls: stunUrls }] : []
-  if (turnSecret && turnUrls.length) {
-    const username = Math.floor(Date.now() / 1000 + 3600) + ':' + res.locals.uid
-    const credential = createHmac('sha1', turnSecret).update(username).digest('base64')
-    iceServers.push({ urls: turnUrls, username, credential })
+const voice = voiceSettings(process.env)
+api.get('/voice', (req, res) => {
+  const roomId = req.query.roomId
+  if (typeof roomId !== 'string' || !rooms.get(roomId)?.hasConnectedPlayer(res.locals.uid)) {
+    throw new RequestError(403, 'Join a room before connecting voice.')
   }
-  res.set('Cache-Control', 'no-store').json(iceServers)
+  if (voice.unavailableReason) throw new RequestError(503, voice.unavailableReason)
+  res.json(issueVoiceConfiguration(voice, res.locals.uid))
 })
 
 api.use((_req, _res, next) => next(new RequestError(404, 'Endpoint not found.')))

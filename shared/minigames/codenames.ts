@@ -1,5 +1,5 @@
 import { languages, type Language } from '../types'
-import type { GameConfig } from './contracts'
+import type { GameConfig, GameResults } from './contracts'
 export { wordCards } from './codenames-words'
 
 export const codenamesConfig = {
@@ -14,6 +14,7 @@ export const codenamesTeamWords = 9
 export type WordCard = { id: string; words: Record<Language, string>; definitions: Record<Language, string> }
 
 export type CardKind = 'team' | 'neutral' | 'assassin'
+export type CodenamesResults = GameResults & { lossReason?: 'assassin' | 'neutral' }
 export type CodenamesView = {
   role: 'clue-giver' | 'guesser'
   language: Language

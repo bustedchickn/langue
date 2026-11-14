@@ -3,7 +3,7 @@ import type { GameConfig } from './contracts'
 
 export const lostInstructions = {
   id: 'lost-instructions',
-  name: 'Lost Instructions',
+  name: 'In Good Shape',
   description: 'Relay clues in your learning language. Work together to arrange the shapes.',
   minPlayers: 2,
   maxPlayers: 2,

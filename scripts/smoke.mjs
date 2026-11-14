@@ -65,7 +65,7 @@ async function player(name) {
       headers: { Authorization: 'Bearer ' + client.auth.token, 'Content-Type': 'application/json' },
       body: data && JSON.stringify(data),
     })
-    return { status: response.status, data: await response.json() }
+    return { status: response.status, data: await response.json(), headers: response.headers }
   }
   const profile = {
     username: name + suffix, displayName: name,
@@ -77,6 +77,10 @@ async function player(name) {
 
 try {
   const [alice, bob, carol] = await Promise.all(['alice', 'bob', 'carol'].map(player))
+  const unauthenticatedVoice = await fetch(endpoint + '/api/voice?roomId=unknown')
+  assert.equal(unauthenticatedVoice.status, 401)
+  assert.equal(unauthenticatedVoice.headers.get('cache-control'), 'no-store')
+  assert.equal((await alice.request('/voice')).status, 403)
   const search = await alice.request('/search?username=' + bob.profile.username.toUpperCase())
   assert.equal(search.data.uid, bob.uid)
   assert.equal(search.data.email, undefined)
@@ -98,6 +102,23 @@ try {
 
   const host = await alice.client.create('duo', { gameId: 'icon-communication' })
   rooms.push(host)
+  const voicePath = '/voice?roomId=' + encodeURIComponent(host.roomId)
+  assert.equal((await bob.request(voicePath)).status, 403)
+  assert.equal((await carol.request(voicePath)).status, 403)
+  const voiceConfiguration = await alice.request(voicePath)
+  assert.equal(voiceConfiguration.status, 200)
+  assert.equal(voiceConfiguration.headers.get('cache-control'), 'no-store')
+  assert.ok(Array.isArray(voiceConfiguration.data.iceServers))
+  assert.equal(typeof voiceConfiguration.data.serverTime, 'number')
+  assert.equal(typeof voiceConfiguration.data.relayConfigured, 'boolean')
+  if (voiceConfiguration.data.relayConfigured) {
+    assert.ok(voiceConfiguration.data.expiresAt > voiceConfiguration.data.serverTime)
+    const relay = voiceConfiguration.data.iceServers.find(server => server.credential)
+    assert.ok(relay && typeof relay.username === 'string' && typeof relay.credential === 'string')
+    assert.ok(Number(relay.username.split(':')[0]) * 1000 >= voiceConfiguration.data.expiresAt - 1000)
+  } else {
+    assert.equal(voiceConfiguration.data.expiresAt, null)
+  }
   const lobby = message(host, 'session')
   host.send('phase', 'game')
   host.send('sync')
@@ -145,6 +166,32 @@ try {
   const ready = message(host, 'voice', signal => signal.kind === 'state' && signal.joined)
   guest.send('voice', { kind: 'state', joined: true })
   await ready
+  const negotiationId = 'smoke_' + suffix
+  const description = { type: 'offer', sdp: 'v=0\r\n' }
+  const offered = message(guest, 'voice', signal => signal.kind === 'description' && signal)
+  host.send('voice', { kind: 'description', negotiationId, description })
+  assert.deepEqual(await offered, { kind: 'description', negotiationId, description })
+  const candidate = { candidate: 'candidate:1 1 udp 1 127.0.0.1 50000 typ host', sdpMid: '0', sdpMLineIndex: 0, usernameFragment: 'smokefrag' }
+  const ice = message(guest, 'voice', signal => signal.kind === 'candidate' && signal)
+  host.send('voice', { kind: 'candidate', negotiationId, candidate })
+  assert.deepEqual(await ice, { kind: 'candidate', negotiationId, candidate })
+  const restarted = message(host, 'voice', signal => signal.kind === 'restart' && signal)
+  guest.send('voice', { kind: 'restart' })
+  assert.deepEqual(await restarted, { kind: 'restart' })
+  const invalidSignals = []
+  const stopInvalid = host.onMessage('voice', signal => {
+    if (signal.kind === 'description' || signal.kind === 'candidate') invalidSignals.push(signal)
+  })
+  guest.send('voice', { kind: 'description', negotiationId, description })
+  guest.send('voice', { kind: 'candidate', candidate })
+  guest.send('voice', { kind: 'candidate', negotiationId, candidate: { ...candidate, sdpMLineIndex: -1 } })
+  guest.send('voice', { kind: 'candidate', negotiationId: 'obsolete_' + suffix, candidate })
+  guest.send('voice', { kind: 'description', negotiationId: 'obsolete_' + suffix, description: { type: 'answer', sdp: 'v=0\r\n' } })
+  const checked = message(guest, 'session')
+  guest.send('sync')
+  await checked
+  assert.deepEqual(invalidSignals, [])
+  stopInvalid()
   const hostViews = []
   const guestViews = []
   const guestOtherMessages = []

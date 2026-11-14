@@ -68,8 +68,17 @@ export interface Session {
   results?: GameResults
 }
 
+export interface VoiceConfiguration {
+  iceServers: RTCIceServer[]
+  /** Milliseconds since Unix epoch, for clients whose clocks differ from the server. */
+  serverTime: number
+  expiresAt: number | null
+  relayConfigured: boolean
+}
+
 export type VoiceSignal =
   | { kind: 'state'; joined: boolean }
-  | { kind: 'description'; description: RTCSessionDescriptionInit }
-  | { kind: 'candidate'; candidate: RTCIceCandidateInit }
+  | { kind: 'restart'; manual?: boolean }
+  | { kind: 'description'; negotiationId: string; description: RTCSessionDescriptionInit }
+  | { kind: 'candidate'; negotiationId: string; candidate: RTCIceCandidateInit }
 

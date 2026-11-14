@@ -32,6 +32,11 @@ function App() {
   const [assessing, setAssessing] = useState(false)
   const [searching, setSearching] = useState(false)
   const [notice, setNotice] = useState('')
+  useEffect(() => {
+    if (notice !== 'Invitation sent.') return
+    const timeout = window.setTimeout(() => setNotice(current => current === notice ? '' : current), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [notice])
   const [joining, setJoining] = useState(false)
   const [invitePicker, setInvitePicker] = useState(false)
   const [soundOn, setSoundOn] = useState(soundsEnabled)

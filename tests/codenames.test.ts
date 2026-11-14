@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { startCodenames } from '../server/minigames/codenames/game'
-import { wordCards, type CodenamesView } from '../shared/minigames/codenames'
+import { wordCards, type CodenamesResults, type CodenamesView } from '../shared/minigames/codenames'
 
 test('dictionary contains 100 unique translated terms and definitions', () => {
   assert.equal(wordCards.length, 100)
@@ -50,6 +50,7 @@ test('codenames uses turns and ends when the assassin is chosen', () => {
   assert.equal(game.act('host', { type: 'clue', word: 'danger', count: 1, revision: 0 }, 3000), true)
   assert.equal(game.act('guest', { type: 'guess', id: assassin.id, revision: 1 }, 3001), true)
   assert.equal(game.results()?.outcome, 'defeat')
+  assert.equal((game.results() as CodenamesResults).lossReason, 'assassin')
   const timed = startCodenames('b', players, 0, () => 0)
   timed.tick(1000000000)
   assert.equal(timed.results(), undefined)
@@ -62,7 +63,8 @@ test('codenames uses turns and ends when the assassin is chosen', () => {
   const final = timed.view('guest', 1000000000) as CodenamesView
   assert.equal(final.turnsLeft, 0)
   assert.equal(final.suddenDeath, true)
-  const assassin2 = (timed.view('host', 1000000000) as CodenamesView).cards.find(card => card.kind === 'assassin')!
-  assert.equal(timed.act('guest', { type: 'guess', id: assassin2.id, revision: final.revision }, 1000000000), true)
+  const neutral = (timed.view('host', 1000000000) as CodenamesView).cards.find(card => card.kind === 'neutral' && !card.revealed)!
+  assert.equal(timed.act('guest', { type: 'guess', id: neutral.id, revision: final.revision }, 1000000000), true)
   assert.equal(timed.results()?.outcome, 'defeat')
+  assert.equal((timed.results() as CodenamesResults).lossReason, 'neutral')
 })

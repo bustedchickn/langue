@@ -29,12 +29,13 @@ export const multiplayer = new Client(endpoint, {
   },
 })
 
-export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const token = await auth.currentUser?.getIdToken()
   const response = await fetch((env.VITE_GAME_SERVER || '') + '/api' + path, {
     method,
     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   })
   const data = await response.json()
   if (!response.ok) throw new Error(data.error || 'The request failed.')

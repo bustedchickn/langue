@@ -36,19 +36,51 @@ async function player(browser: Browser, name: string, touch: boolean) {
       } })
     })()
   ` })
-  await context.addInitScript(() => {
+  await context.addInitScript({ content: `(() => {
     const Original = window.RTCPeerConnection
-    const peers: RTCPeerConnection[] = []
-    Object.assign(window, { peers })
-    window.RTCPeerConnection = class extends Original {
-      constructor(config?: RTCConfiguration) {
-        super(config)
-        peers.push(this)
+    const peers = []
+    const voiceTest = { failOffers: false, offerCount: 0, restartCount: 0, configurations: 0 }
+    const roomSockets = []
+    const OriginalSocket = window.WebSocket
+    window.WebSocket = class extends OriginalSocket {
+      constructor(address, protocols) {
+        super(address, protocols)
+        roomSockets.push(this)
       }
     }
-  })
-  await context.addInitScript(() => {
-    const events: { action: string; src: string; loop: boolean }[] = []
+    Object.assign(window, { peers, voiceTest, roomSockets })
+    window.RTCPeerConnection = class extends Original {
+      constructor(config) {
+        super(config)
+        peers.push(this)
+        const restoreState = () => {
+          delete this.connectionState
+          delete this.iceConnectionState
+        }
+        const createOffer = this.createOffer.bind(this)
+        Object.defineProperty(this, 'createOffer', { value: async options => {
+          voiceTest.offerCount++
+          if (options?.iceRestart) voiceTest.restartCount++
+          if (voiceTest.failOffers) throw new DOMException('Simulated unavailable network', 'OperationError')
+          restoreState()
+          return createOffer(options)
+        } })
+        const setRemoteDescription = this.setRemoteDescription.bind(this)
+        Object.defineProperty(this, 'setRemoteDescription', { value: async description => {
+          restoreState()
+          return setRemoteDescription(description)
+        } })
+        const close = this.close.bind(this)
+        Object.defineProperty(this, 'close', { value: () => { restoreState(); close() } })
+      }
+      setConfiguration(config) {
+        voiceTest.configurations++
+        return super.setConfiguration(config)
+      }
+    }
+  })()` })
+  await context.addInitScript({ content: `(() => {
+    const events = []
     Object.assign(window, { soundEvents: events })
     const play = HTMLMediaElement.prototype.play
     const pause = HTMLMediaElement.prototype.pause
@@ -60,7 +92,7 @@ async function player(browser: Browser, name: string, touch: boolean) {
       if (this instanceof HTMLAudioElement && !this.isConnected) events.push({ action: 'pause', src: this.src, loop: this.loop })
       return pause.call(this)
     }
-  })
+  })()` })
   if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
     await context.addInitScript(() => {
       const play = HTMLMediaElement.prototype.play
@@ -76,7 +108,11 @@ async function player(browser: Browser, name: string, touch: boolean) {
   }
   const page = await context.newPage()
   await page.goto(url)
-  await button(page, 'Play as guest').click()
+  // Email accounts follow the same setup with or without VITE_QUICK_GUEST.
+  await button(page, 'Create an account').click()
+  await page.getByLabel('Email', { exact: true }).fill(name.toLowerCase() + tag + '@example.test')
+  await page.getByLabel('Password', { exact: true }).fill('browser-test-12345')
+  await button(page, 'Create account').click()
   await page.getByLabel('Username').fill(name + tag)
   await page.getByLabel('Display name').fill(name)
   if (name === 'Bob' || name === 'Remy' || name === 'IconGuest' || name === 'TapGuest') {
@@ -88,7 +124,7 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Play').click()
   await button(page, 'Save language assessment').click()
   await button(page, 'Play').waitFor()
-  if (name === 'Alice' || name === 'Lina') {
+  if ((name === 'Alice' || name === 'Lina') && process.env.IDLE_TEST_VOICE !== 'true') {
     const picker = page.getByRole('combobox', { name: /Learning/ })
     await picker.focus()
     await picker.press('ArrowDown')
@@ -111,12 +147,148 @@ async function player(browser: Browser, name: string, touch: boolean) {
 
 async function assertVoice(page: Page) {
   await page.getByText('Voice connected', { exact: true }).waitFor()
-  await page.waitForFunction(async () => {
+  const baseline = await page.evaluate(async () => {
     const peers = (window as Window & { peers?: RTCPeerConnection[] }).peers
-    if (!peers || peers.length !== 1 || peers[0].connectionState !== 'connected') return false
-    const stats = await peers[0].getStats()
-    return [...stats.values()].some(stat => stat.type === 'inbound-rtp' && stat.kind === 'audio' && stat.packetsReceived > 0)
-  }, undefined, { timeout: 8000 })
+    const active = peers?.filter(peer => peer.connectionState !== 'closed').at(-1)
+    if (!active) return 0
+    const stats = await active.getStats()
+    return [...stats.values()].filter(stat => stat.type === 'inbound-rtp' && stat.kind === 'audio')
+      .reduce((sum, stat) => sum + (stat.packetsReceived ?? 0), 0)
+  })
+  await page.waitForFunction(async previous => {
+    const peers = (window as Window & { peers?: RTCPeerConnection[] }).peers
+    const active = peers?.filter(peer => peer.connectionState !== 'closed')
+    if (!active || active.length !== 1 || active[0].connectionState !== 'connected') return false
+    const stats = await active[0].getStats()
+    const received = [...stats.values()].filter(stat => stat.type === 'inbound-rtp' && stat.kind === 'audio')
+      .reduce((sum, stat) => sum + (stat.packetsReceived ?? 0), 0)
+    return received > previous
+  }, baseline, { timeout: 8000 })
+}
+
+type VoiceTestWindow = Window & {
+  peers: RTCPeerConnection[]
+  roomSockets: WebSocket[]
+  voiceTest: {
+    failOffers: boolean; offerCount: number; restartCount: number; configurations: number
+    lastLeftTrack?: MediaStreamTrack
+  }
+}
+
+async function failVoice(page: Page) {
+  await page.evaluate(() => {
+    const peer = (window as unknown as VoiceTestWindow).peers.filter(connection => connection.connectionState !== 'closed').at(-1)
+    if (!peer) throw new Error('No active peer to interrupt')
+    // Inject the browser's failure event; recovery still negotiates real ICE and RTP.
+    Object.defineProperty(peer, 'connectionState', { configurable: true, value: 'failed' })
+    Object.defineProperty(peer, 'iceConnectionState', { configurable: true, value: 'failed' })
+    peer.dispatchEvent(new Event('connectionstatechange'))
+    peer.dispatchEvent(new Event('iceconnectionstatechange'))
+    // The instrumentation restores real state when recovery begins a negotiation.
+  })
+}
+
+async function voiceRecovery(host: Page, guest: Page) {
+  await agree(host, guest, 'I’m ready!')
+  let requests = 0
+  for (const page of [host, guest]) {
+    await page.route('**/api/voice?*', async route => {
+      const response = await route.fetch()
+      assert.ok(response.ok(), 'Voice configuration is available to a connected player')
+      assert.match(route.request().headers().authorization ?? '', /^Bearer \S+$/)
+      const configuration = await response.json()
+      requests++
+      // Exercise expiry scheduling without waiting an hour. This does not emulate TURN media.
+      const now = Date.now()
+      await route.fulfill({ response, json: {
+        ...configuration, serverTime: now, expiresAt: now + (requests <= 2 ? 3000 : 3600000),
+      } })
+    })
+  }
+  await button(guest, 'Join Voice').click()
+  await guest.getByText(/Waiting for your partner to join voice/).waitFor()
+  await button(host, 'Join Voice').click()
+  await Promise.all([assertVoice(host), assertVoice(guest)])
+  await host.waitForFunction(() => (window as unknown as VoiceTestWindow).voiceTest.configurations > 1, undefined, { timeout: 10000 })
+  assert.ok(requests > 2, 'Expiring ICE configuration is refreshed')
+  console.log('Voice: guest-first join, inbound audio, and credential refresh passed.')
+
+  for (const page of [host, guest]) {
+    await button(page, 'Mute').click()
+    await page.waitForFunction(() => {
+      const peer = (window as unknown as VoiceTestWindow).peers.filter(connection => connection.connectionState !== 'closed').at(-1)
+      return peer?.getSenders().filter(sender => sender.track?.kind === 'audio').every(sender => !sender.track!.enabled)
+    })
+    await button(page, 'Unmute').click()
+    await page.waitForFunction(() => {
+      const peer = (window as unknown as VoiceTestWindow).peers.filter(connection => connection.connectionState !== 'closed').at(-1)
+      return peer?.getSenders().some(sender => sender.track?.kind === 'audio' && sender.track.enabled)
+    })
+  }
+
+  // Either seat can leave and rejoin without discarding the other player's microphone.
+  for (const page of [guest, host]) {
+    const partner = page === host ? guest : host
+    await Promise.all([page, partner].map(player => player.evaluate(() => {
+      const testWindow = window as unknown as VoiceTestWindow
+      const peer = testWindow.peers.filter(connection => connection.connectionState !== 'closed').at(-1)
+      testWindow.voiceTest.lastLeftTrack = peer?.getSenders().find(sender => sender.track?.kind === 'audio')?.track ?? undefined
+    })))
+    await button(page, 'Leave Voice').click()
+    await page.waitForFunction(() => (window as unknown as VoiceTestWindow).peers.every(peer => peer.connectionState === 'closed'))
+    await page.waitForFunction(() => (window as unknown as VoiceTestWindow).voiceTest.lastLeftTrack?.readyState === 'ended')
+    await partner.getByText(/Waiting for your partner to join voice/).waitFor()
+    assert.equal(await partner.evaluate(() => (window as unknown as VoiceTestWindow).voiceTest.lastLeftTrack?.readyState), 'live',
+    'The remaining player keeps their microphone ready')
+    await button(page, 'Join Voice').click()
+    await Promise.all([assertVoice(host), assertVoice(guest)])
+  }
+  console.log('Voice: both players can mute, unmute, leave, and rejoin.')
+
+  // Check both the host coordinator and guest-requested ICE recovery paths.
+  for (const page of [host, guest]) {
+    const before = await host.evaluate(() => (window as unknown as VoiceTestWindow).voiceTest.offerCount)
+    const restarts = await host.evaluate(() => (window as unknown as VoiceTestWindow).voiceTest.restartCount)
+    const requested = requests
+    await failVoice(page)
+    await host.waitForFunction(previous => (window as unknown as VoiceTestWindow).voiceTest.offerCount > previous, before, { timeout: 25000 })
+    await Promise.all([assertVoice(host), assertVoice(guest)])
+    assert.ok(await host.evaluate(previous => (window as unknown as VoiceTestWindow).voiceTest.restartCount > previous, restarts),
+      'Recovery performs an ICE restart')
+    assert.ok(requests > requested, 'Recovery obtains fresh relay credentials')
+  }
+  console.log('Voice: host and guest ICE recovery passed with fresh credentials and incoming audio.')
+
+  // Drop signaling while retaining the microphone; room recovery should rejoin voice.
+  const beforeReconnect = await guest.evaluate(() => (window as unknown as VoiceTestWindow).peers.length)
+  await guest.evaluate(() => {
+    const socket = (window as unknown as VoiceTestWindow).roomSockets.filter(connection =>
+      connection.readyState === WebSocket.OPEN && new URL(connection.url).searchParams.has('sessionId')).at(-1)
+    if (!socket) throw new Error('No Colyseus connection to interrupt')
+    socket.close(4001, 'Browser regression reconnect')
+  })
+  await guest.waitForFunction(previous => (window as unknown as VoiceTestWindow).peers.length > previous, beforeReconnect)
+  await Promise.all([assertVoice(host), assertVoice(guest)])
+  console.log('Voice: signaling disconnect and room recovery passed.')
+
+  const beforeFailure = await host.evaluate(() => (window as unknown as VoiceTestWindow).voiceTest.offerCount)
+  await host.evaluate(() => { (window as unknown as VoiceTestWindow).voiceTest.failOffers = true })
+  await failVoice(guest)
+  await button(host, 'Retry Voice').waitFor({ timeout: 100000 })
+  await host.getByText('Voice could not connect', { exact: true }).waitFor()
+  await guest.getByText('Voice could not connect', { exact: true }).waitFor({ timeout: 100000 })
+  assert.ok(await host.evaluate(previous => (window as unknown as VoiceTestWindow).voiceTest.offerCount > previous, beforeFailure))
+  await host.getByLabel('Message', { exact: true }).fill('Text still works while voice cannot connect')
+  await button(host, 'Send').click()
+  await guest.getByText('Text still works while voice cannot connect', { exact: true }).waitFor()
+  await host.evaluate(() => { (window as unknown as VoiceTestWindow).voiceTest.failOffers = false })
+  await button(guest, 'Retry Voice').click()
+  await Promise.all([assertVoice(host), assertVoice(guest)])
+
+  await Promise.all([host, guest].map(page => button(page, 'Leave Voice').click()))
+  for (const page of [host, guest]) {
+    await page.waitForFunction(() => (window as unknown as VoiceTestWindow).peers.every(peer => peer.connectionState === 'closed'))
+  }
 }
 
 async function drag(page: Page, from: number, to: number, touch: boolean) {
@@ -178,10 +350,10 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
   ])
   try {
-    if (!touch && !icons && !tandem) {
+    if (!touch && !icons && !tandem && process.env.IDLE_TEST_VOICE !== 'true') {
       await host.setViewportSize({ width: 1280, height: 800 })
       assert.equal(await host.getByRole('navigation').count(), 0)
-      await host.getByRole('img', { name: 'Lost in Translation' }).waitFor()
+      await host.getByRole('img', { name: 'Lost in Translation', exact: true }).waitFor()
       await button(host, 'Open profile and settings').click()
       await host.getByRole('heading', { name: 'Settings' }).waitFor()
       await button(host, '← Back to home').click()
@@ -226,6 +398,11 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         const search = events.map(event => event.action === 'play' && event.src.includes('connecting1')).lastIndexOf(true)
         return events.slice(search + 1).some(event => event.action === 'pause' && event.src.includes('connecting1'))
       })
+      return
+    }
+
+    if (process.env.IDLE_TEST_VOICE === 'true') {
+      await voiceRecovery(host, guest)
       return
     }
 
@@ -446,6 +623,17 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await agree(host, guest, 'Play Again')
     await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+  } catch (error) {
+    for (const page of [host, guest]) {
+      console.error('Browser failure state:', await page.evaluate(() => ({
+        text: document.body.innerText.slice(-2500),
+        peers: (window as unknown as VoiceTestWindow).peers.map(peer => ({
+          state: peer.connectionState, ice: peer.iceConnectionState, signaling: peer.signalingState,
+        })),
+        voiceTest: (window as unknown as VoiceTestWindow).voiceTest,
+      })).catch(() => 'Page unavailable'))
+    }
+    throw error
   } finally {
     await Promise.all([host.context().close(), guest.context().close()])
   }
@@ -456,7 +644,10 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_SOUND === 'true') {
+  if (process.env.IDLE_TEST_VOICE === 'true') {
+    await run(browser, false)
+    console.log('Passed real local WebRTC RTP, guest-first join, credential expiry refresh, mute/unmute, leave/rejoin, both-seat ICE recovery, room reconnect, retry, and text during voice failure. External TURN and separate networks require the deployment checklist.')
+  } else if (process.env.IDLE_TEST_SOUND === 'true') {
     await run(browser, false)
     console.log('Passed sound playback, mute, search cancellation and match confirmation.')
   } else if (process.env.IDLE_TEST_CODENAMES === 'true') {
