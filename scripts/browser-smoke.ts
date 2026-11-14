@@ -126,6 +126,28 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await button(host, 'Join Voice').click()
     await button(guest, 'Join Voice').click()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    if (process.env.IDLE_TEST_SPOT === 'true') {
+      await host.getByLabel('Minigame').selectOption('spot-difference')
+      await guest.getByRole('heading', { name: 'Spot the Difference', exact: true }).waitFor()
+      await button(host, 'Start Game').click()
+      await host.getByLabel('Player 1 scene', { exact: true }).waitFor()
+      await guest.getByLabel('Player 2 scene', { exact: true }).waitFor()
+      await button(guest, 'Finish Round').click()
+      for (const page of [host, guest]) {
+        await page.getByRole('heading', { name: /Round finished/ }).waitFor()
+        assert.equal(await page.locator('.results-confetti').count(), 0)
+      }
+      await button(host, 'Play Again').click()
+      for (const name of ['Plant', 'Clock', 'Lamp', 'Cat', 'Book']) {
+        await guest.getByRole('button', { name: new RegExp('^' + name + ':') }).click()
+      }
+      for (const page of [host, guest]) {
+        await page.getByRole('heading', { name: /Differences found!/ }).waitFor()
+        assert.equal(await page.locator('.results-confetti i').count(), 32)
+        await assertVoice(page)
+      }
+      return
+    }
     if (process.env.IDLE_TEST_MAP === 'true') {
       await host.getByLabel('Minigame').selectOption('map-navigator')
       await guest.getByRole('heading', { name: 'Map Navigator' }).waitFor()
@@ -321,7 +343,10 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_MAP === 'true') {
+  if (process.env.IDLE_TEST_SPOT === 'true') {
+    await run(browser, true)
+    console.log('Passed Spot the Difference private scenes, defeat without confetti, victory with confetti, and voice.')
+  } else if (process.env.IDLE_TEST_MAP === 'true') {
     await run(browser, true)
     console.log('Passed Map Navigator at 320px: private route, touch directions, both checkpoints, results, confetti and voice.')
   } else if (process.env.IDLE_TEST_TANDEM === 'true') {

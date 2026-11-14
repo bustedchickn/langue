@@ -36,12 +36,12 @@ export function ActiveGame({ progress, view, ready, send }: {
 export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
   const CustomResults = minigames.get(result.gameId)?.Results
   return <>
-    <div className="results-confetti" aria-hidden="true">
+    {result.outcome === 'victory' && <div className="results-confetti" aria-hidden="true">
       {Array.from({ length: 32 }, (_, index) => <i key={index} style={{
         left: (index * 37 % 98) + '%', background: ['#f59e0b', '#22d3ee', '#f26a8d', '#a78bfa', '#34d399'][index % 5],
         animationDelay: (index % 8) * .07 + 's', animationDuration: (1.3 + index % 6 * .15) + 's',
       }} />)}
-    </div>
+    </div>}
     {CustomResults ? <CustomResults result={result} seat={seat} /> : <>
     <h3 className="game-outcome">{result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
     <p>{result.players.join(' & ')}</p>
