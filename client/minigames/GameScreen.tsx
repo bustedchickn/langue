@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
@@ -7,6 +7,7 @@ import './clock-warning.css'
 import { codenamesCopy } from './codenames/copy'
 import { useInterface } from '../locales/interface'
 import { sessionText } from '../locales/session'
+import { playEffect } from '../sounds'
 
 export function ActiveGame({ progress, view, ready, send }: {
   progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void
@@ -46,6 +47,14 @@ export function ActiveGame({ progress, view, ready, send }: {
 
 export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
   const { language } = useInterface()
+  const celebrated = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const key = result.gameId + ':' + result.players.join(':') + ':' + result.elapsedMs
+    if (result.outcome === 'victory' && !result.endedEarly && celebrated.current !== key) {
+      celebrated.current = key
+      playEffect('correct')
+    }
+  }, [result])
   const CustomResults = minigames.get(result.gameId)?.Results
   const words = result.gameId === 'codenames' ? codenamesCopy(language) : undefined
   return <>

@@ -1,10 +1,11 @@
 import type { GameProgress, GameResults, Seat } from '../../../shared/minigames/contracts'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { languageTags } from '../../../shared/types'
 import { sceneObjectWord, type SpotDifferenceView, type SpotDifferenceResults, type SpotDifferenceAction } from '../../../shared/minigames/spot-difference'
 import './spot.css'
 import { useInterface } from '../../locales/interface'
 import { sessionText } from '../../locales/session'
+import { playEffect } from '../../sounds'
 
 function Scene({ view, disabled, send }: { view: SpotDifferenceView; disabled: boolean; send: (action: SpotDifferenceAction) => void }) {
   const [word, setWord] = useState<string>()
@@ -51,6 +52,12 @@ function Scene({ view, disabled, send }: { view: SpotDifferenceView; disabled: b
 
 export function SpotDifferenceView({ progress, data, disabled, send }: { progress: GameProgress; data: unknown; disabled: boolean; send: (action: SpotDifferenceAction) => void }) {
   const view = data as SpotDifferenceView
+  const found = useRef({ matchId: progress.matchId, count: view.found.length })
+  useEffect(() => {
+    if (found.current.matchId !== progress.matchId) found.current = { matchId: progress.matchId, count: view.found.length }
+    else if (view.found.length > found.current.count && view.found.length < view.totalDifferences) playEffect('correct')
+    found.current.count = view.found.length
+  }, [progress.matchId, view.found.length, view.totalDifferences])
   const seconds = Math.max(0, Math.ceil((progress.endsAt - progress.serverNow) / 1000))
   const feedback = view.feedback === 'correct' ? '✅ Nice find! Keep comparing.' : view.feedback === 'incorrect' ? 'That object matches in both scenes. Compare another object with your partner.' : view.feedback === 'complete' ? '🎉 All ' + view.totalDifferences + ' differences found!' : view.feedback === 'incomplete' ? 'Round finished before all differences were found.' : 'Describe an object and its position to your partner. Select it only when you agree it is different.'
   return <section className="spot-game"><header className="spot-header"><div><p className="eyebrow">2-Player Language Challenge</p><h2>Spot the Difference</h2><p className="muted">Your partner sees a different scene. Compare object types, colors, and details using voice or chat. Find all {view.totalDifferences} differences together. Use an object’s i icon to see its word in {view.language} without making a guess.</p></div><div className="spot-badges"><span>🔎 {view.found.length} / {view.totalDifferences} found</span><span>⏱ {Math.floor(seconds / 60).toString().padStart(2, '0')}:{(seconds % 60).toString().padStart(2, '0')}</span></div></header><div className="spot-feedback" role="status"><strong>GUIDE</strong> {feedback}</div><div className="spot-scenes"><Scene view={view} disabled={disabled} send={send} /></div><div className="map-actions"><button disabled={disabled} onClick={() => send({ type: 'reset' })}>Reset finds</button></div></section>

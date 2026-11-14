@@ -22,7 +22,7 @@ const urls = {
   // These are pre-pitch-shifted variants of the same selection sound.
   select: [selectUrl, select2Url, select3Url, select4Url, select5Url],
   pop: popUrl, open: openUrl, hit: hitUrl, message: messageUrl,
-  nicknameHint: nicknameHintUrl, nicknameCorrect: nicknameCorrectUrl, gong: gongUrl,
+  nicknameHint: nicknameHintUrl, correct: nicknameCorrectUrl, gong: gongUrl,
   voiceConnect: voiceConnectUrl, voiceDisconnect: voiceDisconnectUrl,
   connected: connectedUrl, back: [back1Url, back2Url, back3Url], cancel: back2Url, close: back3Url,
 } as const

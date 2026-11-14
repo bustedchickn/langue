@@ -25,7 +25,7 @@ export function CodenamesView({ data, disabled, send }: {
     for (const card of view.cards) {
       if (card.revealed && !revealed.current.has(card.id)) {
         revealed.current.add(card.id)
-        playEffect(card.revealed === 'team' ? 'nicknameCorrect' : 'hit')
+        playEffect(card.revealed === 'team' ? 'correct' : 'hit')
       }
     }
   }, [view.cards])

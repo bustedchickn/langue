@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
-import { beatMs, gateDistance, gateWordsFor, releaseRange, type DriveView } from '../../../shared/minigames/tandem-drive'
+import { beatMs, gateDistance, gateWordsFor, releaseRange, stages, type DriveView } from '../../../shared/minigames/tandem-drive'
 import { driveStep } from '../../../shared/minigames/drive-physics'
 import { drawCourse } from './art'
 import { useInterface } from '../../locales/interface'
 import { driveText } from '../../locales/tandem-drive'
+import { playEffect } from '../../sounds'
 import './drive.css'
 
 function useDriveText() {
@@ -23,11 +24,17 @@ export function TandemDriveView({ data, progress, disabled, send }: {
   const pressed = useRef(false)
   const sources = useRef(new Set<string>())
   const controls = useRef({ disabled, swapped: view.swapped })
+  const clearedGates = useRef({ matchId: progress.matchId, stage: view.stage })
   controls.current = { disabled, swapped: view.swapped }
   const [holding, setHolding] = useState(false)
 
   useEffect(() => { latestSend.current = send }, [send])
   useEffect(() => { frame.current = { view, received: performance.now() } }, [view])
+  useEffect(() => {
+    if (clearedGates.current.matchId !== progress.matchId) clearedGates.current = { matchId: progress.matchId, stage: view.stage }
+    else if (view.stage > clearedGates.current.stage && view.stage < stages) playEffect('correct')
+    clearedGates.current.stage = view.stage
+  }, [progress.matchId, view.stage])
   useEffect(() => {
     const ctx = canvas.current?.getContext('2d')
     if (!ctx) return

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
+import { playEffect } from '../../sounds'
 import './board.css'
 
 /** Lives outside the phase panel so the final correct answer can celebrate too. */
@@ -12,6 +13,7 @@ export function ShapeSuccess({ progress, result }: { progress?: GameProgress; re
     const newMatch = !!progress && progress.matchId !== previous.current?.matchId
     if (newMatch) setCelebration(undefined)
     else if (previous.current && completed > previous.current.completed) {
+      if (!result) playEffect('correct')
       setCelebration({ key: matchId + ':' + completed, round: completed })
     }
     previous.current = { matchId, completed }

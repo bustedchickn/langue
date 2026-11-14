@@ -41,6 +41,9 @@
 .vocab-practice-list small { font-weight: 400; }
 .vocab-modes { display: flex; gap: .5rem; flex-wrap: wrap; }
 .vocab-modes button { flex: 1 1 8rem; }
+.vocab-modes .vocab-mode-image { display: block; min-height: 0; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: .65rem; background: transparent; line-height: 0; aspect-ratio: 2268 / 831; }
+.vocab-mode-image img { display: block; width: 100%; height: 100%; object-fit: fill; }
+.vocab-modes .vocab-mode-image.vocab-mode-active { border-color: black; }
 .vocab-mode-active { background: #F26A8D; color: black; border: 2px solid black; }
 .vocab-word-list { display: grid; gap: .5rem; padding: 0; margin: 0; list-style: none; }
 .vocab-word-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem; padding: .8rem; border: 1px solid #B7B1F2; border-radius: .8rem; background: white; }

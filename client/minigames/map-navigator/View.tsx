@@ -4,6 +4,7 @@ import { mapNavigatorGrid, type MapNavigatorResults, type MapNavigatorView, type
 import { languageNames, languageTags } from '../../../shared/types'
 import { useInterface } from '../../locales/interface'
 import { sessionText } from '../../locales/session'
+import { playEffect } from '../../sounds'
 import './map.css'
 
 const directions = [
@@ -11,7 +12,7 @@ const directions = [
 ] as const
 const keyDirections = { ArrowUp: 'up', ArrowLeft: 'left', ArrowDown: 'down', ArrowRight: 'right' } as const
 
-export function MapNavigatorView({ data, disabled, send }: {
+export function MapNavigatorView({ progress, data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: NavigatorAction) => void
 }) {
   const view = data as MapNavigatorView
@@ -19,6 +20,13 @@ export function MapNavigatorView({ data, disabled, send }: {
   const navigator = view.role === 'navigator'
   const hintId = useId()
   const swipe = useRef<{ pointer: number; x: number; y: number } | undefined>(undefined)
+  const moves = useRef({ matchId: progress.matchId, count: view.moves })
+
+  useEffect(() => {
+    if (moves.current.matchId !== progress.matchId) moves.current = { matchId: progress.matchId, count: view.moves }
+    else if (view.moves > moves.current.count && (view.feedback === 'moved' || view.feedback === 'checkpoint')) playEffect('correct')
+    moves.current.count = view.moves
+  }, [progress.matchId, view.moves, view.feedback])
 
   useEffect(() => { swipe.current = undefined }, [disabled, navigator])
 

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { languages, type Language } from '../../shared/types'
 import { blankWord, parseWordImport, wordProgress, type VocabularySet, type VocabularyWord } from '../../shared/vocabulary'
 import { errorText } from '../backend'
+import { useInterface } from '../locales/interface'
 import { PronunciationButton } from '../pronunciation/PronunciationButton'
 import { deleteVocabularySet, editVocabularySet, initializeVocabulary, saveVocabularySet,
   updateVocabularyWord, watchVocabulary } from './store'
@@ -13,9 +14,22 @@ const modes: { id: Mode; label: string }[] = [
   { id: 'flashcards', label: 'Flashcards' }, { id: 'learn', label: 'Learn' },
   { id: 'write', label: 'Write' }, { id: 'match', label: 'Match' }, { id: 'test', label: 'Test' },
 ]
+const flashcardsButtonImages: Record<Language, string> = {
+  English: '/flashcards-button-en-it.png',
+  French: '/flashcards-button-fr.png',
+  Spanish: '/flashcards-button-es.png',
+  German: '/flashcards-button-de.png',
+  Italian: '/flashcards-button-en-it.png',
+  Portuguese: '/flashcards-button-pt.png',
+  Japanese: '/flashcards-button-ja.png',
+  Korean: '/flashcards-button-ko.png',
+  Chinese: '/flashcards-button-zh.png',
+  Russian: '/flashcards-button-ru.png',
+}
 const dateLabel = (date: number | null) => date ? new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date) : 'Not yet practiced'
 
 export function VocabularyHub({ uid, defaultLanguage }: { uid: string; defaultLanguage: Language }) {
+  const { language: interfaceLanguage } = useInterface()
   const [sets, setSets] = useState<VocabularySet[] | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
@@ -103,8 +117,12 @@ export function VocabularyHub({ uid, defaultLanguage }: { uid: string; defaultLa
     </div>
     {deleteId === selected.id && <DeletePrompt name={selected.name} cancel={() => setDeleteId(null)} confirm={() => void removeSet(selected.id)} />}
     <nav className="vocab-modes" aria-label="Study modes">
-      {modes.map(item => <button key={item.id} className={mode === item.id ? 'vocab-mode-active' : 'secondary'}
-        aria-current={mode === item.id ? 'page' : undefined} onClick={() => setMode(item.id)}>{item.label}</button>)}
+      {modes.map(item => <button key={item.id} className={item.id === 'flashcards'
+        ? 'vocab-mode-image' + (mode === item.id ? ' vocab-mode-active' : '')
+        : mode === item.id ? 'vocab-mode-active' : 'secondary'}
+      aria-current={mode === item.id ? 'page' : undefined} onClick={() => setMode(item.id)}>
+        {item.id === 'flashcards' ? <img src={flashcardsButtonImages[interfaceLanguage]} alt={item.label} /> : item.label}
+      </button>)}
     </nav>
     {!mode && <section className="panel stack"><h2>Words in this set</h2><WordList value={selected} update={updateWord} /></section>}
     {mode === 'flashcards' && <Flashcards key={selected.id + mode} set={selected} update={updateWord} />}

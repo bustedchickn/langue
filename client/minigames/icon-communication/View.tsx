@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { GameProgress, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { gameIcons } from '../../../shared/minigames/icons'
 import { iconCommunicationConfig as config, type IconResults, type IconView } from '../../../shared/minigames/icon-communication'
 import './icons.css'
 import { useInterface } from '../../locales/interface'
 import { sessionText } from '../../locales/session'
+import { playEffect } from '../../sounds'
 
 export function IconCommunicationView({ progress, data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
@@ -13,6 +14,12 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
   const { language } = useInterface()
   const [selected, setSelected] = useState<{ icon: string; round: number }>()
   const last = useRef({ matchId: '', revision: -1, time: 0 })
+  const completed = useRef({ matchId: progress.matchId, count: progress.completed })
+  useEffect(() => {
+    if (completed.current.matchId !== progress.matchId) completed.current = { matchId: progress.matchId, count: progress.completed }
+    else if (progress.completed > completed.current.count && progress.completed < (progress.rounds ?? Infinity)) playEffect('correct')
+    completed.current.count = progress.completed
+  }, [progress.matchId, progress.completed, progress.rounds])
   const feedback = view.feedback === 'correct' ? sessionText(language, 'Correct! Get ready for the next round.')
     : view.feedback === 'incorrect' ? sessionText(language, 'Incorrect. −{seconds} seconds.')
       .replace('{seconds}', String(config.incorrectGuessPenaltyMs / 1000)) : ''
