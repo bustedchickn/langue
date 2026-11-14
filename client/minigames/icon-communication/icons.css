@@ -4,5 +4,3 @@
 .icon-grid .icon-tile[data-selected], .icon-grid .icon-tile:active { border-color: var(--accent); background: #FBF3B9; }
 .icon-target { width: min(100%, 170px); margin-inline: auto; }
 .icon-wait { min-height: 6rem; }
-.icon-vocabulary { display: grid; gap: .6rem; margin-top: .5rem; }
-.icon-vocabulary li { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }

@@ -1,29 +1,26 @@
 import type { GameProgress, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { PronunciationButton } from '../../pronunciation/PronunciationButton'
 import { languageTags } from '../../../shared/types'
-import type { SceneKind, SpotDifferenceView, SpotDifferenceResults, SpotDifferenceAction } from '../../../shared/minigames/spot-difference'
+import type { SpotDifferenceView, SpotDifferenceResults, SpotDifferenceAction } from '../../../shared/minigames/spot-difference'
 import './spot.css'
 
 function Scene({ view, disabled, send }: { view: SpotDifferenceView; disabled: boolean; send: (action: SpotDifferenceAction) => void }) {
-  const positions: Record<string, { left: string; top: string; size: string }> = {
-    desk: { left: '11%', top: '67%', size: '16%' }, plant: { left: '82%', top: '47%', size: '15%' }, clock: { left: '81%', top: '15%', size: '14%' },
-    lamp: { left: '14%', top: '14%', size: '15%' }, cat: { left: '48%', top: '57%', size: '13%' }, book: { left: '30%', top: '55%', size: '13%' },
-    window: { left: '57%', top: '14%', size: '15%' }, mug: { left: '61%', top: '57%', size: '11%' }, globe: { left: '39%', top: '57%', size: '12%' }, star: { left: '73%', top: '68%', size: '12%' },
-  }
-  const fallbackPosition = { left: '50%', top: '45%', size: '12%' }
+  const positions = [
+    { left: '24%', top: '30%', size: '21%' }, { left: '70%', top: '28%', size: '20%' },
+    { left: '34%', top: '70%', size: '22%' }, { left: '68%', top: '68%', size: '21%' }, { left: '50%', top: '48%', size: '20%' },
+  ]
   const sceneLabel = view.scene === 'player-one' ? 'Player 1 scene' : 'Player 2 scene'
 
   return <div className="spot-scene" aria-label={sceneLabel}>
     <h3>{sceneLabel.replace(' scene', ' Scene')}</h3>
     <p className="muted">Round 1: {view.roundName}</p>
-    <div className="scene-stage">
-      <SceneBackdrop kind={view.sceneKind} />
+    <div className="scene-stage" data-theme={view.sceneKind}>
       <div className="scene-wall-art" aria-hidden="true">▰</div>
       <div className="scene-clock" aria-hidden="true">◷</div>
       <div className="scene-table" aria-hidden="true"><div className="scene-tabletop" /><div className="scene-table-leg" /><div className="scene-table-base" /></div>
       <div className="scene-chair" aria-hidden="true">▮</div>
-      {view.objects.map(object => {
-        const position = positions[object.id] ?? fallbackPosition
+      {view.objects.map((object, index) => {
+        const position = positions[index] ?? positions[positions.length - 1]
         const found = view.found.includes(object.id)
         return <button key={object.id} type="button" className={'scene-object ' + (found ? 'found' : '')} style={{ left: position.left, top: position.top, width: position.size, height: position.size, backgroundColor: object.color }} disabled={disabled || found} onClick={() => send({ type: 'select', objectId: object.id })} aria-label={`${object.name}: ${object.detail}`}>
           <span aria-hidden="true">{object.emoji}</span>
@@ -33,13 +30,6 @@ function Scene({ view, disabled, send }: { view: SpotDifferenceView; disabled: b
   </div>
 }
 
-function SceneBackdrop({ kind }: { kind: SceneKind }) {
-  return <div className="scene-line-art" data-scene={kind} aria-hidden="true">
-    <span className="line-art-window" /><span className="line-art-counter" /><span className="line-art-table" />
-    <span className="line-art-bed" /><span className="line-art-desk" /><span className="line-art-board" />
-    <span className="line-art-tree" /><span className="line-art-bench" /><span className="line-art-rug" />
-  </div>
-}
 
 export function SpotDifferenceView({ progress, data, disabled, send }: { progress: GameProgress; data: unknown; disabled: boolean; send: (action: SpotDifferenceAction) => void }) {
   const view = data as SpotDifferenceView

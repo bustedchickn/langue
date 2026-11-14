@@ -79,7 +79,16 @@ export function startIconCommunication(
         previous = target
         completed++
         feedback = 'correct'
-        prepare(time)
+        if (completed >= (config.rounds ?? Number.POSITIVE_INFINITY)) {
+          result = {
+            gameId: config.id, outcome: 'victory', completed, attempted: completed, incorrectGuesses,
+            elapsedMs: time - now, score: completed * config.scoring.pointsPerCorrectGuess,
+            players: [players.host.name, players.guest.name], vocabulary: [...seen],
+            learningLanguages: { host: players.host.learningLanguage, guest: players.guest.learningLanguage },
+          }
+        } else {
+          prepare(time)
+        }
       } else {
         incorrectGuesses++
         guessed.add(icon)

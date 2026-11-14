@@ -76,7 +76,6 @@ export function TandemDriveView({ data, progress, disabled, send }: {
         : 'GATE LOCKED'}</strong> <span>{remaining}px to gate</span>
     </div>
     <div className="drive-viewport" aria-label={`Current heading ${Math.round(((view.angle + Math.PI / 2) * 180 / Math.PI + 360) % 360)} degrees`}>
-      <div className="drive-heading" aria-hidden="true" style={{ transform: `rotate(${view.angle + Math.PI / 2}rad)` }}>↑</div>
       <canvas ref={canvas} width={500} height={378} aria-label="Northbound crawler, gates and visible barriers" />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}

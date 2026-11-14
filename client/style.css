@@ -174,10 +174,28 @@ button.secondary { background: #f9f2fd; }
 
 html, body {
   min-height: 100%;
-  background: radial-gradient(ellipse at 10% 12%, #fff0bb 0, transparent 46%),
-    radial-gradient(ellipse at 92% 90%, #e6d8ff 0, transparent 47%),
-    radial-gradient(ellipse at 96% 7%, #fbdde9 0, transparent 42%), #fff9ee;
-  background-attachment: fixed;
+  background: #fbf3b9;
+}
+#root { isolation: isolate; }
+.screen-background {
+  position: fixed;
+  inset: -2%;
+  z-index: -1;
+  pointer-events: none;
+  background: #fbf3b9 url('/lostintranslationbackgroundwebsite.png') center / cover no-repeat;
+  animation: stars-bounce .65s ease-out both;
+}
+@keyframes stars-bounce {
+  0% { transform: scale(1.035) translateY(-1.2%); }
+  45% { transform: scale(.99) translateY(1%); }
+  70% { transform: scale(1.012) translateY(-.45%); }
+  100% { transform: scale(1) translateY(0); }
+}
+@media (max-width: 749px) {
+  .screen-background { background-image: url('/lostintranslationbackgroundmobile.png'); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-background { animation: none; }
 }
 .app-shell { width: 100%; max-width: 40rem; min-height: 100svh; padding: clamp(.75rem, 3vw, 2rem); }
 .session-shell { max-width: 72rem; }
@@ -188,13 +206,23 @@ html, body {
 .game-logo { font-size: clamp(3.2rem, 13vw, 7rem); line-height: .87; letter-spacing: -.075em; font-weight: 650; margin: 0; }
 .game-logo span { color: #ae3866; }
 .game-logo-image { display: block; width: min(100%, 38rem); height: auto; max-height: 12rem; object-fit: contain; object-position: center; }
+@media (min-width: 750px) { .game-logo-image { width: min(100%, 52rem); max-height: none; } }
 .sign-in-intro { display: grid; justify-items: center; text-align: center; gap: 1rem; padding: 2rem 0; }
 .profile-access { position: absolute; top: 0; right: 0; padding: 0; background: transparent; border-radius: 50%; }
 .player-avatar { width: 3.25rem; height: 3.25rem; position: relative; overflow: hidden; flex: none; background: #f0dfff; color: #4b3058; border: 2px solid #fffdf9; box-shadow: 0 2px 10px #4324591a; }
 .player-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .player-avatar img[hidden] { display: none; }
 .learning-picker { display: flex; align-items: center; gap: .5rem; padding: .15rem .5rem .15rem .85rem; border-radius: 3rem; background: #fffaf4; border: 1px solid var(--border); }
-.home-actions { display: grid; width: min(100%, 21rem); gap: .75rem; }
+.home-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, 30rem); gap: .75rem; }
+@media (max-width: 749px) { .home-actions { grid-template-columns: 1fr; width: min(100%, 21rem); gap: .75rem; } }
+.image-action { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: 1.1rem; background: transparent; box-shadow: none; line-height: 0; font-size: 0; }
+.image-action img { display: block; width: 100%; height: auto; transition: opacity .2s ease; }
+.image-action-default { opacity: 1; }.image-action-hover { position: absolute; inset: 0; opacity: 0; }
+.image-action:not(:disabled):hover .image-action-default, .image-action:not(:disabled):focus-visible .image-action-default { opacity: 0; }
+.image-action:not(:disabled):hover .image-action-hover, .image-action:not(:disabled):focus-visible .image-action-hover { opacity: 1; }
+.image-action:not(:disabled) img { animation: button-triangle-drift 2.8s ease-in-out infinite; }
+.image-action .invite-count { position: absolute; top: .75rem; right: .9rem; z-index: 2; border-radius: 999px; background: #fffaf2; color: #4b3058; padding: .15em .55em; line-height: 1.2; font-size: .8rem; }
+@keyframes button-triangle-drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
 .large-action { min-height: 3.6rem; border-radius: 1.1rem; font-size: 1.05rem; background: linear-gradient(155deg, #ffe998, #ffda64); box-shadow: 0 4px 0 #d7aa36; transition: transform .15s ease, box-shadow .15s ease; }
 .large-action.secondary { background: #f7edff; box-shadow: 0 4px 0 #d9c7ed; }
 .large-action:not(:disabled):hover { transform: translateY(-2px); }
@@ -227,6 +255,7 @@ html, body {
 @keyframes enter-stage { from { opacity: 0; transform: translateY(6px); } }
 @keyframes searching { to { transform: translateY(-.35rem); opacity: .45; } }
 @media (prefers-reduced-motion: reduce) {
+  .image-action img { animation: none; }
   .home-content, .stage-card, .search-pulse i { animation: none; }
   .large-action { transition: none; }
 }

@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import type { GameProgress, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { gameIcons } from '../../../shared/minigames/icons'
 import { iconCommunicationConfig as config, type IconResults, type IconView } from '../../../shared/minigames/icon-communication'
-import { PronunciationButton } from '../../pronunciation/PronunciationButton'
 import './icons.css'
 
 export function IconCommunicationView({ progress, data, disabled, send }: {
@@ -41,9 +40,8 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
   </>
 }
 
-export function IconCommunicationResults({ result, seat }: { result: GameResults; seat: Seat }) {
+export function IconCommunicationResults({ result }: { result: GameResults; seat: Seat }) {
   const icons = result as IconResults
-  const language = icons.learningLanguages[seat]
   return <>
     <h3 className="game-outcome">Time’s up</h3>
     <p>{result.players.join(' & ')}</p>
@@ -54,20 +52,5 @@ export function IconCommunicationResults({ result, seat }: { result: GameResults
       <div><dt>Total time played</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
       <div><dt>Final score</dt><dd>{result.score}</dd></div>
     </dl>
-    {icons.vocabulary.length > 0 && <section>
-      <h3>Vocabulary · {language}</h3>
-      <ul className="icon-vocabulary">
-        {icons.vocabulary.map(id => {
-          const icon = gameIcons.get(id)
-          if (!icon) return null
-          const word = icon.translations?.[language]
-          return <li key={id}>
-            <img src={icon.assetPath} alt="" width={40} height={40} />
-            <span>{icon.name}{word && word !== icon.name && ' — ' + word}</span>
-            {word && <PronunciationButton text={word} language={language} label={'Pronounce ' + word + ' in ' + language} />}
-          </li>
-        })}
-      </ul>
-    </section>}
   </>
 }

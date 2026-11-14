@@ -10,7 +10,7 @@ export const spotDifferenceConfig = {
 
 export type SceneObject = { id: string; name: string; emoji: string; color: string; detail: string }
 export type SpotDifferenceAction = { type: 'select'; objectId: string } | { type: 'finish' } | { type: 'reset' }
-export type SceneKind = 'kitchen' | 'bedroom' | 'office' | 'classroom' | 'park'
+export type SceneKind = 'peach' | 'lilac' | 'aqua' | 'lemon' | 'rose'
 export type SpotDifferenceView = {
   scene: 'player-one' | 'player-two'; sceneKind: SceneKind; language: Language; roundName: string
   objects: SceneObject[]; found: string[]; totalDifferences: number; incorrectGuesses: number
@@ -31,6 +31,9 @@ export const sceneObjects: SceneObject[] = [
   { id: 'cat', name: 'Cat', emoji: '🐈', color: '#F26A8D', detail: 'small pet' }, { id: 'book', name: 'Book', emoji: '📖', color: '#B7B1F2', detail: 'reading item' },
   { id: 'window', name: 'Window', emoji: '🪟', color: '#89E7E9', detail: 'view outside' }, { id: 'mug', name: 'Mug', emoji: '☕', color: '#FBF3B9', detail: 'drink cup' },
   { id: 'globe', name: 'Globe', emoji: '🌍', color: '#B7B1F2', detail: 'world model' }, { id: 'star', name: 'Star', emoji: '⭐', color: '#FFDCCC', detail: 'bright shape' },
+  { id: 'sofa', name: 'Sofa', emoji: '🛋️', color: '#FFDCCC', detail: 'soft seat' }, { id: 'vase', name: 'Vase', emoji: '🏺', color: '#89E7E9', detail: 'decorative vase' },
+  { id: 'picture', name: 'Picture', emoji: '🖼️', color: '#FBF3B9', detail: 'wall picture' }, { id: 'backpack', name: 'Backpack', emoji: '🎒', color: '#FDB7EA', detail: 'school bag' },
+  { id: 'basket', name: 'Basket', emoji: '🧺', color: '#FFDCCC', detail: 'woven basket' }, { id: 'pencil', name: 'Pencil', emoji: '✏️', color: '#FBF3B9', detail: 'writing tool' },
 ]
 export const differenceIds = ['plant', 'clock', 'lamp', 'cat', 'book']
 

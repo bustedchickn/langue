@@ -136,7 +136,12 @@ function App() {
   }
 
   const currentProfile = profile?.uid === uid ? profile : undefined
+  const screenKey = inRoom
+    ? 'room:' + (session.session?.phase ?? 'connecting') + ':' + (session.session?.phase === 'game' ? session.session.progress?.round ?? 1 : '')
+    : searching ? 'searching' : assessing ? 'assessment' : page
   return (
+    <>
+    <div className="screen-background" key={screenKey} aria-hidden="true" />
     <main className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'}>
       {notice && <p className="notice" role="status">{notice}</p>}
       {user === undefined && <p>Loading…</p>}
@@ -193,16 +198,20 @@ function App() {
               <LanguagePicker value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
                 onChange={language => void saveLanguage(language)} />
               <div className="home-actions">
-                <button className="large-action" disabled={joining || savingLanguage} onClick={() => {
+                <button className="image-action image-action-play" aria-label="Play" disabled={joining || savingLanguage} onClick={() => {
                   setNotice('')
                   if (!currentProfile.assessments?.[currentProfile.learningLanguage]) setAssessing(true)
                   else setSearching(true)
                 }}>
+                  <img className="image-action-default" src="/play-button-1.png" alt="" />
+                  <img className="image-action-hover" src="/play-button-2.png" alt="" />
                   <span aria-hidden="true">▶</span> Play
                 </button>
-                <button className="secondary large-action" aria-label={invitations.length ? 'Play With Friends, ' + invitations.length + ' pending' : undefined}
+                <button className="image-action image-action-friends" aria-label={invitations.length ? 'Play With Friends, ' + invitations.length + ' pending' : 'Play With Friends'}
                   disabled={joining || savingLanguage} onClick={() => navigate('friends')}>
-                  Play With Friends{invitations.length > 0 && <span className="invite-count" aria-label={invitations.length + ' invitations'}>{invitations.length}</span>}
+                  <img className="image-action-default" src="/play-friends-button-1.png" alt="" />
+                  <img className="image-action-hover" src="/play-friends-button-2.png" alt="" />
+                  {invitations.length > 0 && <span className="invite-count" aria-label={invitations.length + ' invitations'}>{invitations.length}</span>}
                 </button>
               </div>
             </div>
@@ -227,6 +236,7 @@ function App() {
         {invitePicker && inRoom && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}
       </>}
     </main>
+    </>
   )
 }
 

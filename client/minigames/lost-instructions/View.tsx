@@ -83,7 +83,7 @@ function Operator({ view, send, disabled }: {
             if (event.detail && suppressClick.current) { suppressClick.current = false; return }
             select(piece.id, slot)
           }}>
-          <span className="lost-piece"><Shape piece={piece} /></span>
+          <span key={piece.id + ':' + view.revision} className="lost-piece"><Shape piece={piece} /></span>
           <span>{position}</span>
         </button>
       })}
