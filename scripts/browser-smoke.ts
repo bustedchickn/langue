@@ -47,12 +47,26 @@ async function player(browser: Browser, name: string, touch: boolean) {
       }
     }
   })
+  await context.addInitScript(() => {
+    const events: { action: string; src: string; loop: boolean }[] = []
+    Object.assign(window, { soundEvents: events })
+    const play = HTMLMediaElement.prototype.play
+    const pause = HTMLMediaElement.prototype.pause
+    HTMLMediaElement.prototype.play = function () {
+      if (this instanceof HTMLAudioElement && !this.isConnected) events.push({ action: 'play', src: this.src, loop: this.loop })
+      return play.call(this)
+    }
+    HTMLMediaElement.prototype.pause = function () {
+      if (this instanceof HTMLAudioElement && !this.isConnected) events.push({ action: 'pause', src: this.src, loop: this.loop })
+      return pause.call(this)
+    }
+  })
   if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
     await context.addInitScript(() => {
       const play = HTMLMediaElement.prototype.play
       let blocked = false
       HTMLMediaElement.prototype.play = function () {
-        if (!blocked && this instanceof HTMLAudioElement) {
+        if (!blocked && this instanceof HTMLAudioElement && this.isConnected) {
           blocked = true
           return Promise.reject(new DOMException('Autoplay blocked for smoke test', 'NotAllowedError'))
         }
@@ -167,7 +181,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     if (!touch && !icons && !tandem) {
       await host.setViewportSize({ width: 1280, height: 800 })
       assert.equal(await host.getByRole('navigation').count(), 0)
-      await host.getByRole('heading', { name: /Lost in.*Translation/ }).waitFor()
+      await host.getByRole('img', { name: 'Lost in Translation' }).waitFor()
       await button(host, 'Open profile and settings').click()
       await host.getByRole('heading', { name: 'Settings' }).waitFor()
       await button(host, '← Back to home').click()
@@ -181,8 +195,39 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       button(host, 'Play').click(),
     ])
     await host.getByText('Finding your partner…').waitFor()
+    if (process.env.IDLE_TEST_SOUND === 'true') {
+      const soundEvents = () => host.evaluate(() => (window as unknown as { soundEvents: { action: string; src: string; loop: boolean }[] }).soundEvents)
+      assert.ok((await soundEvents()).some(event => event.action === 'play' && event.src.includes('connecting1') && event.loop))
+      await button(host, 'Cancel').click()
+      await button(host, 'Play').waitFor()
+      assert.ok((await soundEvents()).some(event => event.action === 'pause' && event.src.includes('connecting1')))
+      await button(host, 'Open profile and settings').click()
+      await button(host, 'Game sounds on').click()
+      await button(host, '← Back to home').click()
+      const before = (await soundEvents()).length
+      await button(host, 'Play').click()
+      await host.getByText('Finding your partner…').waitFor()
+      assert.equal((await soundEvents()).filter(event => event.action === 'play').length,
+        (await soundEvents()).slice(0, before).filter(event => event.action === 'play').length)
+      await button(host, 'Cancel').click()
+      await button(host, 'Open profile and settings').click()
+      await button(host, 'Game sounds off').click()
+      await button(host, '← Back to home').click()
+      await button(host, 'Play').click()
+      await host.getByText('Finding your partner…').waitFor()
+    }
     await button(guest, 'Play').click()
     await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
+    if (process.env.IDLE_TEST_SOUND === 'true') {
+      await host.waitForFunction(() => (window as unknown as { soundEvents: { action: string; src: string; loop: boolean }[] }).soundEvents
+        .some(event => event.action === 'play' && event.src.includes('connected2') && !event.loop))
+      await host.waitForFunction(() => {
+        const events = (window as unknown as { soundEvents: { action: string; src: string; loop: boolean }[] }).soundEvents
+        const search = events.map(event => event.action === 'play' && event.src.includes('connecting1')).lastIndexOf(true)
+        return events.slice(search + 1).some(event => event.action === 'pause' && event.src.includes('connecting1'))
+      })
+      return
+    }
 
     if (process.env.IDLE_TEST_CODENAMES === 'true') {
       await host.getByLabel('Minigame').selectOption('codenames')
@@ -411,7 +456,10 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_CODENAMES === 'true') {
+  if (process.env.IDLE_TEST_SOUND === 'true') {
+    await run(browser, false)
+    console.log('Passed sound playback, mute, search cancellation and match confirmation.')
+  } else if (process.env.IDLE_TEST_CODENAMES === 'true') {
     await run(browser, true)
     console.log('Passed Codenames private key, clue, definition and synchronized guess at 320px.')
   } else if (process.env.IDLE_TEST_SPOT === 'true') {

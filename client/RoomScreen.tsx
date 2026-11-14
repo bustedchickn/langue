@@ -10,6 +10,7 @@ import { languageTags } from '../shared/types'
 import { Avatar, flags } from './PlayerIdentity'
 import { MicrophoneTest } from './MicrophoneTest'
 import { codenamesCopy } from './minigames/codenames/copy'
+import { playEffect } from './sounds'
 
 const prompts = {
   English: ['Hello!', 'My name is…', 'How are you?'],
@@ -77,6 +78,8 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const [friendBusy, setFriendBusy] = useState(false)
   const leaveDialog = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
+  const announcedMatch = useRef<string | undefined>(undefined)
+  const previousPhase = useRef<Session['phase'] | undefined>(undefined)
   const phase = session?.phase
   const game = session && minigames.get(session.gameId)?.config
   const seat = host ? 'host' : 'guest'
@@ -96,6 +99,14 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
     : phase === 'lobby' && !session?.matchType ? 'Waiting for your friend…' : 'Connecting to your partner…'
 
   useEffect(() => { heading.current?.focus() }, [phase])
+  useEffect(() => {
+    if (session?.matchType && phase === 'confirmation' && connected && room && announcedMatch.current !== room.roomId) {
+      announcedMatch.current = room.roomId
+      playEffect('connected')
+    }
+    if (phase === 'results' && previousPhase.current === 'game') playEffect('gong')
+    previousPhase.current = phase
+  }, [phase, connected, room, session?.matchType])
   useEffect(() => {
     if (!room) return
     return room.onMessage('friend-error', (message: string) => {

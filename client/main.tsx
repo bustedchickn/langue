@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
@@ -12,6 +12,7 @@ import { QuickPlay } from './QuickPlay'
 import { Avatar } from './PlayerIdentity'
 import { LanguageAssessments } from './LanguageAssessments'
 import { LanguagePicker } from './LanguagePicker'
+import { playEffect, setSoundsEnabled, soundsEnabled, startSearchMusic } from './sounds'
 import './style.css'
 
 type Page = 'home' | 'friends' | 'profile'
@@ -33,6 +34,7 @@ function App() {
   const [notice, setNotice] = useState('')
   const [joining, setJoining] = useState(false)
   const [invitePicker, setInvitePicker] = useState(false)
+  const [soundOn, setSoundOn] = useState(soundsEnabled)
   const uid = user?.uid
   const session = useSession(uid, setNotice)
   const invitations = useInvitations(profile?.uid, setNotice)
@@ -119,6 +121,20 @@ function App() {
     setNotice('')
   }
 
+  function playInterfaceSound(event: MouseEvent<HTMLElement>) {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const button = target.closest('button, [role="option"]')
+    if (!button || button.matches(':disabled, [aria-disabled="true"], [data-sound="none"]') ||
+        button.closest('.room-grid[data-game]') && session.session?.phase === 'game') return
+    const label = (button.getAttribute('aria-label') ?? button.textContent ?? '').trim().toLowerCase()
+    if (label.includes('cancel')) playEffect('cancel')
+    else if (label.includes('close')) playEffect('close')
+    else if (label.includes('back') || label.includes('leave')) playEffect('back')
+    else if (button.getAttribute('role') === 'combobox' || label.includes('friends') || label.includes('profile')) playEffect('open')
+    else playEffect('select')
+  }
+
   async function saveLanguage(learningLanguage: Language) {
     if (!currentProfile || savingLanguage) return
     setSavingLanguage(true)
@@ -142,7 +158,7 @@ function App() {
   return (
     <>
     <div className="screen-background" key={screenKey} aria-hidden="true" />
-    <main className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'}>
+    <main className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'} onClickCapture={playInterfaceSound}>
       {notice && <p className="notice" role="status">{notice}</p>}
       {user === undefined && <p>Loading…</p>}
       {user === null && <>
@@ -201,7 +217,10 @@ function App() {
                 <button className="image-action image-action-play" aria-label="Play" disabled={joining || savingLanguage} onClick={() => {
                   setNotice('')
                   if (!currentProfile.assessments?.[currentProfile.learningLanguage]) setAssessing(true)
-                  else setSearching(true)
+                  else {
+                    startSearchMusic()
+                    setSearching(true)
+                  }
                 }}>
                   <img className="image-action-default" src="/play-button-1.png" alt="" />
                   <img className="image-action-hover" src="/play-button-2.png" alt="" />
@@ -228,7 +247,12 @@ function App() {
               setAnonymous(false)
               setNotice('Your account is linked.')
             }} />}
-            <section className="panel stack"><h2>Settings</h2><button className="secondary" onClick={() => {
+            <section className="panel stack"><h2>Settings</h2>
+              <button className="secondary" data-sound="none" aria-pressed={soundOn} onClick={() => {
+                setSoundsEnabled(!soundOn)
+                setSoundOn(!soundOn)
+              }}>Game sounds {soundOn ? 'on' : 'off'}</button>
+              <button className="secondary" onClick={() => {
               void signOut(auth).then(() => navigate('home')).catch(error => setNotice(errorText(error)))
             }}>Sign out</button></section>
           </div>}

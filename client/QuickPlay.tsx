@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { Client, Room } from 'colyseus.js'
 import type { UserProfile } from '../shared/types'
 import { api, errorText, multiplayer } from './backend'
+import { stopSearchMusic } from './sounds'
 
 type Seat = Parameters<Client['consumeSeatReservation']>[0]
 type SearchStatus = { status: 'searching'; waitedMs?: number } | { status: 'matched'; seat: Seat } | { status: 'idle' }
@@ -77,6 +78,7 @@ export function QuickPlay({ profile, joined, done }: {
     cancelSearch.current = () => {
       if (consuming || canceled) return
       canceled = true
+      stopSearchMusic()
       setCancel(true)
       if (requested) {
         void api('/matchmaking', 'DELETE')
@@ -87,6 +89,7 @@ export function QuickPlay({ profile, joined, done }: {
     void search()
     return () => {
       active = false
+      stopSearchMusic()
       clearTimeout(timer)
       resolveDelay?.()
       if (requested && !consuming) void api('/matchmaking', 'DELETE').catch(() => {})

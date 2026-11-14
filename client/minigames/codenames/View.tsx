@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { GameProgress } from '../../../shared/minigames/contracts'
 import { codenamesTeamWords, wordCards, type CodenamesView } from '../../../shared/minigames/codenames'
 import { languageTags } from '../../../shared/types'
 import { codenamesCopy } from './copy'
+import { playEffect } from '../../sounds'
 import './codenames.css'
 
 export function CodenamesView({ data, disabled, send }: {
@@ -13,6 +14,15 @@ export function CodenamesView({ data, disabled, send }: {
   const [word, setWord] = useState('')
   const [count, setCount] = useState(1)
   const [showDefinition, setShowDefinition] = useState<string>()
+  const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
+  useEffect(() => {
+    for (const card of view.cards) {
+      if (card.revealed && !revealed.current.has(card.id)) {
+        revealed.current.add(card.id)
+        playEffect(card.revealed === 'team' ? 'pop' : 'hit')
+      }
+    }
+  }, [view.cards])
   const cards = new Map(wordCards.map(card => [card.id, card]))
   const invalid = !/^[\p{L}\p{M}]+$/u.test(word.trim()) ||
     view.cards.some(card => cards.get(card.id)?.words[view.language].toLocaleLowerCase() === word.trim().toLocaleLowerCase())
