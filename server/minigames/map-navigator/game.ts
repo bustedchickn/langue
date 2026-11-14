@@ -11,6 +11,8 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
   let position = clone(mapNavigatorStart)
   let moves = 0
   let wrongTurns = 0
+  let checkpoints = 0
+  const waypoints = [mapNavigatorRoute[2], mapNavigatorRoute[6]]
   let feedback: MapNavigatorView['feedback']
   let result: MapNavigatorResults | undefined
   const language = players.host.learningLanguage
@@ -23,25 +25,25 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
   function reset(time: number) {
     startsAt = time + gameConfig.countdownMs!
     endsAt = startsAt + gameConfig.durationMs!
-    position = clone(mapNavigatorStart); moves = 0; wrongTurns = 0; feedback = undefined; result = undefined
+    position = clone(mapNavigatorStart); moves = 0; wrongTurns = 0; checkpoints = 0; feedback = undefined; result = undefined
   }
 
   return {
     tick,
     progress: time => ({ gameId: config.id, matchId, round: 1, completed: result?.completed ?? 0, score: result?.score ?? 0, startsAt, endsAt, serverNow: time }),
-    view(seat, time): MapNavigatorView {
-      const routeIndex = mapNavigatorRoute.findIndex(point => same(point, position))
-      return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position), ...(seat === 'host' ? { goal: clone(mapNavigatorGoal), route: mapNavigatorRoute.map(clone) } : {}), moves, wrongTurns, distanceRemaining: Math.max(0, mapNavigatorRoute.length - 1 - Math.max(0, routeIndex)), feedback, landmarks: mapNavigatorLandmarks, ...translated, canReset: time >= startsAt && !result }
+    view(seat): MapNavigatorView {
+      return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position),
+        ...(seat === 'host' ? { goal: clone(mapNavigatorGoal), route: mapNavigatorRoute.map(clone), waypoints } : {}),
+        moves, wrongTurns, checkpoints, feedback, landmarks: mapNavigatorLandmarks, ...translated }
     },
     act(seat: Seat, payload: unknown, time: number) {
       tick(time)
       if (result || time < startsAt || !payload || typeof payload !== 'object') return false
       const action = payload as NavigatorAction
       if (action.type === 'reset') { if (!['host', 'guest'].includes(seat)) return false; reset(time); return true }
-      if (action.type === 'finish') { if (seat !== 'guest') return false; finish(same(position, mapNavigatorGoal) ? 'victory' : 'defeat', time, same(position, mapNavigatorGoal)); return true }
       if (seat !== 'guest' || action.type !== 'move') return false
       const delta = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] }[action.direction]
-      if (!delta) return false
+      if (!Object.hasOwn({ up: 1, down: 1, left: 1, right: 1 }, action.direction) || !delta) return false
       const previousIndex = mapNavigatorRoute.findIndex(point => same(point, position))
       const next = { row: position.row + delta[0], column: position.column + delta[1] }
       moves++
@@ -50,7 +52,11 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
       const nextIndex = mapNavigatorRoute.findIndex(point => same(point, position))
       feedback = nextIndex === previousIndex + 1 ? 'moved' : 'wrong'
       if (feedback === 'wrong') wrongTurns++
-      if (same(position, mapNavigatorGoal)) { feedback = 'success'; finish('victory', time, true) }
+      if (checkpoints < waypoints.length && same(position, waypoints[checkpoints])) {
+        checkpoints++
+        feedback = 'checkpoint'
+      }
+      if (checkpoints === waypoints.length && same(position, mapNavigatorGoal)) finish('victory', time, true)
       return true
     },
     results: () => result,

@@ -66,7 +66,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const game = session && minigames.get(session.gameId)?.config
   const phaseAction = (action: string) => room?.send('phase', action)
 
-  return <div className="room-grid">
+  return <div className="room-grid" data-game={session?.gameId}>
     <div className="stack">
       <section className="panel stack">
         <div className="heading-row">
@@ -93,13 +93,13 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         </>}
         {session?.progress && <ActiveGame progress={session.progress} view={view} ready={ready}
           send={payload => room?.send('game-action', payload)} />}
-        {phase === 'results' && <>
+        {phase === 'results' && <div className="results-transition stack">
           {session?.results && <Results result={session.results} seat={host ? 'host' : 'guest'} />}
           <div className="actions">
             {host && <button disabled={!ready} onClick={() => phaseAction('game')}>Play Again</button>}
             <button className="secondary" disabled={!room} onClick={() => phaseAction('lobby')}>Return to Lobby</button>
           </div>
-        </>}
+        </div>}
       </section>
     </div>
     <div className="stack">

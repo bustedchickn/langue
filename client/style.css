@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @font-face {
@@ -112,4 +113,61 @@ audio[controls] { display: block; max-width: 100%; margin-top: .6rem; }
 .room-grid .icon-grid button.icon-tile:is([data-selected], :active) {
   background: #674b78;
   border-color: var(--color-accent);
+}
+
+/* The shared shell keeps game boards prominent and room tools within reach. */
+:root {
+  --ui-font: 'Instrument Sans', system-ui, sans-serif;
+  --color-page: #fcf8f0;
+  --color-text: #282138;
+  --color-border: #d9cee4;
+  --border: var(--color-border);
+  --muted: #665870;
+  --accent: #ffdf74;
+}
+html, body { background: var(--color-page); color: var(--color-text); }
+body { font-family: var(--ui-font); }
+.masthead { background: #fffaf2; }
+.masthead .brand, h1, h2, .game-outcome { font-family: var(--font-display); }
+.brand span { color: #a83967; }
+.tagline, .identity { font-size: .85rem; }
+main { max-width: 1120px; }
+nav { padding: .4rem; border: 1px solid var(--border); border-radius: .9rem; background: #fffdf8; }
+nav button.secondary { background: transparent; border-color: transparent; }
+nav button[aria-current] { background: #eee4ff; color: #4e2a75; }
+.intro {
+  background: radial-gradient(ellipse at 100% 5%, #ffd6e4 0, transparent 55%),
+    radial-gradient(ellipse at 94% 100%, #e1ceff 0, transparent 55%), #fff0bd;
+  border-color: #e5cda1;
+}
+.intro h1 { max-width: 15ch; font-size: clamp(2.3rem, 8vw, 5rem); text-wrap: balance; }
+.intro p { color: #59455f; }
+.panel { background: #fffdf9; box-shadow: 0 4px 16px #4b2b6610; }
+.card { background: #f9f2fd; }
+.notice { background: #fff0bd; }
+.error { color: #9c2350; }
+input, select { background: #fcf8ff; }
+button.secondary { background: #f9f2fd; }
+.chat-log { color: var(--muted); }
+.game-progress { padding: .45rem .65rem; background: #f2eafa; border-radius: .65rem; font-size: .88rem; }
+.game-results > div { padding: .55rem .7rem; border-radius: .55rem; background: #f7effd; }
+.play-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 220px),1fr)); gap: .65rem; }
+.play-options button { display: grid; gap: .35rem; text-align: left; padding: 1rem; }
+.play-options strong { font: 700 1.45rem var(--font-display); }
+.play-options span { font-weight: 400; color: #59455f; }
+.play-options .secondary { background: #eee4ff; }
+@media (min-width: 750px) {
+  .room-grid { grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr); }
+}
+
+
+.room-grid > .stack { min-width: 0; }
+.room-grid .panel { padding: clamp(.65rem, 2.5vw, 1.3rem); }
+.room-grid :is(.city-map, .drive-viewport, .icon-grid) { width: 100%; }
+.room-grid[data-game=map-navigator] :is(.city-map, .direction-controls) { max-width: 34rem; margin-inline: auto; }
+.room-grid[data-game=tandem-drive] .drive { max-width: 44rem; margin-inline: auto; }
+@media (min-width: 850px) {
+  .room-grid[data-game=map-navigator], .room-grid[data-game=tandem-drive] {
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 29%);
+  }
 }

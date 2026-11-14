@@ -28,12 +28,12 @@ export type MapNavigatorView = {
   route?: Point[]
   moves: number
   wrongTurns: number
-  distanceRemaining: number
-  feedback?: 'moved' | 'wrong' | 'blocked' | 'success' | 'incomplete'
+  checkpoints: number
+  waypoints?: Point[]
+  feedback?: 'moved' | 'wrong' | 'blocked' | 'success' | 'checkpoint'
   landmarks: ReadonlyArray<{ row: number; column: number; name: string; emoji: string }>
   prompts: ReadonlyArray<{ english: string; translated: string }>
   vocabulary: ReadonlyArray<{ english: string; translated: string }>
-  canReset: boolean
 }
 
 export type MapNavigatorResults = GameResults & { moves: number; wrongTurns: number; completedRoute: boolean }

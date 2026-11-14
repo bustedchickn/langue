@@ -1,4 +1,8 @@
-.panel:has(> .results-confetti) { position: relative; }
+.results-transition { position: relative; animation: results-fade .55s ease-out both; }
+@keyframes results-fade {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .results-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; border-radius: inherit; }
 .results-confetti i { position: absolute; top: 0; width: 7px; height: 11px; opacity: 0; animation: results-fall ease-in both; }
 @keyframes results-fall {
@@ -6,4 +10,7 @@
   12%, 65% { opacity: .9; }
   100% { opacity: 0; transform: translate(28px, 360px) rotate(430deg); }
 }
-@media (prefers-reduced-motion: reduce) { .results-confetti { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .results-confetti { display: none; }
+  .results-transition { animation: none; }
+}

@@ -157,11 +157,15 @@ function App() {
             <p>Practice English, French, or Spanish with a partner.</p>
             <button disabled={joining} onClick={() => navigate('play')}>Play</button>
           </section>}
-          {page === 'play' && <section className="panel stack">
+          {page === 'play' && <section className="panel stack play-menu">
             <h2>Play</h2>
-            <div className="actions">
-              <button disabled={joining} onClick={() => { setNotice(''); setSearching(true) }}>Quick Play</button>
-              <button className="secondary" disabled={joining} onClick={() => setInvitePicker(true)}>Play With Friends</button>
+            <div className="play-options">
+              <button aria-label="Quick Play" disabled={joining} onClick={() => { setNotice(''); setSearching(true) }}>
+                <strong>Quick Play</strong><span>Find a language partner</span>
+              </button>
+              <button aria-label="Play With Friends" className="secondary" disabled={joining} onClick={() => setInvitePicker(true)}>
+                <strong>Play With Friends</strong><span>Pick a game and send an invite</span>
+              </button>
             </div>
           </section>}
           {page === 'friends' && <Friends key={uid} uid={user.uid} invite={invite} />}

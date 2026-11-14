@@ -1,26 +1,95 @@
 import { useEffect } from 'react'
-import type { GameProgress } from '../../../shared/minigames/contracts'
+import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
 import { languageTags } from '../../../shared/types'
 import { PronunciationButton } from '../../pronunciation/PronunciationButton'
-import { mapNavigatorGrid, type MapNavigatorView, type NavigatorAction } from '../../../shared/minigames/map-navigator'
+import { mapNavigatorGrid, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction } from '../../../shared/minigames/map-navigator'
 import './map.css'
 
-export function MapNavigatorView({ progress, data, disabled, send }: { progress: GameProgress; data: unknown; disabled: boolean; send: (action: NavigatorAction) => void }) {
+const directions = [
+  ['up', '↑', 'North'], ['left', '←', 'West'], ['down', '↓', 'South'], ['right', '→', 'East'],
+] as const
+const keyDirections = { ArrowUp: 'up', ArrowLeft: 'left', ArrowDown: 'down', ArrowRight: 'right' } as const
+
+export function MapNavigatorView({ data, disabled, send }: {
+  progress: GameProgress; data: unknown; disabled: boolean; send: (action: NavigatorAction) => void
+}) {
   const view = data as MapNavigatorView
+  const navigator = view.role === 'navigator'
+
   useEffect(() => {
+    if (navigator || disabled) return
     const onKey = (event: KeyboardEvent) => {
-      const direction = ({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' } as const)[event.key as 'ArrowUp']
-      if (direction && view.role === 'traveler' && !disabled) { event.preventDefault(); send({ type: 'move', direction }) }
+      if (event.repeat || (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]'))) return
+      const direction = keyDirections[event.key as keyof typeof keyDirections]
+      if (direction) {
+        event.preventDefault()
+        send({ type: 'move', direction })
+      }
     }
-    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
-  }, [disabled, send, view.role])
-  const feedback = view.feedback === 'success' ? '🎉 You found the destination!' : view.feedback === 'wrong' ? 'Gentle detour—ask for clarification before guessing.' : view.feedback === 'blocked' ? 'That way is blocked. Try another direction.' : view.feedback === 'moved' ? 'Moved one step.' : ''
-  return <section className="map-game" lang={languageTags[view.language]}>
-    <header className="map-header"><div><p className="eyebrow">Sunnyville City Map</p><h2>Map Navigator</h2><p className="muted">{view.role === 'navigator' ? 'You see the secret destination. Guide your Traveler!' : 'Follow your partner’s directions to find the secret destination.'}</p></div><div className="map-badges"><span>⏱ {Math.floor(Math.max(0, Math.ceil((progress.endsAt - progress.serverNow) / 1000)) / 60).toString().padStart(2, '0')}:{(Math.max(0, Math.ceil((progress.endsAt - progress.serverNow) / 1000)) % 60).toString().padStart(2, '0')}</span><span>📍 {view.distanceRemaining} steps</span></div></header>
-    <div className="map-stats"><span>Moves <strong>{view.moves}</strong></span><span>Wrong turns <strong>{view.wrongTurns}</strong></span><span>Target language <strong>{view.language}</strong></span></div>
-    <div className="map-layout"><div><div className="city-map" role="grid" aria-label="Sunnyville city map" style={{ gridTemplateColumns: `repeat(${mapNavigatorGrid.columns}, minmax(0, 1fr))` }}>{Array.from({ length: mapNavigatorGrid.rows * mapNavigatorGrid.columns }, (_, index) => { const row = Math.floor(index / mapNavigatorGrid.columns); const column = index % mapNavigatorGrid.columns; const landmark = view.landmarks.find(item => item.row === row && item.column === column); const here = view.position.row === row && view.position.column === column; const goal = view.goal?.row === row && view.goal.column === column; const route = view.route?.some(point => point.row === row && point.column === column); return <div className={'map-cell ' + (landmark ? 'landmark' : '') + (here ? 'here' : '') + (goal ? 'goal' : '') + (route ? 'route' : '')} role="gridcell" key={index} aria-label={`${landmark?.name ?? 'Street'}, row ${row + 1}, column ${column + 1}`}>{here ? '🧭' : goal ? '⭐' : landmark?.emoji ?? '·'}{landmark && <small>{landmark.name}</small>}</div> })}</div><p className="map-feedback" role="status">{feedback || (view.role === 'navigator' ? 'Give a direction in the target language, then watch the route.' : 'Your partner is ready with a route clue.')}</p></div>
-      <aside className="map-side"><div className="tip"><strong>💬 Communication tip</strong><p>Don’t guess. Ask “Where are you now?” or “Can you repeat that?”</p></div><h3>Conversation prompts</h3>{view.prompts.map(prompt => <div className="prompt" key={prompt.english}><span>{prompt.translated}</span><PronunciationButton text={prompt.translated} language={view.language} label={'Pronounce ' + prompt.translated} /></div>)}<h3>Vocabulary</h3><div className="vocab">{view.vocabulary.map(word => <div key={word.english}><span>{word.translated}</span><PronunciationButton text={word.translated} language={view.language} label={'Pronounce ' + word.translated} /></div>)}</div></aside></div>
-    {view.role === 'traveler' && <div className="direction-controls"><button disabled={disabled} onClick={() => send({ type: 'move', direction: 'up' })}>↑<span>North</span></button><button disabled={disabled} onClick={() => send({ type: 'move', direction: 'left' })}>←<span>West</span></button><button disabled={disabled} onClick={() => send({ type: 'move', direction: 'down' })}>↓<span>South</span></button><button disabled={disabled} onClick={() => send({ type: 'move', direction: 'right' })}>→<span>East</span></button></div>}
-    <div className="map-actions"><button disabled={disabled || !view.canReset} onClick={() => send({ type: 'reset' })}>New Route</button>{view.role === 'traveler' && <button className="secondary" disabled={disabled} onClick={() => send({ type: 'finish' })}>Finish Route</button>}</div>
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [disabled, navigator, send])
+
+  const feedback = view.feedback === 'wrong' ? 'Check in with your navigator.' :
+    view.feedback === 'blocked' ? 'You’re at the edge of the map.' :
+    view.feedback === 'checkpoint' ? 'Checkpoint reached!' : ''
+
+  return <section className="map-game">
+    <header className="map-header">
+      <div>
+        <small>Sunnyville</small>
+        <h3>{navigator ? 'Navigator' : 'Traveler'}</h3>
+        <p>{navigator ? 'Guide your partner along the marked route in ' + view.language + '.'
+          : 'Follow your navigator’s directions. Ask what you should look for next.'}</p>
+      </div>
+      <b>{view.checkpoints}/2 checkpoints</b>
+    </header>
+    <div className="city-map" role="grid" aria-label="Sunnyville city map">
+      {Array.from({ length: mapNavigatorGrid.rows }, (_, row) => <div className="city-row" key={row} role="row">
+        {Array.from({ length: mapNavigatorGrid.columns }, (_, column) => {
+          const at = (point?: { row: number; column: number }) => point?.row === row && point.column === column
+          const landmark = view.landmarks.find(at)
+          const here = at(view.position)
+          const goal = at(view.goal)
+          const route = view.route?.some(at)
+          const checkpoint = view.waypoints?.findIndex(at) ?? -1
+          return <div key={column} role="gridcell" className="map-cell" data-route={route} data-here={here} data-landmark={!!landmark}
+            aria-label={[here && 'Traveler', goal && 'Destination', checkpoint >= 0 && 'Checkpoint ' + (checkpoint + 1),
+              landmark?.name ?? 'Street', 'row ' + (row + 1) + ', column ' + (column + 1)].filter(Boolean).join(', ')}>
+            {landmark && <><span className="map-landmark-icon" aria-hidden="true">{landmark.emoji}</span><small>{landmark.name}</small></>}
+            {checkpoint >= 0 && <b className="map-marker">{checkpoint + 1}</b>}
+            {goal && <b className="map-marker map-destination" aria-hidden="true">★</b>}
+            {here && <b className="map-traveler" aria-hidden="true">●</b>}
+          </div>
+        })}
+      </div>)}
+    </div>
+    {!navigator && <div className="direction-controls" aria-label="Move traveler">
+      {directions.map(([direction, arrow, label]) => <button key={direction} disabled={disabled}
+        onClick={() => send({ type: 'move', direction })}><strong aria-hidden="true">{arrow}</strong><span>{label}</span></button>)}
+    </div>}
+    <p className="map-feedback" role="status">{feedback || view.moves + (view.moves === 1 ? ' move' : ' moves')}</p>
+    <details className="map-phrasebook">
+      <summary>{view.language} phrasebook</summary>
+      <div className="map-phrases" lang={languageTags[view.language]}>
+        {view.prompts.map(prompt => <div key={prompt.english}>
+          <span>{prompt.translated}</span>
+          <PronunciationButton text={prompt.translated} language={view.language} label={'Pronounce ' + prompt.translated} />
+        </div>)}
+      </div>
+    </details>
   </section>
+}
+
+export function MapNavigatorResultsView({ result }: { result: GameResults }) {
+  const map = result as MapNavigatorResults
+  return <>
+    <h3 className="game-outcome">{result.outcome === 'victory' ? 'Destination reached' : 'Time’s up'}</h3>
+    <p>{result.players.join(' & ')}</p>
+    <dl className="game-results">
+      <div><dt>Moves</dt><dd>{map.moves}</dd></div>
+      <div><dt>Wrong turns</dt><dd>{map.wrongTurns}</dd></div>
+      <div><dt>Final score</dt><dd>{map.score}</dd></div>
+    </dl>
+  </>
 }

@@ -126,6 +126,27 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await button(host, 'Join Voice').click()
     await button(guest, 'Join Voice').click()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    if (process.env.IDLE_TEST_MAP === 'true') {
+      await host.getByLabel('Minigame').selectOption('map-navigator')
+      await guest.getByRole('heading', { name: 'Map Navigator' }).waitFor()
+      await button(host, 'Start Game').click()
+      await guest.getByRole('grid', { name: 'Sunnyville city map' }).waitFor()
+      assert.equal(await guest.getByRole('gridcell').count(), 49)
+      assert.equal(await guest.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 0)
+      assert.equal(await host.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 3)
+      assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
+      for (const [index, direction] of ['South', 'South', 'East', 'East', 'South', 'South', 'East', 'East'].entries()) {
+        await button(guest, direction).tap()
+        if (index === 1 || index === 5) await guest.getByText((index === 1 ? '1' : '2') + '/2 checkpoints').waitFor()
+        else if (index < 7) await guest.getByText((index + 1) + (index === 0 ? ' move' : ' moves'), { exact: true }).waitFor()
+      }
+      for (const page of [host, guest]) {
+        await page.getByRole('heading', { name: 'Destination reached' }).waitFor()
+        assert.equal(await page.locator('.results-confetti i').count(), 32)
+        await assertVoice(page)
+      }
+      return
+    }
     if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
       for (const page of [host, guest]) {
         await button(page, 'Play partner audio').click()
@@ -300,7 +321,10 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_TANDEM === 'true') {
+  if (process.env.IDLE_TEST_MAP === 'true') {
+    await run(browser, true)
+    console.log('Passed Map Navigator at 320px: private route, touch directions, both checkpoints, results, confetti and voice.')
+  } else if (process.env.IDLE_TEST_TANDEM === 'true') {
     await run(browser, true, false, true)
     console.log('Passed Tandem Drive private views, cadence-only gate control, synchronized held controls, pedal release and active voice.')
   } else {
