@@ -22,10 +22,27 @@ import './style.css'
 
 type Page = 'home' | 'friends' | 'profile' | 'leaderboard' | 'vocabulary'
 
+const logos = [
+  '/lostintranslation.png',
+  '/lostintranslationspanish.png',
+  '/lostintranslationfrench.png',
+  '/lostintranslationportuguese.png',
+  '/lostintranslationkorean.png',
+  '/lostintranslationjapanese.png',
+  '/lostintranslationitalian.png',
+  '/lostintranslationgerman.png',
+  '/lostintranslationchinese.png',
+  '/lostintranslationrussian.png',
+]
+
 function Logo() {
-  const logos = ['/lostintranslation.png', '/lostintranslationspanish.png', '/lostintranslationfrench.png']
   const [current, setCurrent] = useState(() => Math.floor(Math.random() * logos.length))
   const [previous, setPrevious] = useState<number | null>(null)
+
+  useEffect(() => {
+    const next = new Image()
+    next.src = logos[(current + 1) % logos.length]
+  }, [current])
 
   useEffect(() => {
     if (previous === null) return
@@ -237,13 +254,13 @@ function App() {
       {notice && <p className="notice" role="status">{translateSessionMessage(interfaceLanguage, notice)}</p>}
       {user === undefined && <p>Loading…</p>}
       {user === null && <>
-        <section className="sign-in-intro"><Logo /><p>Language practice game.</p></section>
+        <section className="sign-in-intro"><Logo /></section>
+        <Account />
         {devGuest && <button disabled={joining} onClick={() => {
           setJoining(true)
           void signInAnonymously(auth).then(() => navigate('home'))
             .catch(error => setNotice(errorText(error))).finally(() => setJoining(false))
         }}>Quick test guest</button>}
-        <Account />
       </>}
       {user && profileError && <section className="panel stack">
         <p className="error" role="alert">{translateSessionMessage(interfaceLanguage, profileError)}</p>

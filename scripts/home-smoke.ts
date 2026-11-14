@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { codenamesConfig } from '../shared/minigames/codenames'
 
 const browser = await chromium.launch({ executablePath: process.env.IDLE_CHROMIUM_PATH })
 try {
@@ -17,21 +18,30 @@ try {
   await page.waitForTimeout(700)
   const first = await logo.locator('img[alt="Lost in Translation"]').getAttribute('src')
   const seen = new Set([first])
-  for (let index = 0; index < 2; index++) {
+  for (let index = 0; index < 9; index++) {
     await logo.click()
     seen.add(await logo.locator('img[alt="Lost in Translation"]').getAttribute('src'))
     assert.equal(await logo.locator('img.game-logo-previous').count(), 1)
     assert.equal(await logo.locator('img.game-logo-next').evaluate(element => getComputedStyle(element).animationName), 'logo-fade-in')
+    await logo.locator('img[alt="Lost in Translation"]').evaluate(async image => {
+      if (!(image instanceof HTMLImageElement)) throw new Error('Logo image is missing')
+      await image.decode()
+    })
     await page.waitForTimeout(700)
   }
-  assert.deepEqual(seen, new Set(['/lostintranslation.png', '/lostintranslationspanish.png', '/lostintranslationfrench.png']))
+  assert.deepEqual(seen, new Set([
+    '/lostintranslation.png', '/lostintranslationspanish.png', '/lostintranslationfrench.png',
+    '/lostintranslationportuguese.png', '/lostintranslationkorean.png', '/lostintranslationjapanese.png',
+    '/lostintranslationitalian.png', '/lostintranslationgerman.png', '/lostintranslationchinese.png',
+    '/lostintranslationrussian.png',
+  ]))
   await logo.click()
   assert.equal(await logo.locator('img[alt="Lost in Translation"]').getAttribute('src'), first)
   await page.getByRole('button', { name: 'Open leaderboard' }).click()
   await page.getByRole('heading', { name: 'Leaderboard', exact: true }).waitFor()
   await page.getByText('Overall scores', { exact: true }).waitFor()
-  await page.getByRole('button', { name: 'Codenames' }).click()
-  await page.getByText('Codenames high scores').waitFor()
+  await page.getByRole('button', { name: codenamesConfig.name }).click()
+  await page.getByText(`${codenamesConfig.name} high scores`).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390)
   console.log('Home logo and leaderboard emulator check passed.')
 } finally {
