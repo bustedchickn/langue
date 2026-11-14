@@ -6,6 +6,8 @@ Lost in Translation is a browser-based language practice game for two players. I
 
 Use Node.js 24.12 or newer and Java 21 for the Firebase emulators.
 
+If `node` is not recognized in VS Code, install the current Node.js LTS release from [nodejs.org](https://nodejs.org/), then close and reopen VS Code. Verify the installation with `node --version` and `npm --version` before running the commands below.
+
 ```powershell
 npm ci
 Copy-Item .env.example .env
@@ -17,6 +19,12 @@ In another terminal:
 ```powershell
 npm run dev
 ```
+
+## Run in VS Code
+
+Open this folder in VS Code, then run **Terminal → Run Task → Install dependencies** once. After that, run **Terminal → Run Task → Start language game** and open [http://localhost:5173](http://localhost:5173).
+
+The workspace uses Command Prompt for its integrated terminal so Windows PowerShell execution-policy settings do not block npm. You can also run `npm.cmd run dev` manually from the project folder.
 
 Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. You can also join from Play using a room code or invitation link. Each player selects **Join Voice** to start audio.
 

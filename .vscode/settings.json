@@ -1,0 +1,8 @@
+{
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
+}

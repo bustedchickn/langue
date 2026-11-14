@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install dependencies",
+      "type": "shell",
+      "command": "npm.cmd ci",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start language game",
+      "type": "shell",
+      "command": "npm.cmd run dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false
+      }
+    },
+    {
+      "label": "Build language game",
+      "type": "shell",
+      "command": "npm.cmd run build",
+      "problemMatcher": "$tsc"
+    }
+  ]
+}
