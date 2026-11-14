@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef, type PointerEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
 import { mapNavigatorGrid, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction } from '../../../shared/minigames/map-navigator'
 import './map.css'
@@ -13,6 +13,31 @@ export function MapNavigatorView({ data, disabled, send }: {
 }) {
   const view = data as MapNavigatorView
   const navigator = view.role === 'navigator'
+  const hintId = useId()
+  const swipe = useRef<{ pointer: number; x: number; y: number } | undefined>(undefined)
+
+  useEffect(() => { swipe.current = undefined }, [disabled, navigator])
+
+  function startSwipe(event: PointerEvent<HTMLDivElement>) {
+    if (navigator || disabled || !event.isPrimary || event.button !== 0) return
+    swipe.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function finishSwipe(event: PointerEvent<HTMLDivElement>) {
+    const gesture = swipe.current
+    if (!gesture || gesture.pointer !== event.pointerId) return
+    swipe.current = undefined
+    if (navigator || disabled) return
+    const dx = event.clientX - gesture.x
+    const dy = event.clientY - gesture.y
+    const horizontal = Math.abs(dx)
+    const vertical = Math.abs(dy)
+    // One deliberate swipe moves one tile. Taps and ambiguous diagonal drags
+    // should not send a move or spend a wrong-turn penalty.
+    if (Math.max(horizontal, vertical) < 28 || Math.max(horizontal, vertical) < Math.min(horizontal, vertical) * 1.2) return
+    send({ type: 'move', direction: horizontal > vertical ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up') })
+  }
 
   useEffect(() => {
     if (navigator || disabled) return
@@ -37,12 +62,14 @@ export function MapNavigatorView({ data, disabled, send }: {
       <div>
         <small>Sunnyville</small>
         <h3>{navigator ? 'Navigator' : 'Traveler'}</h3>
-        <p>{navigator ? 'Guide your partner along the marked route in ' + view.language + '.'
-          : 'Follow your navigator’s directions. Ask what you should look for next.'}</p>
+        <p>{navigator ? 'You see the outlined route, numbered checkpoints, and destination star. Give one direction at a time in ' + view.language + '.'
+          : 'Only your navigator can see the route. Ask for directions and visit both checkpoints in order before the destination.'}</p>
       </div>
       <b>{view.checkpoints}/2 checkpoints</b>
     </header>
-    <div className="city-map" role="grid" aria-label="Sunnyville city map">
+    <div className="city-map" role="grid" aria-label="Sunnyville city map" aria-describedby={hintId} tabIndex={0}
+      data-swipe-enabled={!navigator && !disabled} onPointerDown={startSwipe} onPointerUp={finishSwipe}
+      onPointerCancel={() => { swipe.current = undefined }} onLostPointerCapture={() => { swipe.current = undefined }}>
       {Array.from({ length: mapNavigatorGrid.rows }, (_, row) => <div className="city-row" key={row} role="row">
         {Array.from({ length: mapNavigatorGrid.columns }, (_, column) => {
           const at = (point?: { row: number; column: number }) => point?.row === row && point.column === column
@@ -62,6 +89,9 @@ export function MapNavigatorView({ data, disabled, send }: {
         })}
       </div>)}
     </div>
+    <p id={hintId} className="map-control-hint">{navigator
+      ? 'Follow the outlined tiles through checkpoint 1, then checkpoint 2, and finish at the star. North is up on both maps.'
+      : 'Swipe on the map, press an arrow key, or use the direction buttons. Each swipe moves one tile: up is North, down is South, left is West, and right is East.'}</p>
     {!navigator && <div className="direction-controls" aria-label="Move traveler">
       {directions.map(([direction, arrow, label]) => <button key={direction} disabled={disabled}
         onClick={() => send({ type: 'move', direction })}><strong aria-hidden="true">{arrow}</strong><span>{label}</span></button>)}

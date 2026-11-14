@@ -14,9 +14,10 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
     : view.feedback === 'incorrect' ? 'Incorrect. −' + config.incorrectGuessPenaltyMs / 1000 + ' seconds.' : ''
   return <>
     <p><strong>{view.role === 'selector' ? 'Selector' : 'Describer'}</strong> · Practice {view.language}</p>
+    <p className="muted">{progress.round === 1 ? 'First round: 20 seconds' : 'This round: 10 seconds'} after the icon appears. A wrong choice removes 2 seconds.</p>
     <p role="status">{feedback}</p>
     {view.role === 'selector' ? <>
-      <p>{view.revealed ? 'Select the icon your partner describes.' : 'Wait for your partner’s icon to appear.'}</p>
+      <p>{view.revealed ? 'Listen to your partner or read their clue in chat, then click or tap the matching icon. You can try again after a wrong choice.' : 'Wait for your partner’s icon to appear. Only your partner will see which of these nine icons is the target.'}</p>
       <div className="icon-grid" style={{ gridTemplateColumns: 'repeat(' + config.gridColumns + ', minmax(0, 1fr))' }}>
         {view.grid.map(icon => <button type="button" className="secondary icon-tile" key={icon}
           aria-label={gameIcons.get(icon)?.name} data-icon={icon}
@@ -34,7 +35,7 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
         </button>)}
       </div>
     </> : view.target ? <>
-      <p>Describe this icon in {view.language} using voice or chat.</p>
+      <p>Describe this icon in {view.language} using voice or chat. Explain its appearance or use so your partner can pick it from nine icons.</p>
       <img className="icon-target" src={gameIcons.get(view.target)?.assetPath} alt={gameIcons.get(view.target)?.name} />
     </> : <p className="icon-wait">Get ready! Your next icon is coming…</p>}
   </>
@@ -43,7 +44,7 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
 export function IconCommunicationResults({ result }: { result: GameResults; seat: Seat }) {
   const icons = result as IconResults
   return <>
-    <h3 className="game-outcome">Time’s up</h3>
+    <h3 className="game-outcome">{result.outcome === 'victory' ? 'All ten icons found!' : 'Time’s up'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
       <div><dt>Icons identified</dt><dd>{result.completed}</dd></div>

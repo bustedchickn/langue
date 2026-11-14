@@ -1,6 +1,6 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress } from '../../../shared/minigames/contracts'
-import { lostInstructions, type LostAction, type LostView, type Piece } from '../../../shared/minigames/lost-instructions'
+import { lostInstructions, shapeColors, type LostAction, type LostView, type Piece } from '../../../shared/minigames/lost-instructions'
 import { languageTags } from '../../../shared/types'
 import { PronunciationButton } from '../../pronunciation/PronunciationButton'
 import './board.css'
@@ -9,13 +9,18 @@ const assets: Record<string, { className?: string; src?: string }> = {
   'shape-circle': { className: 'lost-circle' },
   'shape-square': { className: 'lost-square' },
   'shape-triangle': { className: 'lost-triangle' },
+  'shape-rectangle': { className: 'lost-rectangle' },
+  'shape-star': { className: 'lost-star' },
+  'shape-diamond': { className: 'lost-diamond' },
+  'shape-hexagon': { className: 'lost-hexagon' },
+  'shape-oval': { className: 'lost-oval' },
 }
 
 function Shape({ piece }: { piece: Piece }) {
   const asset = assets[lostInstructions.assets[piece.shape]]
   return asset.src
     ? <img className="lost-shape" src={asset.src} alt="" draggable={false} />
-    : <span aria-hidden="true" className={'lost-shape ' + asset.className} data-color={piece.color} />
+    : <span aria-hidden="true" className={'lost-shape ' + asset.className} data-color={piece.color} style={{ backgroundColor: shapeColors[piece.color] }} />
 }
 
 function Operator({ view, send, disabled }: {
@@ -69,11 +74,12 @@ function Operator({ view, send, disabled }: {
   }
 
   return <>
-    <p>Drag a shape to swap positions, or tap a shape and then its destination.</p>
+    <p>Match both the color and shape your partner names. Drag a piece onto another to swap them, or tap one piece and then the piece to swap with it. Select Check arrangement when all three positions match the clue.</p>
     <div className="lost-board" aria-label="Puzzle board" ref={board} style={{ gridTemplateColumns: 'repeat(' + pieces.length + ', minmax(0, 1fr))' }}>
       {pieces.map((piece, slot) => {
         const position = pieces.length === 3 ? ['Left', 'Middle', 'Right'][slot] : 'Slot ' + (slot + 1)
         return <button key={slot} type="button" className="lost-slot secondary" data-lost-slot={slot}
+          data-piece={piece.id} data-shape={piece.shape} data-color={piece.color}
           data-dragging={dragging === piece.id || undefined}
           aria-label={position + ': ' + piece.color + ' ' + piece.shape} aria-pressed={selected === piece.id}
           disabled={disabled} onPointerDown={event => pointerDown(event, piece.id)} onPointerMove={pointerMove}
@@ -85,6 +91,7 @@ function Operator({ view, send, disabled }: {
           }}>
           <span key={piece.id + ':' + view.revision} className="lost-piece"><Shape piece={piece} /></span>
           <span>{position}</span>
+          <small className="lost-piece-label">{piece.color} {piece.shape}</small>
         </button>
       })}
     </div>
@@ -98,7 +105,7 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
 }) {
   const view = data as LostView
   if (view.role === 'instructor') return <>
-    <p>Instructor · Relay the clue to your partner by voice or chat.</p>
+    <p>Instructor · Only you can see the solution. Tell your partner the color, shape, and position of each piece, from left to right. Read the clue aloud or send it in chat.</p>
     {view.instruction ? <div className="card slot">
       <strong>Your private instruction</strong>
       <div className="lost-spoken-text">
@@ -113,7 +120,7 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
     </div> : <p>Get ready to give instructions.</p>}
   </>
   return <>
-    <p>Operator · Ask your partner where each shape goes.</p>
+    <p>Operator · Only you can move the pieces. Ask your partner where each one belongs. Shapes and colors may repeat, so identify each piece by both its shape and color.</p>
     <Operator key={progress.matchId + ':' + progress.round} view={view} disabled={disabled}
       send={action => send({ ...action, round: progress.round, revision: view.revision })} />
   </>

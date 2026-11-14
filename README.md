@@ -1,6 +1,6 @@
 # Lost in Translation
 
-Lost in Translation is a browser-based language practice game for two players. Its first minigame, Lost Instructions, gives the host clues in their learning language and gives the partner a shape puzzle to solve together. The React client uses Firebase Authentication for accounts and Firestore listeners for friends and invitations. An authenticated Colyseus server manages rooms, private instructions, text chat, and WebRTC signaling.
+Lost in Translation is a browser-based language practice game for two players. Its first minigame, In Good Shape, gives the host clues in their learning language and gives the partner a shape puzzle to solve together. Boards draw from eight shapes and eight colors; shapes and colors may repeat, but each pair on the board is unique. The React client uses Firebase Authentication for accounts and Firestore listeners for friends and invitations. An authenticated Colyseus server manages rooms, private instructions, text chat, and WebRTC signaling.
 
 ## Run locally
 

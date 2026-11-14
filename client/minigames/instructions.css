@@ -1,0 +1,12 @@
+.game-instructions { border: 1px solid #d4c5e4; border-radius: .75rem; background: #f9f4ff; min-width: 0; }
+.game-instructions summary { padding: .7rem .85rem; min-height: 44px; cursor: pointer; font-weight: 700; }
+.game-instructions summary:focus-visible { outline: 2px solid #6946a5; outline-offset: 2px; border-radius: .65rem; }
+.game-instructions-content { padding: 0 .85rem .85rem; font-size: .95rem; overflow-wrap: anywhere; }
+.game-instructions-content p { margin-bottom: .55rem; }
+.game-instructions-content :is(ol, ul) { margin: .4rem 0 .85rem; padding-left: 1.3rem; }
+.game-instructions-content ol { list-style: decimal; }
+.game-instructions-content ul { list-style: disc; }
+.game-instructions-content li + li { margin-top: .5rem; }
+.game-instructions-content .game-instructions-role { margin-top: .75rem; }
+.game-instructions-content .game-instructions-rules-title { margin-top: .85rem; }
+.game-instructions-content > :last-child { margin-bottom: 0; }

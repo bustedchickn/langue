@@ -1,8 +1,7 @@
-import { randomInt } from 'node:crypto'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 import type { GamePlayers, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { lostInstructions, type LostView } from '../../../shared/minigames/lost-instructions'
-import { puzzles, type Puzzle } from './puzzles'
+import { generatePuzzles, type Puzzle } from './puzzles'
 import type { Language } from '../../../shared/types'
 
 export function translate(text: Puzzle['instructions'], language: string, warn: (message: string) => void): { text: string; language: Language } {
@@ -12,12 +11,6 @@ export function translate(text: Puzzle['instructions'], language: string, warn: 
   }
   warn('Missing Lost Instructions translation for ' + language + '; using English.')
   return { text: text.English, language: 'English' }
-}
-
-export function selectPuzzles(pool: readonly Puzzle[], count: number, pick = randomInt) {
-  if (!Number.isInteger(count) || count < 1 || count > pool.length) throw new Error('Invalid round count.')
-  const remaining = [...pool]
-  return Array.from({ length: count }, () => remaining.splice(pick(remaining.length), 1)[0])
 }
 
 export function startLostInstructions(
@@ -120,7 +113,7 @@ export function startLostInstructions(
 export const lostInstructionsServer: ServerMinigame = {
   config: lostInstructions,
   start: (matchId, players, now, log) => startLostInstructions(
-    matchId, players, now, selectPuzzles(puzzles, lostInstructions.rounds), lostInstructions, log,
+    matchId, players, now, generatePuzzles(lostInstructions.rounds), lostInstructions, log,
     message => { if (process.env.NODE_ENV !== 'production') console.warn(message) },
   ),
 }

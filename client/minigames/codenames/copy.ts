@@ -1,8 +1,8 @@
 export const codenamesCopy = {
   English: {
     clueGiver: 'Clue giver', guesser: 'Guesser', practice: 'Practice',
-    giverHelp: 'Give a one-word clue for the lavender cards. Avoid saying a word on the board.',
-    guesserHelp: 'Listen for a clue, then find the matching words. Avoid the dark card!',
+    giverHelp: 'Only you see the purple team cards. Enter one clue word and the number of team words it connects, then select Give clue. Do not use a word from the board. Wait until your partner finishes or passes before giving another clue.',
+    guesserHelp: 'Use the clue word and its number to choose related cards, one at a time. Purple cards score points; a neutral card ends your turn; the black card ends the game. Use the i button for definitions, or pass if you are unsure.',
     sudden: 'Sudden death — find the remaining words. Any wrong guess ends the game.',
     turns: (n: number) => `${n} ${n === 1 ? 'turn' : 'turns'} left`,
     legend: '🟣 Team   ◻️ Neutral   ⬛ Assassin', clue: 'Clue',
@@ -19,8 +19,8 @@ export const codenamesCopy = {
   },
   French: {
     clueGiver: 'Donneur d’indices', guesser: 'Enquêteur', practice: 'Langue pratiquée',
-    giverHelp: 'Donnez un indice en un mot pour les cartes violettes. Ne dites pas un mot du plateau.',
-    guesserHelp: 'Écoutez l’indice, puis trouvez les mots correspondants. Évitez la carte sombre !',
+    giverHelp: 'Vous seul voyez les cartes violettes de l’équipe. Saisissez un indice en un mot et le nombre de mots associés, puis sélectionnez Donner l’indice. N’utilisez pas un mot du plateau. Attendez la fin du tour de votre partenaire avant de donner un nouvel indice.',
+    guesserHelp: 'Utilisez l’indice et son nombre pour choisir les cartes associées, une à la fois. Une carte violette rapporte un point ; une carte neutre termine le tour ; la carte noire termine la partie. Le bouton i donne une définition. En cas de doute, terminez les essais.',
     sudden: 'Mort subite : trouvez les mots restants. Une erreur met fin à la partie.',
     turns: (n: number) => `${n} ${n === 1 ? 'tour restant' : 'tours restants'}`,
     legend: '🟣 Équipe   ◻️ Neutre   ⬛ Assassin', clue: 'Indice',
@@ -37,8 +37,8 @@ export const codenamesCopy = {
   },
   Spanish: {
     clueGiver: 'Quien da pistas', guesser: 'Quien adivina', practice: 'Idioma de práctica',
-    giverHelp: 'Da una pista de una palabra para las cartas violetas. No digas una palabra del tablero.',
-    guesserHelp: 'Escucha la pista y encuentra las palabras correspondientes. ¡Evita la carta oscura!',
+    giverHelp: 'Solo tú ves las cartas violetas del equipo. Escribe una pista de una palabra y el número de palabras relacionadas, y selecciona Dar pista. No uses una palabra del tablero. Espera a que tu compañero termine sus intentos antes de dar otra pista.',
+    guesserHelp: 'Usa la pista y su número para elegir cartas relacionadas, una por una. Una carta violeta suma un punto; una carta neutral termina el turno; la carta negra termina la partida. Usa el botón i para leer una definición o termina los intentos si tienes dudas.',
     sudden: 'Muerte súbita: encuentra las palabras restantes. Un error termina la partida.',
     turns: (n: number) => `${n} ${n === 1 ? 'turno restante' : 'turnos restantes'}`,
     legend: '🟣 Equipo   ◻️ Neutral   ⬛ Asesino', clue: 'Pista',

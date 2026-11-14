@@ -13,6 +13,7 @@ export const iconCommunicationConfig = {
   gridColumns: 3,
   minimumRevealDelayMs: 1000,
   maximumRevealDelayMs: 3000,
+  firstRoundDurationMs: 20000,
   roundDurationMs: 10000,
   incorrectGuessPenaltyMs: 2000,
   scoring: { pointsPerCorrectGuess: 1 },
@@ -22,7 +23,7 @@ export const iconCommunicationConfig = {
   assets: {},
 } satisfies GameConfig & {
   gridRows: number; gridColumns: number
-  minimumRevealDelayMs: number; maximumRevealDelayMs: number; roundDurationMs: number
+  minimumRevealDelayMs: number; maximumRevealDelayMs: number; firstRoundDurationMs: number; roundDurationMs: number
   incorrectGuessPenaltyMs: number; allowRepeatedGuesses: boolean; randomizeGridEachRound: boolean
 }
 

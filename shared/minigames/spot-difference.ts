@@ -3,7 +3,7 @@ import type { GameConfig, GameResults } from './contracts'
 
 export const spotDifferenceConfig = {
   id: 'spot-difference', name: 'Spot the Difference',
-  description: 'Compare two scenes, talk about what you see, and find five differences together.',
+  description: 'Describe your private scenes and find the three differences among five objects before time runs out.',
   minPlayers: 2, maxPlayers: 2, durationMs: 120_000, countdownMs: 3_000,
   scoring: { pointsPerDifference: 20, wrongGuessPenalty: 2 }, supportedLanguages: languages, assets: {},
 } satisfies GameConfig

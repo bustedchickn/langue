@@ -10,6 +10,7 @@ import { languageTags } from '../shared/types'
 import { Avatar, flags } from './PlayerIdentity'
 import { MicrophoneTest } from './MicrophoneTest'
 import { codenamesCopy } from './minigames/codenames/copy'
+import { GameInstructions } from './minigames/instructions'
 import { playEffect } from './sounds'
 
 const prompts = {
@@ -159,10 +160,12 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
             </select>
           </label>}
           {game && <div><h2>{game.name}</h2><p className="muted">{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p></div>}
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} />}
           {readyButton('I’m ready!')}
         </>}
         {phase === 'introduction' && <>
           {partner && <Partner player={partner} />}
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} />}
           <MicrophoneTest />
           {language && <section className="prompt-card">
             <h2>Say hello!</h2>
@@ -173,6 +176,8 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         {phase === 'game' && <>
           {partner && <p className="muted">Playing with @{partner.username}</p>}
           {game && <p>{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p>}
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} compact
+            role={(view?.data as { role?: string } | undefined)?.role} />}
           {session?.progress && <ActiveGame progress={session.progress} view={view} ready={connected} fluentLanguage={fluentLanguage}
             send={payload => room?.send('game-action', payload)} />}
         </>}

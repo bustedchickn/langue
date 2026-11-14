@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
-import { puzzles } from '../server/minigames/lost-instructions/puzzles'
-import type { Piece } from '../shared/minigames/lost-instructions'
+import { pieceName, type Piece } from '../shared/minigames/lost-instructions'
 import { wordCards } from '../shared/minigames/codenames'
 
 const url = process.env.IDLE_BROWSER_URL ?? 'http://localhost:5173'
 const tag = Date.now().toString(36)
+let playerSerial = 0
+const focusedGameTests = ['IDLE_TEST_GAME_UPDATES', 'IDLE_TEST_MAP', 'IDLE_TEST_VOICE', 'IDLE_TEST_CODENAMES',
+  'IDLE_TEST_SPOT', 'IDLE_TEST_TANDEM', 'IDLE_TEST_SOUND'].some(key => process.env[key] === 'true')
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const slots = (page: Page) => page.locator('[data-lost-slot]')
 const positions = ['Left', 'Middle', 'Right']
 const label = (slot: number, piece: Piece) => positions[slot] + ': ' + piece.color + ' ' + piece.shape
 
 async function player(browser: Browser, name: string, touch: boolean) {
+  const playerTag = tag + (playerSerial++).toString(36)
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: touch })
   await context.addInitScript({ content: `
     (() => {
@@ -110,10 +113,10 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await page.goto(url)
   // Email accounts follow the same setup with or without VITE_QUICK_GUEST.
   await button(page, 'Create an account').click()
-  await page.getByLabel('Email', { exact: true }).fill(name.toLowerCase() + tag + '@example.test')
+  await page.getByLabel('Email', { exact: true }).fill(name.toLowerCase() + playerTag + '@example.test')
   await page.getByLabel('Password', { exact: true }).fill('browser-test-12345')
   await button(page, 'Create account').click()
-  await page.getByLabel('Username').fill(name + tag)
+  await page.getByLabel('Username').fill(name + playerTag)
   await page.getByLabel('Display name').fill(name)
   if (name === 'Bob' || name === 'Remy' || name === 'IconGuest' || name === 'TapGuest') {
     await page.getByLabel('Fluent language').selectOption('French')
@@ -124,7 +127,7 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Play').click()
   await button(page, 'Save language assessment').click()
   await button(page, 'Play').waitFor()
-  if ((name === 'Alice' || name === 'Lina') && process.env.IDLE_TEST_VOICE !== 'true') {
+  if ((name === 'Alice' || name === 'Lina') && !focusedGameTests) {
     const picker = page.getByRole('combobox', { name: /Learning/ })
     await picker.focus()
     await picker.press('ArrowDown')
@@ -344,13 +347,48 @@ async function startGame(host: Page, guest: Page) {
   await agree(host, guest, 'I’m ready to play!')
 }
 
+async function swipeMap(page: Page, dx: number, dy: number, cancel = false) {
+  const map = page.getByRole('grid', { name: 'Sunnyville city map' })
+  await map.scrollIntoViewIfNeeded()
+  const bounds = (await map.boundingBox())!
+  const start = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+  const protocol = await page.context().newCDPSession(page)
+  try {
+    await protocol.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
+    await protocol.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + dx, y: start.y + dy }] })
+    await protocol.send('Input.dispatchTouchEvent', { type: cancel ? 'touchCancel' : 'touchEnd', touchPoints: [] })
+  } finally { await protocol.detach() }
+}
+
+async function checkGameGuides(host: Page, guest: Page) {
+  const roles = [
+    ['lost-instructions', 'Instructor', 'Operator'], ['icon-communication', 'Selector', 'Describer'],
+    ['map-navigator', 'Navigator', 'Traveler'], ['tandem-drive', 'Optic · Navigation', 'Radar · Cadence'],
+    ['spot-difference', 'Player 1', 'Player 2'], ['codenames', 'Clue giver', 'Guesser'],
+  ]
+  for (const [id, hostRole, guestRole] of roles) {
+    await host.getByLabel('Minigame').selectOption(id)
+    await host.locator('.game-instructions-role strong').getByText(hostRole, { exact: true }).waitFor()
+    await guest.locator('.game-instructions-role strong').getByText(guestRole, { exact: true }).waitFor()
+    for (const page of [host, guest]) {
+      assert.equal(await page.locator('.game-instructions').getAttribute('open'), '')
+      assert.equal(await page.locator('.game-instructions ol li').count(), 3)
+      assert.equal(await page.locator('.game-instructions ul li').count(), 2)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
+    }
+  }
+  await host.getByLabel('Minigame').selectOption('lost-instructions')
+  await guest.locator('.game-instructions-role strong').getByText('Operator', { exact: true }).waitFor()
+  console.log('Passed clear role, goal, controls, and timing guides for all six games at 320px.')
+}
+
 async function run(browser: Browser, touch: boolean, icons = false, tandem = false) {
   const [host, guest] = await Promise.all([
     player(browser, icons ? (touch ? 'TapHost' : 'IconHost') : touch ? 'Lina' : 'Alice', touch),
     player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
   ])
   try {
-    if (!touch && !icons && !tandem && process.env.IDLE_TEST_VOICE !== 'true') {
+    if (!touch && !icons && !tandem && !focusedGameTests) {
       await host.setViewportSize({ width: 1280, height: 800 })
       assert.equal(await host.getByRole('navigation').count(), 0)
       await host.getByRole('img', { name: 'Lost in Translation', exact: true }).waitFor()
@@ -390,6 +428,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     }
     await button(guest, 'Play').click()
     await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
+    if (process.env.IDLE_TEST_GAME_UPDATES === 'true' && !touch && !icons) await checkGameGuides(host, guest)
     if (process.env.IDLE_TEST_SOUND === 'true') {
       await host.waitForFunction(() => (window as unknown as { soundEvents: { action: string; src: string; loop: boolean }[] }).soundEvents
         .some(event => event.action === 'play' && event.src.includes('connected2') && !event.loop))
@@ -459,10 +498,40 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       assert.equal(await guest.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 0)
       assert.equal(await host.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 3)
       assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
-      for (const [index, direction] of ['South', 'South', 'East', 'East', 'South', 'South', 'East', 'East'].entries()) {
-        await button(guest, direction).tap()
-        if (index === 1 || index === 5) await guest.getByText((index === 1 ? '1' : '2') + '/2 checkpoints').waitFor()
-        else if (index < 7) await guest.getByText((index + 1) + (index === 0 ? ' move' : ' moves'), { exact: true }).waitFor()
+      for (const page of [host, guest]) {
+        const backgrounds = await page.getByRole('gridcell').evaluateAll(cells => [...new Set(cells.map(cell => getComputedStyle(cell).backgroundColor))])
+        assert.equal(backgrounds.length, 1, 'All street, landmark, and route tiles must have the same background')
+      }
+      const current = await host.locator('.map-cell').evaluateAll(cells => {
+        const start = cells.findIndex(cell => cell.getAttribute('data-here') === 'true')
+        return { start, route: cells.flatMap((cell, index) => cell.getAttribute('data-route') === 'true' ? [index] : []) }
+      })
+      const distance = (index: number) => Math.abs(Math.floor(index / 7) - Math.floor(current.start / 7)) + Math.abs(index % 7 - current.start % 7)
+      const route = current.route.sort((a, b) => distance(a) - distance(b))
+      await guest.locator('.city-map[data-swipe-enabled=true]').waitFor()
+      await swipeMap(host, 50, 0)
+      await swipeMap(guest, 5, 0)
+      await swipeMap(guest, 50, 50)
+      await swipeMap(guest, 50, 0, true)
+      await guest.getByText('0 moves', { exact: true }).waitFor()
+      await guest.getByRole('gridcell').nth(current.start).getAttribute('data-here').then(value => assert.equal(value, 'true'))
+      const verticalNeighbor = current.start + (current.start < 7 ? 7 : -7)
+      const horizontalNeighbor = current.start + (current.start % 7 === 0 ? 1 : -1)
+      let from = current.start
+      for (const to of [verticalNeighbor, current.start, horizontalNeighbor, current.start]) {
+        await swipeMap(guest, Math.sign(to % 7 - from % 7) * 50, Math.sign(Math.floor(to / 7) - Math.floor(from / 7)) * 50)
+        await guest.waitForFunction(index => document.querySelectorAll('.map-cell')[index]?.getAttribute('data-here') === 'true', to)
+        from = to
+      }
+      for (let step = 1; step < route.length; step++) {
+        const dx = Math.sign(route[step] % 7 - route[step - 1] % 7)
+        const dy = Math.sign(Math.floor(route[step] / 7) - Math.floor(route[step - 1] / 7))
+        if (step === 2) await button(guest, dy > 0 ? 'South' : dy < 0 ? 'North' : dx > 0 ? 'East' : 'West').click()
+        else if (step === 3) await guest.keyboard.press(dy > 0 ? 'ArrowDown' : dy < 0 ? 'ArrowUp' : dx > 0 ? 'ArrowRight' : 'ArrowLeft')
+        else await swipeMap(guest, dx * 50, dy * 50)
+        if (step < route.length - 1) {
+          await guest.waitForFunction(index => document.querySelectorAll('.map-cell')[index]?.getAttribute('data-here') === 'true', route[step])
+        }
       }
       for (const page of [host, guest]) {
         await page.getByRole('heading', { name: 'Destination reached' }).waitFor()
@@ -511,6 +580,8 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       assert.equal(await host.locator('.icon-target').count(), 0)
       await host.getByText(/Time left/).waitFor()
       await guest.getByText(/Time left/).waitFor()
+      const firstSeconds = parseInt(await host.locator('.game-progress time').innerText())
+      assert.ok(firstSeconds >= 18 && firstSeconds <= 20, 'The first icon round has 20 seconds after reveal')
       const bounds = await grid.first().boundingBox()
       assert.ok(bounds && bounds.width >= 44 && bounds.height >= 44)
       assert.equal(await host.evaluate(() => document.documentElement.scrollWidth), 320)
@@ -540,12 +611,11 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         await page.getByRole('heading', { name: 'Time’s up' }).waitFor()
         assert.match(await page.locator('.game-results').innerText(), /Icons identified\s+1/)
         assert.match(await page.locator('.game-results').innerText(), /Final score\s+1/)
-        await page.getByRole('button', { name: /^Pronounce / }).first().waitFor()
         await assertVoice(page)
       }
       assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
       await agree(host, guest, 'Play Again')
-      await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
+      await guest.locator('.game-progress + p[role=status]').filter({ hasText: /\b0\b.*\b0\b/ }).waitFor()
       await Promise.all([assertVoice(host), assertVoice(guest)])
       return
     }
@@ -556,7 +626,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await Promise.all([assertVoice(host), assertVoice(guest)])
     assert.equal(await guest.getByText('Your private instruction').count(), 0)
     const speaker = button(host, 'Pronounce in French')
-    await host.getByText('Pronunciation is unavailable for French on this device.').waitFor()
+    await host.getByText('Pronunciation is unavailable for French on this device.').first().waitFor()
     await speaker.click()
     const calls = (page: Page) => page.evaluate(() =>
       (window as unknown as { pronunciationCalls: { text: string; lang: string; rate: number }[] }).pronunciationCalls)
@@ -591,8 +661,12 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       const bounds = await clue.boundingBox()
       assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 320)
       const text = await clue.textContent()
-      const current = puzzles.find(value => value.instructions.French === text)
-      assert.ok(current)
+      const objects = await slots(guest).evaluateAll(elements => elements.map(element => ({
+        id: (element as HTMLElement).dataset.piece!, shape: (element as HTMLElement).dataset.shape!, color: (element as HTMLElement).dataset.color!,
+      }))) as Piece[]
+      assert.ok(objects.every(piece => text!.includes(pieceName(piece, 'French'))))
+      const current = { objects, initial: objects.map(piece => piece.id),
+        solution: [...objects].sort((a, b) => text!.indexOf(pieceName(a, 'French')) - text!.indexOf(pieceName(b, 'French'))).map(piece => piece.id) }
       await guest.getByText(text!, { exact: true }).waitFor({ state: 'hidden' })
       const order = [...current.initial]
       for (const [to, piece] of current.solution.entries()) {
@@ -621,12 +695,14 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
     await agree(host, guest, 'Play Again')
-    await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
+    await guest.locator('.game-progress + p[role=status]').filter({ hasText: /\b0\b.*\b0\b/ }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
   } catch (error) {
     for (const page of [host, guest]) {
       console.error('Browser failure state:', await page.evaluate(() => ({
         text: document.body.innerText.slice(-2500),
+        focus: document.activeElement?.outerHTML.slice(0, 400),
+        mapHere: [...document.querySelectorAll('.map-cell')].findIndex(cell => cell.getAttribute('data-here') === 'true'),
         peers: (window as unknown as VoiceTestWindow).peers.map(peer => ({
           state: peer.connectionState, ice: peer.iceConnectionState, signaling: peer.signalingState,
         })),
@@ -644,7 +720,17 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_VOICE === 'true') {
+  if (process.env.IDLE_TEST_GAME_UPDATES === 'true') {
+    await run(browser, false)
+    console.log('Passed randomized shape prompts, mouse swaps, and scoring.')
+    await run(browser, true)
+    console.log('Passed randomized shape prompts and touch swaps.')
+    process.env.IDLE_TEST_MAP = 'true'
+    try { await run(browser, true) } finally { delete process.env.IDLE_TEST_MAP }
+    console.log('Passed map swipe, tap/cancel rejection, keyboard/buttons, uniform tile colors, private route, and checkpoints.')
+    await run(browser, true, true)
+    console.log('Passed the first Icon round with 20 seconds and later rounds with 10 seconds.')
+  } else if (process.env.IDLE_TEST_VOICE === 'true') {
     await run(browser, false)
     console.log('Passed real local WebRTC RTP, guest-first join, credential expiry refresh, mute/unmute, leave/rejoin, both-seat ICE recovery, room reconnect, retry, and text during voice failure. External TURN and separate networks require the deployment checklist.')
   } else if (process.env.IDLE_TEST_SOUND === 'true') {

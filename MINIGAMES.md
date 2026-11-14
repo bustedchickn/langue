@@ -10,7 +10,8 @@
 ## Change Lost Instructions
 
 - Edit `shared/minigames/lost-instructions.ts` for timing, rounds, scoring, language support, and asset IDs.
-- Edit `server/minigames/lost-instructions/puzzles.ts` for puzzle objects, starting order, solution, difficulty, optional hints, and translations. Use a unique puzzle ID and use each object ID exactly once in each arrangement. The server chooses three distinct puzzles by default.
+- Edit `server/minigames/lost-instructions/puzzles.ts` for generated puzzle objects, randomized starting and solution orders, and prompt templates. Each match generates three fresh boards by sampling three unique shape/color pairs from the full catalog. A shape or color may repeat; the complete pair may not repeat on one board. Every initial arrangement is unsolved.
+- Define shapes, color swatches, and complete English/French/Spanish pair vocabulary in `shared/minigames/lost-instructions.ts`. The server composes the left/middle/right prompt and hint from the actual solution, including gender agreement for translated color names. Prompts must cover every supported pair in every position.
 - Add a language in `shared/types.ts` with its BCP 47 tag, then add its authored translations to the puzzle dictionaries. Missing clues or hints fall back to English and emit a development warning. The instructor receives the language actually shown so the browser can announce it correctly.
 - Edit the asset registry in `client/minigames/lost-instructions/View.tsx` to map a shape's asset ID to a CSS class or an image URL. Keep assets in the client tree with the board styles, or under `public/` for root-relative URLs.
 
@@ -26,7 +27,7 @@ The gameplay developer can own game-specific files under `server/minigames/lost-
 
 ## Customize Map Navigator
 
-Choose **Map Navigator** from the host's **Minigame** menu. The host is the Navigator and sees the private destination plus the suggested route; the guest is the Traveler and moves with the directional controls or arrow keys. The server validates every move, tracks wrong turns, and keeps the destination private until the route is completed.
+Choose **Map Navigator** from the host's **Minigame** menu. The host is the Navigator and sees the private destination plus the outlined route; the guest is the Traveler and moves with a swipe on the map, directional controls, or arrow keys. Each deliberate swipe moves one tile in the swipe direction. Taps, small/ambiguous diagonal drags, and cancelled gestures do not move. All tiles use the same background, including landmarks and route tiles; private route outlines and checkpoint/destination markers distinguish the Navigator's view. The server validates every move, tracks wrong turns, and keeps the destination private until the route is completed.
 
 The public configuration lives in `shared/minigames/map-navigator.ts`. Update the route, landmarks, translations, timer, and scoring there. The server state is in `server/minigames/map-navigator/game.ts`; the responsive map, translated prompts, vocabulary, and pronunciation controls are in `client/minigames/map-navigator/`.
 
@@ -34,6 +35,12 @@ The public configuration lives in `shared/minigames/map-navigator.ts`. Update th
 
 Choose **Icon Communication** from the host’s **Minigame** menu, then select **Start Game**. The host is the Selector and their learning language is the suggested language for descriptions. Both players review vocabulary in their own learning languages after the game.
 
-The shared configuration in `shared/minigames/icon-communication.ts` controls the grid size, reveal delay, timer, penalty, scoring, and repeat guesses. Change vocabulary or an asset reference in `shared/minigames/icons.ts`. Replace an SVG in `public/icons/` while keeping its path, or change `assetPath` to use a different file. Keep at least as many unique icons as grid cells.
+The shared configuration in `shared/minigames/icon-communication.ts` controls the grid size, reveal delay, timers, penalty, scoring, and repeat guesses. `firstRoundDurationMs` is 20000; `roundDurationMs` is 10000 for later rounds. Each timer starts after the icon reveal, following a 1–3 second preparation delay. Change vocabulary or an asset reference in `shared/minigames/icons.ts`. Replace an SVG in `public/icons/` while keeping its path, or change `assetPath` to use a different file. Keep at least as many unique icons as grid cells.
 
 The server keeps the existing round and deadline during a temporary disconnect. The timer keeps running, guesses resume when both players are back, and a player returning after the deadline sees results. The waiting period has no visible countdown. Total time includes the preparation periods.
+
+## Player instructions
+
+`client/minigames/instructions.tsx` provides each game's goal, assigned role, numbered controls, timing, and scoring. The guide opens before play and can be expanded during the game. Keep it consistent with server rules when changing a game. Codenames also has role guidance in each player's fluent language in `client/minigames/codenames/copy.ts`.
+
+Set `IDLE_TEST_GAME_UPDATES=true` before `npm run test:browser` to check all six pregame guides, randomized shape puzzles with mouse and touch, map swipes and uniform tile backgrounds, and Icon's first-round timer. This uses the Firebase emulators and the installed Chromium/Chrome configuration described in README.

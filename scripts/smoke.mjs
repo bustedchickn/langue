@@ -1,4 +1,4 @@
-import { puzzles } from '../server/minigames/lost-instructions/puzzles.ts'
+import { pieceName } from '../shared/minigames/lost-instructions.ts'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { createRequire } from 'node:module'
@@ -248,9 +248,10 @@ try {
       await message(host, 'game-view', value => value.round === round && value.data.instruction && value)
     assert.equal(clue.data.role, 'instructor')
     assert.equal(clue.data.language, 'French')
-    const puzzle = puzzles.find(value => value.instructions.French === clue.data.instruction)
-    assert.ok(puzzle)
-    for (const [slot, piece] of puzzle.solution.entries()) {
+    const solution = [...board.data.slots].sort((a, b) => clue.data.instruction.indexOf(pieceName(a, 'French')) -
+      clue.data.instruction.indexOf(pieceName(b, 'French')))
+    assert.ok(solution.every(piece => clue.data.instruction.includes(pieceName(piece, 'French'))))
+    for (const [slot, { id: piece }] of solution.entries()) {
       if (board.data.slots[slot].id === piece) continue
       const moved = message(rejoined, 'game-view', value => value.data.revision > board.data.revision && value)
       send(rejoined, board, { type: 'move', piece, slot })
@@ -386,7 +387,7 @@ try {
   const [firstClock, secondClock] = await Promise.all([hostPenalty, guestPenalty])
   assert.deepEqual(firstClock.progress, secondClock.progress)
   assert.equal(firstClock.progress.completed, 0)
-  const results = message(iconPartner, 'session', value => value.results && value.results, 12000)
+  const results = message(iconPartner, 'session', value => value.results && value.results, 22000)
   assert.equal((await results).incorrectGuesses, 1)
   const requestedFriend = message(iconPartner, 'session', value => value.friendship?.host && value)
   matchedAlice.send('friend')

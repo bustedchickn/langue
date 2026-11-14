@@ -33,7 +33,7 @@ export function startIconCommunication(
     guessed = new Set()
     const { minimumRevealDelayMs: min, maximumRevealDelayMs: max } = config
     startsAt = time + min + pick(max - min + 1)
-    endsAt = startsAt + config.roundDurationMs
+    endsAt = startsAt + (completed === 0 ? config.firstRoundDurationMs : config.roundDurationMs)
   }
 
   function tick(time: number) {
@@ -57,7 +57,7 @@ export function startIconCommunication(
   prepare(now)
   return {
     progress: time => ({
-      gameId: config.id, matchId, round: completed + 1, completed, score: completed * config.scoring.pointsPerCorrectGuess,
+      gameId: config.id, matchId, round: completed + 1, rounds: config.rounds, completed, score: completed * config.scoring.pointsPerCorrectGuess,
       startsAt, endsAt, serverNow: time, hidePreparationTimer: true,
     }),
     view(seat): IconView {
