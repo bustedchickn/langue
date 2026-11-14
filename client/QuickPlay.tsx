@@ -103,6 +103,6 @@ export function QuickPlay({ profile, joined, done }: {
     <h1 role="status">{connecting ? text.joining : text.finding}</h1>
     <p className="language-chip">{text.learning} {languageNames[profile.learningLanguage]}</p>
     <p className="muted">{text.searchTime(seconds)}</p>
-    <button className="secondary" disabled={cancel || connecting} onClick={() => cancelSearch.current()}>{text.cancel}</button>
+    <button className="secondary" data-navigation="back" disabled={cancel || connecting} onClick={() => cancelSearch.current()}>{text.cancel}</button>
   </section>
 }

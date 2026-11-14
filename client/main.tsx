@@ -201,9 +201,9 @@ function App() {
     if (!button || button.matches(':disabled, [aria-disabled="true"], [data-sound="none"]') ||
         button.closest('.room-grid[data-game]') && session.session?.phase === 'game') return
     const label = (button.getAttribute('aria-label') ?? button.textContent ?? '').trim().toLowerCase()
-    if (label.includes('cancel')) playEffect('cancel')
+    if (button.getAttribute('data-navigation') === 'back') playEffect('back')
+    else if (label.includes('cancel')) playEffect('cancel')
     else if (label.includes('close')) playEffect('close')
-    else if (label.includes('back') || label.includes('leave')) playEffect('back')
     else if (button.getAttribute('role') === 'combobox' || label.includes('friends') || label.includes('profile')) playEffect('open')
     else playEffect('select')
   }
@@ -254,7 +254,7 @@ function App() {
       {user && !profileError && profile === undefined && <p>Loading profile…</p>}
       {user && profile === null && <Profile key={uid} user={user} onSave={setProfile} />}
       {user && currentProfile && <>
-        {!inRoom && !searching && page !== 'home' && <button className="secondary contextual-back" disabled={joining}
+        {!inRoom && !searching && page !== 'home' && <button className="secondary contextual-back" data-navigation="back" disabled={joining}
           onClick={() => navigate('home')}>← {text.back}</button>}
         {!inRoom && !searching && page === 'friends' && invitations.length > 0 && <section className="panel stack">
           <h2>{t('Game invitations')}</h2>
@@ -281,7 +281,7 @@ function App() {
             setProfile(saved)
             setAssessing(false)
           }} />}
-          {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>{text.back}</button>}
+          {page === 'home' && assessing && <button className="secondary" data-navigation="back" onClick={() => setAssessing(false)}>{text.back}</button>}
           {page === 'home' && !assessing && <section className="home-screen">
             <div className="home-top-actions">
               <button className="vocabulary-access" aria-label="Open Vocabulary" title="Vocabulary" onClick={() => navigate('vocabulary')}>
@@ -375,7 +375,7 @@ function App() {
             </dialog>
           </div>}
         </>}
-        {invitePicker && inRoom && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}
+        {invitePicker && inRoom && <button className="secondary" data-navigation="back" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}
       </>}
     </main>
     </InterfaceLanguage.Provider>

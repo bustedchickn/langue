@@ -87,7 +87,7 @@ export function VocabularyHub({ uid, defaultLanguage }: { uid: string; defaultLa
     }} />
 
   if (selected) return <section className="vocab-page stack" aria-label="Vocabulary set">
-    <button className="secondary vocab-back" onClick={() => { setSelectedId(null); setMode(null) }}>← All vocabulary sets</button>
+    <button className="secondary vocab-back" data-navigation="back" onClick={() => { setSelectedId(null); setMode(null) }}>← All vocabulary sets</button>
     <header className="vocab-header">
       <span className="vocab-emblem" aria-hidden="true">✦</span>
       <div><p className="vocab-eyebrow">{selected.topic} · {selected.sourceLanguage} → {selected.targetLanguage}</p>
@@ -258,7 +258,7 @@ function VocabularyEditor({ uid, initial, sourceLanguage, targetLanguage, onCanc
   }
 
   return <section className="vocab-page stack" aria-label="Vocabulary set editor">
-    <button className="secondary vocab-back" onClick={onCancel}>← Back to vocabulary</button>
+    <button className="secondary vocab-back" data-navigation="back" onClick={onCancel}>← Back to vocabulary</button>
     <header className="vocab-header"><span className="vocab-emblem" aria-hidden="true">✎</span>
       <div><h1>{initial ? 'Edit Vocabulary Set' : 'Create Vocabulary Set'}</h1>
         <p>Collect words you want to use with your next partner.</p></div></header>

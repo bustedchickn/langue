@@ -151,7 +151,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   return <>
     {session?.gameId === 'lost-instructions' && <ShapeSuccess progress={session.progress} result={session.results} />}
     <div className="game-toolbar">
-      <button className="secondary" onClick={() => returningHome ? leave() : setLeaving(true)}>
+      <button className="secondary" data-navigation={returningHome ? 'back' : undefined} onClick={() => returningHome ? leave() : setLeaving(true)}>
         {phase === 'results' ? 'Back to home' : t('Leave session')}
       </button>
     </div>
@@ -161,7 +161,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         <p>{t('Your partner will return home too.')}</p>
         <div className="actions">
           <button autoFocus onClick={() => setLeaving(false)}>{t('Stay')}</button>
-          <button className="secondary" onClick={leave}>{t('Leave session')}</button>
+          <button className="secondary" data-navigation="back" onClick={leave}>{t('Leave session')}</button>
         </div>
       </div>
     </dialog>
