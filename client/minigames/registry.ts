@@ -10,6 +10,8 @@ import { mapNavigatorConfig } from '../../shared/minigames/map-navigator'
 import { MapNavigatorResultsView, MapNavigatorView } from './map-navigator/View'
 import { spotDifferenceConfig } from '../../shared/minigames/spot-difference'
 import { SpotDifferenceResults, SpotDifferenceView } from './spot-difference/View'
+import { codenamesConfig } from '../../shared/minigames/codenames'
+import { CodenamesView } from './codenames/View'
 
 type MinigameClient = {
   config: GameConfig
@@ -24,4 +26,5 @@ export const minigames: ReadonlyMap<string, MinigameClient> = new Map([
   [mapNavigatorConfig.id, { config: mapNavigatorConfig, View: MapNavigatorView, Results: MapNavigatorResultsView }],
   [tandemDrive.id, { config: tandemDrive, View: TandemDriveView, Results: TandemDriveResults, continuousView: true }],
   [spotDifferenceConfig.id, { config: spotDifferenceConfig, View: SpotDifferenceView, Results: SpotDifferenceResults }],
+  [codenamesConfig.id, { config: codenamesConfig, View: CodenamesView }],
 ])

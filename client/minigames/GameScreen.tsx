@@ -24,7 +24,7 @@ export function ActiveGame({ progress, view, ready, send }: {
   return <>
     <div className="game-progress">
       <strong>Round {progress.round}{progress.rounds !== undefined && ' of ' + progress.rounds}</strong>
-      {(!counting || !progress.hidePreparationTimer) && <span>{counting ? 'Starts in ' : 'Time left '}<time>{seconds}s</time></span>}
+      {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? 'Starts in ' : 'Time left '}<time>{seconds}s</time></span>}
     </div>
     <p role="status">{progress.completed} solved · {progress.score} points</p>
     {!ready && <p role="status">Waiting for both players. The timer is still running.</p>}

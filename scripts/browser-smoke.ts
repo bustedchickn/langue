@@ -165,6 +165,26 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await button(guest, 'Play').click()
     await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
 
+    if (process.env.IDLE_TEST_CODENAMES === 'true') {
+      await host.getByLabel('Minigame').selectOption('codenames')
+      await guest.getByRole('heading', { name: 'Codenames' }).waitFor()
+      await startGame(host, guest)
+      await host.getByLabel('One-word clue').fill('animal')
+      await button(host, 'Give clue').click()
+      await guest.getByText('Clue', { exact: false }).first().waitFor()
+      const team = host.locator('.word-card[data-kind="team"]').first()
+      assert.equal(await guest.locator('.word-card').count(), 25)
+      const id = await team.getAttribute('data-id')
+      assert.equal(await guest.locator('.word-card[data-kind]').count(), 0)
+      const card = guest.locator('.word-card[data-id="' + id + '"]')
+      const info = card.locator('..').getByRole('button', { name: /^Definition of/ })
+      await info.click()
+      assert.equal(await info.getAttribute('aria-expanded'), 'true')
+      await card.click()
+      await host.getByText('1 solved · 1 points').waitFor()
+      assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
+      return
+    }
     if (process.env.IDLE_TEST_SPOT === 'true') {
       await host.getByLabel('Minigame').selectOption('spot-difference')
       await guest.getByRole('heading', { name: 'Spot the Difference', exact: true }).waitFor()
@@ -367,7 +387,10 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_SPOT === 'true') {
+  if (process.env.IDLE_TEST_CODENAMES === 'true') {
+    await run(browser, true)
+    console.log('Passed Codenames private key, clue, definition and synchronized guess at 320px.')
+  } else if (process.env.IDLE_TEST_SPOT === 'true') {
     await run(browser, true)
     console.log('Passed Spot the Difference private scenes, results, friendship, replay, and voice.')
   } else if (process.env.IDLE_TEST_MAP === 'true') {

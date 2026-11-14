@@ -23,6 +23,7 @@ export interface GameProgress {
   round: number
   rounds?: number
   hidePreparationTimer?: boolean
+  untimed?: boolean
   completed: number
   score: number
   startsAt: number
