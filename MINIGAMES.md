@@ -24,6 +24,12 @@ A `game-action` carries a match ID and an opaque action payload. The room checks
 
 The gameplay developer can own game-specific files under `server/minigames/lost-instructions/`, `client/minigames/lost-instructions/`, and the matching public config and tests. The platform developer can own `server/room.ts`, `client/session.ts`, `client/RoomScreen.tsx`, Firebase, voice, and deployment. Coordinate changes to the shared contract and registry entries when adding a game.
 
+## Customize Map Navigator
+
+Choose **Map Navigator** from the host's **Minigame** menu. The host is the Navigator and sees the private destination plus the suggested route; the guest is the Traveler and moves with the directional controls or arrow keys. The server validates every move, tracks wrong turns, and keeps the destination private until the route is completed.
+
+The public configuration lives in `shared/minigames/map-navigator.ts`. Update the route, landmarks, translations, timer, and scoring there. The server state is in `server/minigames/map-navigator/game.ts`; the responsive map, translated prompts, vocabulary, and pronunciation controls are in `client/minigames/map-navigator/`.
+
 ## Customize Icon Communication
 
 Choose **Icon Communication** from the host’s **Minigame** menu, then select **Start Game**. The host is the Selector and their learning language is the suggested language for descriptions. Both players review vocabulary in their own learning languages after the game.
