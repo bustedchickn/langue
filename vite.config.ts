@@ -2,8 +2,8 @@ import { defineConfig } from 'vite'
 import tailwind from '@tailwindcss/vite'
 
 export default defineConfig({
-  // GitHub Pages serves this repository from /langue/; local development stays at /.
-  base: process.env.GITHUB_ACTIONS ? '/langue/' : '/',
+  // Firebase Hosting serves the app from the domain root in every environment.
+  base: '/',
   plugins: [tailwind()],
   server: {
     proxy: {

@@ -26,10 +26,6 @@ Open this folder in VS Code, then run **Terminal → Run Task → Install depend
 
 The workspace uses Command Prompt for its integrated terminal so Windows PowerShell execution-policy settings do not block npm. You can also run `npm.cmd run dev` manually from the project folder.
 
-## Deploy to GitHub Pages
-
-Pushing to `main` runs the GitHub Pages workflow and publishes the built Vite app to [anyacodes13.github.io/langue](https://anyacodes13.github.io/langue/). In the repository settings, open **Pages** and set **Source** to **GitHub Actions** once. The workflow then builds `dist` and deploys it automatically after each push.
-
 Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. You can also join from Play using a room code or invitation link. Each player selects **Join Voice** to start audio.
 Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. Each player selects **Join Voice** to start audio.
 ### Play with two browsers
