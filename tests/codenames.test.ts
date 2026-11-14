@@ -66,7 +66,7 @@ test('codenames keeps the key private and validates turns, guesses and duplicate
   assert.equal(game.act('guest', { type: 'guess', id: target.id, revision: 1 }, 3000), true)
   assert.equal(game.act('guest', { type: 'guess', id: target.id, revision: 1 }, 3000), false)
   assert.equal(guest().cards.find(card => card.id === target.id)?.revealed, 'team')
-  assert.equal(guest().remaining, 1)
+  assert.equal(guest().remaining, 2)
   assert.equal(game.act('guest', { type: 'pass', revision: 2 }, 3000), true)
   assert.equal(guest().remaining, 0)
 })
@@ -90,6 +90,29 @@ test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cos
   assert.equal(game.progress(3000).score, 40)
   assert.equal(game.act('guest', { type: 'guess', id: neutral.id, revision: 3 }, 3000), true)
   assert.equal(game.progress(3000).score, -10)
+})
+
+test('the clue count grants one optional bonus guess and passing returns control to the giver', () => {
+  const players = { host: { name: 'A', learningLanguage: 'English' as const }, guest: { name: 'B', learningLanguage: 'French' as const } }
+  const game = startCodenames('bonus', players, 0, () => 0)
+  const view = () => game.view('guest', 3000) as CodenamesView
+  const targets = (game.view('host', 3000) as CodenamesView).cards.filter(card => card.kind === 'team')
+  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 1, revision: 0 }, 3000), true)
+  assert.equal(view().remaining, 2)
+  assert.equal(view().clueCount, 1)
+  assert.equal(view().bonusGuess, false)
+  game.act('guest', { type: 'guess', id: targets[0].id, revision: view().revision }, 3000)
+  assert.equal(view().remaining, 1)
+  assert.equal(view().bonusGuess, true)
+  assert.equal(game.act('host', { type: 'clue', word: 'other', count: 1, revision: view().revision }, 3000), false)
+  game.act('guest', { type: 'guess', id: targets[1].id, revision: view().revision }, 3000)
+  assert.equal(view().remaining, 0)
+  assert.equal(view().turnsLeft, 8)
+  game.act('host', { type: 'clue', word: 'other', count: 1, revision: view().revision }, 3000)
+  game.act('guest', { type: 'pass', revision: view().revision }, 3000)
+  assert.equal(view().remaining, 0)
+  assert.equal(view().bonusGuess, false)
+  assert.equal(game.progress(3000).score, 100)
 })
 
 test('codenames uses turns and ends when the assassin is chosen', () => {

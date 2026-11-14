@@ -311,6 +311,5 @@ html, body {
 .language-option { display: flex; align-items: center; gap: .65rem; min-height: 2.8rem; padding: .55rem .7rem; border-radius: .8rem; color: #432e52; font-weight: 600; cursor: pointer; }
 .language-option[data-active=true] { background: #f0e3f8; }
 .language-option[aria-selected=true] { color: #5d3d78; }
-.language-option-flag { width: 1.4rem; text-align: center; font-weight: 400; }
 .language-check { margin-left: auto; color: #805b9a; }
 @media (prefers-reduced-motion: reduce) { .language-chevron { transition: none; } }

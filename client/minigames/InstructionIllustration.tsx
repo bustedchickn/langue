@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import './instruction-illustration.css'
+import { DriveInstructionPicture } from './DriveInstructionPicture'
 
 const ink = '#51445f'
 const purple = '#b7a0e7'
@@ -76,6 +77,7 @@ function Plant({ x = 0, cactus = false }: { x?: number; cactus?: boolean }) {
 }
 
 function Graphic({ gameId, step }: { gameId: string; step: number }) {
+  if (gameId === 'tandem-drive') return <DriveInstructionPicture step={step} />
   if (gameId === 'lost-instructions') return step === 0 ? <><Person x={9} y={56} /><Bubble><g transform="translate(79 32) scale(.63)"><Shapes x={0} y={0} /></g></Bubble></>
     : step === 1 ? <><Shapes ordered={false} y={18} /><path d="M38 88q57 33 113 0m-14-4 15 3-4 13" fill="none" stroke={ink} strokeWidth="3" /><Hand x={77} y={45} /></>
       : <><Shapes y={41} /><Check x={173} y={108} /></>
@@ -95,9 +97,9 @@ const recipes: Record<string, { name: string; steps: [string, string][] }> = {
   'lost-instructions': { name: 'In Good Shape', steps: [['Describe', 'Name the color, shape, and position.'], ['Arrange', 'Your partner swaps the pieces.'], ['Check', 'Match the clue and celebrate together.']] },
   'icon-communication': { name: 'Icon Communication', steps: [['Describe', 'Explain the mystery icon.'], ['Choose', 'Your partner picks a match.'], ['Match', 'Find the right icon before time runs out.']] },
   'map-navigator': { name: 'Map Navigator', steps: [['Guide', 'Only the navigator sees the route.'], ['Move', 'Swipe one tile at a time.'], ['Arrive', 'Pass both checkpoints, then the star.']] },
-  'tandem-drive': { name: 'Tandem Drive', steps: [['Hold', 'Space, the driving area, or your thruster.'], ['Coordinate', 'Share the lane and the GO beat.'], ['Clear', 'Steer through all four gates.']] },
+  'tandem-drive': { name: 'Tandem Drive', steps: [['Drive together', 'Each player holds Space or their thruster. Both held drives straight; one held turns; both released stops.'], ['Find the safe lane', 'Navigation sees a green word gate. Say its word, then steer together toward that word on both boards.'], ['Time the gate', 'Cadence calls GO on green beats and taps Release gate near a locked gate. Cycling shutters open automatically on green. Clear four gates.']] },
   'spot-difference': { name: 'Spot the Difference', steps: [['Compare', 'Describe your two private scenes.'], ['Look closer', 'Use i to learn an object’s word.'], ['Find three', 'Choose differences together.']] },
-  codenames: { name: 'Codenames', steps: [['Give a clue', 'One word and a number.'], ['Choose words', 'Connect the clue to the cards.'], ['Find the team', 'Choose purple; avoid the black card.']] },
+  codenames: { name: 'Nicknames', steps: [['Send a clue', 'Type one clue word, enter the number of matching words, then press Give clue to send both to your partner.'], ['Choose words', 'Tap a square to open its pop-out. Request a definition for 10 points or confirm your selection.'], ['Use your bonus', 'The clue number gives that many guesses plus one extra. Use it or press Pass turn.']] },
 }
 
 export function InstructionIllustration({ gameId }: { gameId: string }) {

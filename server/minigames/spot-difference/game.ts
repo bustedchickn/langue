@@ -5,7 +5,20 @@ import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
 import { sceneObjects, spotDifferenceConfig as config, spotLanguage, type SceneKind, type SceneObject, type SpotDifferenceResults, type SpotDifferenceView } from '../../../shared/minigames/spot-difference'
 
 function sceneFor(seat: Seat, objects: SceneObject[]): SceneObject[] {
+  const alternatives: Record<string, { name: string; emoji: string }> = {
+    fruit: { name: 'Pear', emoji: '🍐' },
+    drink: { name: 'Bottle', emoji: '🍼' },
+    music: { name: 'Violin', emoji: '🎻' },
+    ball: { name: 'Basketball', emoji: '🏀' },
+    vehicle: { name: 'Bus', emoji: '🚌' },
+    flower: { name: 'Tulip', emoji: '🌷' },
+    bird: { name: 'Parrot', emoji: '🦜' },
+    snack: { name: 'Cookie', emoji: '🍪' },
+    clothing: { name: 'Dress', emoji: '👗' },
+    weather: { name: 'Cloud', emoji: '☁️' },
+  }
   return objects.map(object => {
+    if (seat === 'guest' && alternatives[object.id]) return { ...object, ...alternatives[object.id] }
     if (seat === 'host' && object.id === 'plant') return { ...object, name: 'Cactus', emoji: '🌵', color: '#89E7E9' }
     if (seat === 'host' && object.id === 'clock') return { ...object, emoji: '🕘' }
     if (seat === 'guest' && object.id === 'lamp') return { ...object, name: 'Candle', emoji: '🕯️', color: '#FDB7EA' }
@@ -22,7 +35,7 @@ export function startSpotDifference(matchId: string, players: GamePlayers, now: 
   let found: string[] = []; let incorrectGuesses = 0; let feedback: SpotDifferenceView['feedback']; let result: SpotDifferenceResults | undefined
   const sceneKinds: SceneKind[] = ['peach', 'lilac', 'aqua', 'lemon', 'rose']
   const sceneKind = sceneKinds[pick(sceneKinds.length)]
-  const differencePool = ['plant', 'clock', 'lamp', 'cat', 'book']
+  const differencePool = ['plant', 'clock', 'lamp', 'cat', 'book', 'fruit', 'drink', 'music', 'ball', 'vehicle', 'flower', 'bird', 'snack', 'clothing', 'weather']
   const shuffle = <T,>(items: T[]) => items.map(item => ({ item, sort: pick(1_000_000) })).sort((a, b) => a.sort - b.sort).map(({ item }) => item)
   const selectedDifferenceIds = shuffle(differencePool).slice(0, 3)
   const decoys = sceneObjects.filter(object => !differencePool.includes(object.id))

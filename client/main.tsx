@@ -237,7 +237,7 @@ function App() {
       {notice && <p className="notice" role="status">{translateSessionMessage(interfaceLanguage, notice)}</p>}
       {user === undefined && <p>Loading…</p>}
       {user === null && <>
-        <section className="sign-in-intro"><Logo /><p>A two-player language practice game.</p></section>
+        <section className="sign-in-intro"><Logo /><p>Language practice game.</p></section>
         {devGuest && <button disabled={joining} onClick={() => {
           setJoining(true)
           void signInAnonymously(auth).then(() => navigate('home'))

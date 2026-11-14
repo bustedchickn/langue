@@ -78,7 +78,9 @@ function Operator({ view, send, disabled }: {
   }
 
   return <>
+    <details><summary className="shape-hint-toggle"><span className="shape-hint-arrow" aria-hidden="true">➜</span> {language === 'English' ? 'Hint: how to move pieces' : sessionText(language, 'Puzzle board')}</summary>
     <p>{sessionText(language, 'Match both the color and shape your partner names. Drag a piece onto another to swap them, or tap one piece and then the piece to swap with it. Select Check arrangement when all three positions match the clue.')}</p>
+    </details>
     <div className="lost-board" aria-label={sessionText(language, 'Puzzle board')} ref={board} style={{ gridTemplateColumns: 'repeat(' + pieces.length + ', minmax(0, 1fr))' }}>
       {pieces.map((piece, slot) => {
         const position = pieces.length === 3 ? sessionText(language, positions[slot]) : String(slot + 1)
@@ -120,7 +122,7 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
         {view.language && <PronunciationButton text={view.instruction} language={view.language} />}
       </div>
       {(view.targetArrangement || view.hint) && <details key={progress.matchId + ':' + progress.round}>
-        <summary>{sessionText(language, 'Hint: show the goal arrangement')}</summary>
+        <summary className="shape-hint-toggle"><span className="shape-hint-arrow" aria-hidden="true">➜</span> {sessionText(language, 'Hint: show the goal arrangement')}</summary>
         {view.targetArrangement && <figure className="shape-target" aria-label={language === 'English' ? 'Your private target arrangement' : sessionText(language, 'Your target arrangement')}>
           <figcaption>{sessionText(language, 'Your target arrangement')} <small>{sessionText(language, 'Describe this picture to your partner.')}</small></figcaption>
           <div className="shape-target-pieces">{view.targetArrangement.map((piece, index) => <div className="shape-target-piece" key={piece.id}

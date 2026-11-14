@@ -5,7 +5,7 @@ import { vocabularyEntry } from './vocabulary'
 export const mapNavigatorConfig = {
   id: 'map-navigator',
   name: 'Map Navigator',
-  description: 'Give directions in your learning language and guide your partner across Sunnyville.',
+  description: 'Give directions in your learning language and guide your partner across the city.',
   minPlayers: 2,
   maxPlayers: 2,
   durationMs: 120_000,

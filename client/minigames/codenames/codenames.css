@@ -1,6 +1,6 @@
-.codenames-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
+.codenames-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; width: min(100%, 30rem, calc(100svh - 14rem)); margin-inline: auto; }
 .word-card-wrap { position: relative; min-width: 0; }
-.word-card { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; aspect-ratio: 1; min-height: 0; padding: .4rem .25rem; overflow-wrap: anywhere; background: #fff1ca; border: 1px solid #e7d6ac; box-shadow: 0 3px 0 #e5d0a7; font-size: clamp(.62rem, 1.6vw, .82rem); }
+.word-card { position: relative; display: flex; flex-direction: column; width: 100%; height: auto; aspect-ratio: 1; min-height: 0; padding: .4rem .25rem; overflow: hidden; overflow-wrap: anywhere; background: #fff1ca; border: 1px solid #e7d6ac; box-shadow: 0 3px 0 #e5d0a7; font-size: clamp(.62rem, 1.6vw, .82rem); }
 .word-card[aria-pressed=true] { outline: 3px solid #f26a8d; outline-offset: 2px; }
 .word-label-area { display: flex; flex: 1 1 0; align-items: center; justify-content: center; width: 100%; min-height: 0; min-width: 0; }
 .word-label { display: block; width: 100%; min-width: 0; line-height: 1.08; overflow-wrap: anywhere; hyphens: auto; text-align: center; }
@@ -14,7 +14,19 @@
 .word-card[data-kind=assassin]:disabled { color: #fff; }
 .word-card[data-revealed=true][data-kind=assassin]:disabled { background: #09090d; color: #fff; border-color: #ef809c; }
 .word-revealed-mark { position: absolute; top: .15rem; left: .15rem; display: grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #fff; color: #513a64; font-size: .8rem; line-height: 1; }
-.word-preview { position: fixed; z-index: 20; left: 50%; bottom: max(.75rem, env(safe-area-inset-bottom)); transform: translateX(-50%); display: grid; gap: .5rem; width: min(30rem, calc(100vw - 1.5rem)); padding: .85rem; border: 2px solid #b7b1f2; border-radius: .8rem; background: #fff8e6; box-shadow: 0 8px 30px #2e214744; }
+.word-card-wrap[data-open=true] { z-index: 21; }
+.word-preview { position: absolute; z-index: 20; left: 0; top: calc(100% + .6rem); display: flex; flex-direction: column; justify-content: space-between; gap: .5rem; width: min(16rem, calc(300% + .6rem), calc(100vw - 4rem)); aspect-ratio: 1; min-height: 0; overflow: auto; padding: .85rem; border: 2px solid #b7b1f2; border-radius: .8rem; background: #fff8e6; box-shadow: 0 8px 30px #2e214744; }
+.word-preview::before { content: ''; position: absolute; width: .8rem; height: .8rem; background: #fff8e6; border-top: 2px solid #b7b1f2; border-left: 2px solid #b7b1f2; top: -.5rem; left: 1rem; transform: rotate(45deg); }
+.word-card-wrap[data-align=right] .word-preview { left: auto; right: 0; }
+.word-card-wrap[data-align=right] .word-preview::before { left: auto; right: 1rem; }
+.word-card-wrap[data-above=true] .word-preview { top: auto; bottom: calc(100% + .6rem); }
+.word-card-wrap[data-above=true] .word-preview::before { top: auto; bottom: -.5rem; transform: rotate(225deg); }
+.word-preview p { overflow-y: auto; }
+.codenames-turn { display: flex; align-items: center; justify-content: space-between; padding: .65rem; border: 2px solid #B7B1F2; border-radius: .6rem; background: white; }
+.codenames-turn[data-active=true] { background: #FBF3B9; border-color: black; }
+.codenames-bonus { background: #89E7E9; padding: .6rem; border-radius: .6rem; }
+.codenames-help summary { cursor: pointer; font-weight: 700; }
+@media (max-width: 600px) { .codenames { gap: .4rem; } .codenames > p { margin-bottom: 0; font-size: .8rem; } .codenames .clue-form { gap: .3rem; } .codenames .clue-form label { font-size: .75rem; } .codenames-clue { margin: 0; padding: .35rem; } }
 .word-preview h3, .word-preview p { margin: 0; }
 .word-preview h3 { font-size: 1.1rem; }
 .clue-form { display: flex; gap: .5rem; align-items: end; flex-wrap: wrap; }

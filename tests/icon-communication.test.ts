@@ -13,8 +13,12 @@ const players: GamePlayers = {
 const start = (pick = (_: number) => 0) => startIconCommunication('match', players, 0, config, pick)
 const view = (game: ReturnType<typeof start>, seat: Seat, now: number) => game.view(seat, now) as IconView
 
-test('has 20 distinct illustrated icons, a 1–3 second reveal delay, and 20 seconds for the first round', () => {
-  assert.ok(gameIcons.size >= 20)
+test('has 30 distinct icons with uniform strokes, a 1–3 second reveal delay, and 20 seconds for the first round', () => {
+  assert.ok(gameIcons.size >= 30)
+  for (const icon of gameIcons.values()) {
+    const widths = [...readFileSync('public' + icon.assetPath, 'utf8').matchAll(/stroke-width="([^"]+)"/g)].map(match => match[1])
+    assert.deepEqual(widths, ['3'])
+  }
   for (const icon of gameIcons.values()) assert.match(readFileSync('public' + icon.assetPath, 'utf8'), /<svg/)
   assert.equal(new Set([...gameIcons.values()].map(icon => readFileSync('public' + icon.assetPath, 'utf8'))).size, gameIcons.size)
   assert.equal(start().progress(0).startsAt, 1000)

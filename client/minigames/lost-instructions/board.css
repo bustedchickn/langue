@@ -1,4 +1,8 @@
 .lost-board { display: grid; gap: .4rem; }
+.shape-hint-toggle { display: flex; align-items: center; gap: .65rem; min-height: 48px; cursor: pointer; font-weight: 700; list-style: none; }
+.shape-hint-toggle::-webkit-details-marker { display: none; }
+.shape-hint-arrow { display: inline-block; font-size: 2.25rem; line-height: 1; transition: transform .15s; }
+details[open] > .shape-hint-toggle .shape-hint-arrow { transform: rotate(90deg); }
 .lost-board .lost-slot { display: grid; gap: .3rem; place-items: center; min-width: 0; padding: .35rem .1rem; user-select: none; -webkit-user-select: none; touch-action: none; }
 .lost-board .lost-slot[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .lost-board .lost-slot[data-dragging] { opacity: .65; cursor: grabbing; }

@@ -104,21 +104,21 @@ const guides = {
       'Use i for an object’s word. Reset finds clears progress but keeps the timer running.'],
   },
   codenames: {
-    goal: 'Find all six purple team words on a 4 × 4 board while avoiding the black assassin card.',
+    goal: 'Find all nine purple team words on a 5 × 5 board while avoiding the black assassin card.',
     roles: {
       host: { id: 'clue-giver', name: 'Clue giver', steps: [
         'Only you see which cards are team words or the assassin.',
-        'Give one clue word and the number of team words it connects.',
+        'Type one clue word in the clue box, enter how many team words it connects in Number of words, then press Give clue to send both to your partner.',
         'Wait for your partner to guess or pass before the next clue.',
       ] },
       guest: { id: 'guesser', name: 'Guesser', steps: [
-        'Use the clue to select a square and read its description.',
-        'Confirm to guess; close it to keep looking.',
+        'Use the clue to select a square. Its pop-out lets you request a definition for 10 points or confirm your guess.',
+        'Confirm in the square’s pop-out to guess; close it to keep looking. You get the clue number plus one extra guess.',
         'Find purple team cards. Avoid the black assassin; pass if unsure.',
       ] },
     },
-    rules: [`No time limit. Six clue turns to find six team words. Correct guesses earn ${codenamesConfig.scoring.pointsPerWord}; wrong guesses cost ${codenamesConfig.scoring.incorrectPenalty}.`,
-      'After six turns, any wrong guess ends the game.'],
+    rules: [`No time limit. Nine clue turns to find nine team words. Correct guesses earn ${codenamesConfig.scoring.pointsPerWord}; wrong guesses cost ${codenamesConfig.scoring.incorrectPenalty}.`,
+      'Each clue allows the stated number of guesses plus one bonus guess. Pass turn to skip it. After nine turns, any wrong guess ends the game.'],
   },
 } satisfies Record<keyof typeof germanGuides, GameGuide>
 

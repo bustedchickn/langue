@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
 import './confetti.css'
+import './clock-warning.css'
 import { codenamesCopy } from './codenames/copy'
 import { useInterface } from '../locales/interface'
 import { sessionText } from '../locales/session'
@@ -27,6 +29,7 @@ export function ActiveGame({ progress, view, ready, send }: {
     (view.round === progress.round || game?.continuousView)
   if (!game) return <p>{sessionText(language, 'Game unavailable.')}</p>
   return <>
+    {!progress.untimed && !counting && seconds > 0 && seconds <= 5 && createPortal(<div className="game-clock-warning" aria-hidden="true" />, document.body)}
     <div className="game-progress">
       <strong>{words?.round ?? sessionText(language, 'Round')} {progress.round}{progress.rounds !== undefined && (language === 'English' ? ' of ' : ' / ') + progress.rounds}</strong>
       {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? words?.start ?? sessionText(language, 'Starts in') : sessionText(language, 'Time left')}{' '}<time>{seconds}s</time></span>}
@@ -36,7 +39,7 @@ export function ActiveGame({ progress, view, ready, send }: {
     {!progress.untimed && (progress.timeMultiplier ?? 1) > 1 && <p className="practice-time">{sessionText(language, 'Extra practice time · {percent}% more time for your team’s language levels')
       .replace('{percent}', String(Math.round(((progress.timeMultiplier ?? 1) - 1) * 100)))}</p>}
     {!ready && <p role="status">{words?.waitingPartner ?? sessionText(language, 'Waiting for both players. The timer is still running.')}</p>}
-    {current ? <game.View key={progress.matchId} data={view.data} progress={progress} disabled={!ready || counting || seconds === 0 || view.round !== progress.round}
+    {current ? <game.View key={progress.matchId} data={view.data} progress={{ ...progress, serverNow }} disabled={!ready || counting || (!progress.untimed && seconds === 0) || view.round !== progress.round}
       send={action => send({ matchId: progress.matchId, action })} /> : <p>{words?.loading ?? sessionText(language, 'Loading your role…')}</p>}
   </>
 }

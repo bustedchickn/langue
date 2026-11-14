@@ -3,7 +3,7 @@ import type { Language } from '../../../shared/types'
 const copy = {
   English: {
     clueGiver: 'Clue giver', guesser: 'Guesser', practice: 'Practice',
-    giverHelp: 'Only you see the purple team cards. Enter one clue word and the number of team words it connects, then select Give clue. Do not use a word from the board. Wait until your partner finishes or passes before giving another clue.',
+    giverHelp: 'Only you see the purple team cards. Type a clue word into One-word clue, enter how many team words it connects into Number of words, then press Give clue (or Enter) to send the word and number to your partner. Do not use a word from the board. Wait until your partner finishes or passes before giving another clue.',
     guesserHelp: 'Use the clue to choose related cards. Select a square to read its description, then confirm your choice. Purple cards earn 50 points; wrong guesses cost 50 points. Pass if you are unsure.',
     sudden: 'Sudden death — find the remaining words. Any wrong guess ends the game.',
     turns: (n: number) => `${n} ${n === 1 ? 'turn' : 'turns'} left`,
@@ -11,7 +11,7 @@ const copy = {
     guesses: (n: number) => `${n} ${n === 1 ? 'guess' : 'guesses'} left`,
     waiting: 'Waiting for a clue…', clueLabel: 'One-word clue', number: 'Number of words',
     give: 'Give clue', invalid: 'Use one word that is not on the board.',
-    definition: (word: string) => `Definition of ${word}`, pass: 'Pass remaining guesses',
+    definition: (word: string) => `Definition of ${word}`, pass: 'Pass turn',
     close: 'Close', confirm: 'Confirm choice',
     hint: 'Hint', hintCost: 'costs 10 points',
     endedEarly: 'Game ended early',
@@ -23,7 +23,7 @@ const copy = {
   },
   French: {
     clueGiver: 'Donneur d’indices', guesser: 'Enquêteur', practice: 'Langue pratiquée',
-    giverHelp: 'Vous seul voyez les cartes violettes de l’équipe. Saisissez un indice en un mot et le nombre de mots associés, puis sélectionnez Donner l’indice. N’utilisez pas un mot du plateau. Attendez la fin du tour de votre partenaire avant de donner un nouvel indice.',
+    giverHelp: 'Vous seul voyez les cartes violettes de l’équipe. Tapez un indice dans la case, saisissez le nombre de mots associés, puis cliquez sur Donner l’indice (ou Entrée) pour envoyer le mot et le nombre à votre partenaire. N’utilisez pas un mot du plateau. Attendez la fin du tour de votre partenaire avant de donner un nouvel indice.',
     guesserHelp: 'Utilisez l’indice pour choisir les cartes associées. Sélectionnez une case pour lire sa description, puis confirmez votre choix. Une carte violette rapporte 50 points ; une erreur coûte 50 points.',
     sudden: 'Mort subite : trouvez les mots restants. Une erreur met fin à la partie.',
     turns: (n: number) => `${n} ${n === 1 ? 'tour restant' : 'tours restants'}`,
@@ -31,7 +31,7 @@ const copy = {
     guesses: (n: number) => `${n} ${n === 1 ? 'essai restant' : 'essais restants'}`,
     waiting: 'En attente d’un indice…', clueLabel: 'Indice en un mot', number: 'Nombre de mots',
     give: 'Donner l’indice', invalid: 'Utilisez un seul mot absent du plateau.',
-    definition: (word: string) => `Définition de ${word}`, pass: 'Terminer les essais',
+    definition: (word: string) => `Définition de ${word}`, pass: 'Passer le tour',
     close: 'Fermer', confirm: 'Confirmer le choix',
     hint: 'Aide', hintCost: 'coûte 10 points',
     endedEarly: 'Partie terminée avant la fin',
@@ -43,7 +43,7 @@ const copy = {
   },
   Spanish: {
     clueGiver: 'Quien da pistas', guesser: 'Quien adivina', practice: 'Idioma de práctica',
-    giverHelp: 'Solo tú ves las cartas violetas del equipo. Escribe una pista de una palabra y el número de palabras relacionadas, y selecciona Dar pista. No uses una palabra del tablero. Espera a que tu compañero termine sus intentos antes de dar otra pista.',
+    giverHelp: 'Solo tú ves las cartas violetas del equipo. Escribe la pista en el campo, introduce el número de palabras relacionadas y pulsa Dar pista (o Intro) para enviar ambos a tu compañero. No uses una palabra del tablero. Espera a que tu compañero termine sus intentos antes de dar otra pista.',
     guesserHelp: 'Usa la pista para elegir cartas relacionadas. Selecciona una casilla para leer su descripción y luego confirma tu elección. Una carta violeta suma 50 puntos; una respuesta incorrecta resta 50 puntos.',
     sudden: 'Muerte súbita: encuentra las palabras restantes. Un error termina la partida.',
     turns: (n: number) => `${n} ${n === 1 ? 'turno restante' : 'turnos restantes'}`,
@@ -51,7 +51,7 @@ const copy = {
     guesses: (n: number) => `${n} ${n === 1 ? 'intento restante' : 'intentos restantes'}`,
     waiting: 'Esperando una pista…', clueLabel: 'Pista de una palabra', number: 'Número de palabras',
     give: 'Dar pista', invalid: 'Usa una palabra que no esté en el tablero.',
-    definition: (word: string) => `Definición de ${word}`, pass: 'Terminar los intentos',
+    definition: (word: string) => `Definición de ${word}`, pass: 'Pasar turno',
     close: 'Cerrar', confirm: 'Confirmar elección',
     hint: 'Ayuda', hintCost: 'cuesta 10 puntos',
     endedEarly: 'Partida terminada antes de tiempo',
@@ -315,6 +315,60 @@ type CodenamesCopy = Record<
   definition: (word: string) => string
 }
 
-export function codenamesCopy(language: Language): CodenamesCopy {
-  return copy[language]
+const turnCopy: Record<Language, [string, string, string]> = {
+  "English": [
+    "Your turn",
+    "Your partner’s turn",
+    "You now have one extra guess to use. If you don’t want to use it, click Pass turn."
+  ],
+  "French": [
+    "À vous de jouer",
+    "Au tour de votre partenaire",
+    "Vous avez un essai supplémentaire. Pour ne pas l’utiliser, sélectionnez Passer le tour."
+  ],
+  "Spanish": [
+    "Tu turno",
+    "Turno de tu compañero",
+    "Ahora tienes un intento extra. Si no quieres usarlo, selecciona Pasar turno."
+  ],
+  "German": [
+    "Du bist dran",
+    "Dein Partner ist dran",
+    "Du hast einen zusätzlichen Versuch. Wenn du ihn nicht nutzen möchtest, gib den Zug weiter."
+  ],
+  "Italian": [
+    "Tocca a te",
+    "Tocca al tuo compagno",
+    "Hai un tentativo extra. Se non vuoi usarlo, passa il turno."
+  ],
+  "Portuguese": [
+    "Sua vez",
+    "Vez do seu parceiro",
+    "Você tem uma tentativa extra. Se não quiser usá-la, passe a vez."
+  ],
+  "Japanese": [
+    "あなたの番",
+    "パートナーの番",
+    "追加で1回推測できます。使わない場合はパスしてください。"
+  ],
+  "Korean": [
+    "내 차례",
+    "상대방 차례",
+    "추가로 한 번 더 추측할 수 있어요. 원하지 않으면 차례를 넘기세요."
+  ],
+  "Chinese": [
+    "轮到你了",
+    "轮到你的伙伴了",
+    "你现在可以额外猜一次。不想使用的话，请跳过回合。"
+  ],
+  "Russian": [
+    "Твой ход",
+    "Ход напарника",
+    "У тебя есть дополнительная попытка. Если не хочешь её использовать, передай ход."
+  ]
+}
+
+export function codenamesCopy(language: Language) {
+  const [yourTurn, partnerTurn, bonus] = turnCopy[language]
+  return { ...copy[language], yourTurn, partnerTurn, bonus }
 }

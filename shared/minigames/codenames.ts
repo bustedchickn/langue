@@ -35,7 +35,9 @@ export type CodenamesView = {
   cards: { id: string; revealed?: CardKind; kind?: CardKind }[]
   hintsUnlocked: string[]
   clue?: string
+  clueCount: number
   remaining: number
+  bonusGuess: boolean
   turnsLeft: number
   suddenDeath: boolean
   revision: number

@@ -610,6 +610,16 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await guest.getByRole('button', { name: 'Confirmer le choix' }).click()
       await host.getByText('Team words found 1 · Team score ' + codenamesConfig.scoring.pointsPerWord).waitFor()
       assert.equal(await card.getAttribute('data-revealed'), 'true')
+      await guest.getByText('Vous avez un essai supplémentaire.', { exact: false }).waitFor()
+      await guest.getByText('À vous de jouer', { exact: true }).waitFor()
+      await host.getByText('Your partner’s turn', { exact: true }).waitFor()
+      const boardSize = await guest.locator('.codenames-grid').boundingBox()
+      assert.ok(boardSize && boardSize.width <= 320 && boardSize.height <= 700)
+      for (const size of await guest.locator('.word-card').evaluateAll(cards => cards.map(card => {
+        const rect = card.getBoundingClientRect(); return { width: rect.width, height: rect.height }
+      }))) assert.ok(Math.abs(size.width - size.height) < 1)
+      await button(guest, 'Passer le tour').click()
+      await host.getByText('Your turn', { exact: true }).waitFor()
       await assertWordsFit(guest)
       assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
       return
@@ -620,6 +630,8 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await startGame(host, guest)
       await host.getByLabel('Player 1 scene', { exact: true }).waitFor()
       await guest.getByLabel('Player 2 scene', { exact: true }).waitFor()
+      const initialClock = await host.locator('.spot-badges').innerText()
+      await host.waitForFunction(before => document.querySelector('.spot-badges')?.textContent !== before, initialClock)
       for (const [page, language, tag] of [[host, 'French', 'fr'], [guest, 'English', 'en']] as const) {
         const info = page.locator('.scene-word-info').first()
         const name = (await info.getAttribute('aria-label'))!.split(' word for ')[1]
@@ -652,7 +664,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await host.getByLabel('Minigame').selectOption('map-navigator')
       await guest.getByRole('heading', { name: 'Map Navigator' }).waitFor()
       await startGame(host, guest)
-      await guest.getByRole('grid', { name: 'Sunnyville city map' }).waitFor()
+      await guest.getByRole('grid', { name: 'City map' }).waitFor()
       assert.equal(await guest.getByRole('gridcell').count(), 49)
       assert.equal(await guest.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 0)
       assert.equal(await host.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 3)

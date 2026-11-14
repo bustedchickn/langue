@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { languageNames, languages, type Language } from '../shared/types'
-import { flags } from './PlayerIdentity'
 import { useInterface } from './locales/interface'
 
 export function LanguagePicker({ value, disabled, onChange }: {
@@ -57,7 +56,6 @@ export function LanguagePicker({ value, disabled, onChange }: {
   }
 
   return <div className="learning-picker" ref={picker}>
-    <span aria-hidden="true">{flags[value]}</span>
     <span id="practice-language-label" className="learning-label">{text.learning}</span>
     <div className="language-menu">
       <button ref={trigger} type="button" className="language-trigger" role="combobox"
@@ -76,7 +74,6 @@ export function LanguagePicker({ value, disabled, onChange }: {
           aria-selected={language === value} className="language-option" data-active={active === language}
           onPointerMove={() => setActive(language)}
           onClick={() => choose(language)}>
-          <span className="language-option-flag" aria-hidden="true">{flags[language]}</span>
           <span>{languageNames[language]}</span>
           {language === value && <span className="language-check" aria-hidden="true">✓</span>}
         </div>)}

@@ -64,14 +64,13 @@ export function MapNavigatorView({ data, disabled, send }: {
   return <section className="map-game">
     <header className="map-header">
       <div>
-        <small>Sunnyville</small>
         <h3>{sessionText(language, navigator ? 'Navigator' : 'Traveler')}</h3>
         <p>{navigator ? sessionText(language, 'You see the outlined route, numbered checkpoints, and destination star. Give one direction at a time in {language}.').replace('{language}', language === 'English' ? view.language : languageNames[view.language])
           : sessionText(language, 'Only your navigator can see the route. Ask for directions and visit both checkpoints in order before the destination.')}</p>
       </div>
       <b>{sessionText(language, '{count}/2 checkpoints').replace('{count}', String(view.checkpoints))}</b>
     </header>
-    <div className="city-map" role="grid" aria-label="Sunnyville city map" aria-describedby={hintId} tabIndex={0}
+    <div className="city-map" role="grid" aria-label="City map" aria-describedby={hintId} tabIndex={0}
       data-swipe-enabled={!navigator && !disabled} onPointerDown={startSwipe} onPointerUp={finishSwipe}
       onPointerCancel={() => { swipe.current = undefined }} onLostPointerCapture={() => { swipe.current = undefined }}>
       {Array.from({ length: mapNavigatorGrid.rows }, (_, row) => <div className="city-row" key={row} role="row">
@@ -85,7 +84,7 @@ export function MapNavigatorView({ data, disabled, send }: {
           return <div key={column} role="gridcell" className="map-cell" data-route={route} data-here={here} data-landmark={!!landmark}
             aria-label={[here && 'Traveler', goal && 'Destination', checkpoint >= 0 && 'Checkpoint ' + (checkpoint + 1),
               landmark?.name ?? 'Street', 'row ' + (row + 1) + ', column ' + (column + 1)].filter(Boolean).join(', ')}>
-            {landmark && <><span className="map-landmark-icon" aria-hidden="true">{landmark.emoji}</span><small lang={languageTags[view.language]}>{landmark.name}</small></>}
+            {landmark && <span className="map-landmark-icon" aria-hidden="true">{landmark.emoji}</span>}
             {checkpoint >= 0 && <b className="map-marker">{checkpoint + 1}</b>}
             {goal && <b className="map-marker map-destination" aria-hidden="true">★</b>}
             {here && <b className="map-traveler" aria-hidden="true">●</b>}

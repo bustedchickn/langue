@@ -19,7 +19,6 @@ export function CodenamesView({ data, disabled, send }: {
   const [word, setWord] = useState('')
   const [count, setCount] = useState(1)
   const [selectedCard, setSelectedCard] = useState<string>()
-  const [showDefinition, setShowDefinition] = useState<string>()
   const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
   const revealedHints = useRef(new Set(view.hintsUnlocked))
   useEffect(() => {
@@ -50,12 +49,18 @@ export function CodenamesView({ data, disabled, send }: {
     setWord('')
   }
 
-  return <section className="codenames stack" lang={languageTags[language]}>
+  const guessingTurn = view.suddenDeath || view.remaining > 0
+  const columns = Math.ceil(Math.sqrt(view.cards.length))
+  const myTurn = view.role === (guessingTurn ? 'guesser' : 'clue-giver')
+  return <section className="codenames stack" lang={languageTags[language]} onKeyDown={event => {
+    if (event.key === 'Escape') setSelectedCard(undefined)
+  }}>
+    <div className="codenames-turn" data-active={myTurn} role="status"><strong>{myTurn ? text.yourTurn : text.partnerTurn}</strong><span>{guessingTurn ? text.guesser : text.clueGiver}</span></div>
     <p><strong>{view.role === 'clue-giver' ? text.clueGiver : text.guesser}</strong> · {text.practice} <span lang={languageTags[view.language]}>{languageNames[view.language]}</span></p>
-    <p>{view.role === 'clue-giver' ? text.giverHelp : text.guesserHelp}</p>
+    <details className="codenames-help"><summary>{view.role === 'clue-giver' ? text.give : text.confirm}</summary><p>{view.role === 'clue-giver' ? text.giverHelp : text.guesserHelp}</p></details>
     <p role="status">{view.suddenDeath ? text.sudden : text.turns(view.turnsLeft)}</p>
     {view.role === 'clue-giver' && <p className="codenames-legend">{text.legend}</p>}
-    {view.suddenDeath ? null : view.clue ? <p className="codenames-clue" role="status">{text.clue} <strong>{view.clue}</strong> · {text.guesses(view.remaining)}</p>
+    {view.suddenDeath ? null : view.clue ? <p className="codenames-clue" role="status">{text.clue} <strong>{view.clue} · {view.clueCount}</strong> — {text.guesses(view.remaining)}</p>
       : <p role="status">{text.waiting}</p>}
     {view.role === 'clue-giver' && !view.remaining && !view.suddenDeath && <form className="clue-form" onSubmit={giveClue}>
       <label>{text.clueLabel}<input value={word} lang={languageTags[cardLocale]} onChange={event => setWord(event.target.value)} /></label>
@@ -64,44 +69,38 @@ export function CodenamesView({ data, disabled, send }: {
       <button disabled={disabled || invalid || count < 1 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>{text.give}</button>
       {word && invalid && <p className="error">{text.invalid}</p>}
     </form>}
-    <div className="codenames-grid">
-      {view.cards.map(card => {
+    {view.bonusGuess && <p className="codenames-bonus" role="status">{text.bonus}</p>}
+    <div className="codenames-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      {view.cards.map((card, index) => {
         const item = cards.get(card.id)!
         const word = item.words[cardLocale]
         const kind = card.revealed ?? card.kind
-        const hintOpen = showDefinition === card.id
-        return <div className="word-card-wrap" key={card.id}>
+        return <div className="word-card-wrap" key={card.id} data-open={selectedCard === card.id}
+          data-align={index % columns >= Math.ceil(columns / 2) ? 'right' : 'left'} data-above={index >= Math.floor(columns / 2) * columns}>
           <button className="word-card" data-id={card.id} data-kind={kind} data-revealed={!!card.revealed}
-            disabled={disabled} aria-pressed={selectedCard === card.id}
+            disabled={disabled} aria-pressed={selectedCard === card.id} aria-expanded={selectedCard === card.id}
+            aria-controls={selectedCard === card.id ? 'word-preview-' + card.id : undefined}
             aria-label={card.revealed ? word + ' — ' + text[card.revealed] : word}
             lang={languageTags[view.language]} onClick={() => setSelectedCard(selectedCard === card.id ? undefined : card.id)}>
             <FittedWord word={word} revealed={!!card.revealed} />{card.revealed && <span className="word-revealed-mark" aria-hidden="true">
               {card.revealed === 'team' ? '✓' : card.revealed === 'assassin' ? '✕' : '–'}
             </span>}
           </button>
-          <button type="button" className="word-info" disabled={disabled}
-            aria-label={view.hintsUnlocked.includes(card.id) ? text.definition(word) : text.definition(word) + ', ' + text.hintCost}
-            aria-expanded={hintOpen}
-            onClick={() => {
-              setShowDefinition(hintOpen ? undefined : card.id)
-              if (!view.hintsUnlocked.includes(card.id)) send({ type: 'hint', id: card.id, revision: view.revision })
-            }}>{text.hint}</button>
-          {hintOpen && <span className="word-definition is-open"
-            lang={languageTags[definitionLocale]} role="tooltip">{item.definitions[definitionLocale]}</span>}
+          {selectedCard === card.id && selected && selectedWord && <section id={'word-preview-' + card.id} className="word-preview" role="dialog" aria-label={text.definition(word)}>
+            <h3 lang={languageTags[view.language]}>{selectedWord.words[view.language]}</h3>
+            {view.hintsUnlocked.includes(card.id) ? <p lang={languageTags[definitionLocale]}>{selectedWord.definitions[definitionLocale]}</p>
+              : <button type="button" className="secondary word-hint-action" disabled={disabled} onClick={() => send({ type: 'hint', id: card.id, revision: view.revision })}>{text.hint} · {text.hintCost}</button>}
+            <div className="actions">
+              <button type="button" className="secondary" autoFocus onClick={() => setSelectedCard(undefined)}>{text.close}</button>
+              {canConfirm && <button type="button" disabled={disabled} onClick={() => {
+                send({ type: 'guess', id: selected.id, revision: view.revision })
+                setSelectedCard(undefined)
+              }}>{text.confirm}</button>}
+            </div>
+          </section>}
         </div>
       })}
     </div>
-    {selected && selectedWord && <section className="word-preview" aria-live="polite">
-      <h3 lang={languageTags[view.language]}>{selectedWord.words[view.language]}</h3>
-      <p lang={languageTags[view.fluentLanguage]}>{selectedWord.definitions[view.fluentLanguage]}</p>
-      <div className="actions">
-        <button type="button" className="secondary" onClick={() => setSelectedCard(undefined)}>{text.close}</button>
-        {canConfirm && <button type="button" disabled={disabled} onClick={() => {
-          send({ type: 'guess', id: selected.id, revision: view.revision })
-          setSelectedCard(undefined)
-        }}>{text.confirm}</button>}
-      </div>
-    </section>}
     {view.role === 'guesser' && view.remaining > 0 && <button className="secondary" disabled={disabled}
       onClick={() => send({ type: 'pass', revision: view.revision })}>{text.pass}</button>}
   </section>

@@ -29,7 +29,7 @@ test('ten languages have metadata and all keys in the interface catalog', () => 
 })
 
 test('all registered languages have icon, navigation and scene vocabulary', () => {
-  assert.equal(gameIcons.size, 20)
+  assert.equal(gameIcons.size, 30)
   for (const language of registeredLanguages) {
     for (const icon of gameIcons.values()) assert.ok(icon.translations[language].trim())
     const { landmarks, vocabulary } = mapNavigatorLanguage(language)

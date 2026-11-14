@@ -21,6 +21,26 @@ export type SpotDifferenceView = {
 export type SpotDifferenceResults = GameResults & { found: number; incorrectGuesses: number }
 
 const objectWords: Record<string, Record<Language, string>> = {
+  Apple: vocabularyEntry("Apple", "Pomme", "Manzana", ["Apfel","Mela","Maçã","りんご","사과","苹果","Яблоко"]),
+  Pear: vocabularyEntry("Pear", "Poire", "Pera", ["Birne","Pera","Pera","梨","배","梨","Груша"]),
+  Glass: vocabularyEntry("Glass", "Verre", "Vaso", ["Glas","Bicchiere","Copo","グラス","유리잔","玻璃杯","Стакан"]),
+  Bottle: vocabularyEntry("Bottle", "Bouteille", "Botella", ["Flasche","Bottiglia","Garrafa","瓶","병","瓶子","Бутылка"]),
+  Guitar: vocabularyEntry("Guitar", "Guitare", "Guitarra", ["Gitarre","Chitarra","Violão","ギター","기타","吉他","Гитара"]),
+  Violin: vocabularyEntry("Violin", "Violon", "Violín", ["Geige","Violino","Violino","バイオリン","바이올린","小提琴","Скрипка"]),
+  Football: vocabularyEntry("Football", "Ballon de football", "Balón de fútbol", ["Fußball","Pallone da calcio","Bola de futebol","サッカーボール","축구공","足球","Футбольный мяч"]),
+  Basketball: vocabularyEntry("Basketball", "Ballon de basket", "Balón de baloncesto", ["Basketball","Pallone da basket","Bola de basquete","バスケットボール","농구공","篮球","Баскетбольный мяч"]),
+  Car: vocabularyEntry("Car", "Voiture", "Coche", ["Auto","Auto","Carro","車","자동차","汽车","Машина"]),
+  Bus: vocabularyEntry("Bus", "Bus", "Autobús", ["Bus","Autobus","Ônibus","バス","버스","公共汽车","Автобус"]),
+  Rose: vocabularyEntry("Rose", "Rose", "Rosa", ["Rose","Rosa","Rosa","バラ","장미","玫瑰","Роза"]),
+  Tulip: vocabularyEntry("Tulip", "Tulipe", "Tulipán", ["Tulpe","Tulipano","Tulipa","チューリップ","튤립","郁金香","Тюльпан"]),
+  Owl: vocabularyEntry("Owl", "Hibou", "Búho", ["Eule","Gufo","Coruja","フクロウ","부엉이","猫头鹰","Сова"]),
+  Parrot: vocabularyEntry("Parrot", "Perroquet", "Loro", ["Papagei","Pappagallo","Papagaio","オウム","앵무새","鹦鹉","Попугай"]),
+  Cake: vocabularyEntry("Cake", "Gâteau", "Pastel", ["Kuchen","Torta","Bolo","ケーキ","케이크","蛋糕","Торт"]),
+  Cookie: vocabularyEntry("Cookie", "Biscuit", "Galleta", ["Keks","Biscotto","Biscoito","クッキー","쿠키","饼干","Печенье"]),
+  Shirt: vocabularyEntry("Shirt", "T-shirt", "Camiseta", ["T-Shirt","Maglietta","Camiseta","Tシャツ","티셔츠","T恤","Футболка"]),
+  Dress: vocabularyEntry("Dress", "Robe", "Vestido", ["Kleid","Vestito","Vestido","ワンピース","원피스","连衣裙","Платье"]),
+  Sun: vocabularyEntry("Sun", "Soleil", "Sol", ["Sonne","Sole","Sol","太陽","해","太阳","Солнце"]),
+  Cloud: vocabularyEntry("Cloud", "Nuage", "Nube", ["Wolke","Nuvola","Nuvem","雲","구름","云","Облако"]),
   Desk: vocabularyEntry('Desk', 'Bureau', 'Escritorio', ['Schreibtisch', 'Scrivania', 'Escrivaninha', '机', '책상', '书桌', 'Письменный стол']),
   Chair: vocabularyEntry('Chair', 'Chaise', 'Silla', ['Stuhl', 'Sedia', 'Cadeira', '椅子', '의자', '椅子', 'Стул']),
   Plant: vocabularyEntry('Plant', 'Plante', 'Planta', ['Pflanze', 'Pianta', 'Planta', '植物', '식물', '植物', 'Растение']),
@@ -56,6 +76,16 @@ const words = [
 ]
 
 export const sceneObjects: SceneObject[] = [
+  { id: 'fruit', name: 'Apple', emoji: '🍎', color: '#FBF3B9', detail: 'fruit' },
+  { id: 'drink', name: 'Glass', emoji: '🥛', color: '#FBF3B9', detail: 'drink container' },
+  { id: 'music', name: 'Guitar', emoji: '🎸', color: '#FBF3B9', detail: 'string instrument' },
+  { id: 'ball', name: 'Football', emoji: '⚽', color: '#FBF3B9', detail: 'sports ball' },
+  { id: 'vehicle', name: 'Car', emoji: '🚗', color: '#FBF3B9', detail: 'road vehicle' },
+  { id: 'flower', name: 'Rose', emoji: '🌹', color: '#FBF3B9', detail: 'flower' },
+  { id: 'bird', name: 'Owl', emoji: '🦉', color: '#FBF3B9', detail: 'bird' },
+  { id: 'snack', name: 'Cake', emoji: '🍰', color: '#FBF3B9', detail: 'sweet snack' },
+  { id: 'clothing', name: 'Shirt', emoji: '👕', color: '#FBF3B9', detail: 'clothing' },
+  { id: 'weather', name: 'Sun', emoji: '☀️', color: '#FBF3B9', detail: 'sky object' },
   { id: 'desk', name: 'Chair', emoji: '🪑', color: '#FBF3B9', detail: 'chair / seat' }, { id: 'plant', name: 'Plant', emoji: '🪴', color: '#89E7E9', detail: 'potted greenery' },
   { id: 'clock', name: 'Clock', emoji: '🕒', color: '#FDB7EA', detail: 'wall timepiece' }, { id: 'lamp', name: 'Lamp', emoji: '💡', color: '#FFDCCC', detail: 'light source' },
   { id: 'cat', name: 'Cat', emoji: '🐈', color: '#F26A8D', detail: 'small pet' }, { id: 'book', name: 'Book', emoji: '📖', color: '#B7B1F2', detail: 'reading item' },

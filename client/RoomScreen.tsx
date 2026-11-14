@@ -8,7 +8,7 @@ import { ActiveGame, Results } from './minigames/GameScreen'
 import { minigames } from './minigames/registry'
 
 import { languageTags } from '../shared/types'
-import { Avatar, flags } from './PlayerIdentity'
+import { Avatar } from './PlayerIdentity'
 import { codenamesCopy } from './minigames/codenames/copy'
 import { GameInstructions } from './minigames/instructions'
 import { playEffect } from './sounds'
@@ -171,7 +171,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         {(reconnecting || (partner && !partner.connected)) && <p className="notice" role="status">
           {reconnecting ? t('Reconnecting to the room…') : t('Your partner is reconnecting…')}
         </p>}
-        {language && <p className="language-chip"><span aria-hidden="true">{flags[language]}</span> Practicing {language}</p>}
+        {language && <p className="language-chip">Practicing {language}</p>}
         {phase === 'lobby' && host && !session?.matchType && <button onClick={invite} disabled={!room}>{t('Invite a friend')}</button>}
         {phase === 'introduction' && partner && <Partner player={partner} />}
         {phase === 'confirmation' && <>

@@ -76,6 +76,7 @@ async function player(name) {
 }
 
 try {
+  integration: {
   const [alice, bob, carol] = await Promise.all(['alice', 'bob', 'carol'].map(player))
   if (process.env.IDLE_TEST_ROOM_EXPIRY === 'true') {
     const idleMs = Number(process.env.ROOM_IDLE_TIMEOUT_MS)
@@ -229,7 +230,7 @@ try {
   const invitedLobby = message(guest, 'session')
   guest.send('sync')
   assert.equal((await invitedLobby).gameId, 'icon-communication')
-  assert.equal((await invitedLobby).phase, 'confirmation')
+  assert.equal((await invitedLobby).phase, 'introduction')
   const changedGame = message(guest, 'session', state => state.gameId === 'lost-instructions' && state)
   host.send('phase', { gameId: 'lost-instructions' })
   await changedGame
@@ -242,10 +243,9 @@ try {
 
   const premature = message(host, 'session')
   host.send('phase', 'game')
-  host.send('ready', 'introduction')
+  host.send('ready', 'confirmation')
   host.send('sync')
-  assert.equal((await premature).phase, 'confirmation')
-  await bothReady(host, guest, 'confirmation', 'introduction')
+  assert.equal((await premature).phase, 'introduction')
 
   const voice = message(guest, 'voice', signal => signal.kind === 'state' && signal.joined)
   host.send('voice', { kind: 'state', joined: true })
@@ -360,6 +360,14 @@ try {
       assert.deepEqual(first.results, second.results)
       assert.equal(first.results.outcome, 'victory')
       assert.equal(first.results.score, 300)
+      // Results are published after the shared score transaction completes.
+      for (const player of [alice, bob]) {
+        const { data: profile } = await player.request('/profile')
+        assert.equal(profile.scores.games['lost-instructions'].highScore, 300)
+        assert.ok(profile.scores.total >= 300)
+      }
+      console.log('Passed: In Good Shape victory saves 300 points to BOTH player profiles.')
+      if (process.env.IDLE_TEST_SHAPE_SCORE === 'true') break integration
     }
   }
   for (const { data } of guestViews) {
@@ -376,7 +384,9 @@ try {
   const swappedHostView = message(host, 'game-view', value => value.gameId === 'icon-communication' && value)
   const swappedGuestView = message(rejoined, 'game-view', value => value.gameId === 'icon-communication' && value)
   const replayed = message(host, 'session', state => state.progress && state.progress.matchId !== match.matchId && state)
-  await bothReady(host, rejoined, 'results', 'game')
+  await bothReady(host, rejoined, 'results', 'confirmation')
+  await bothReady(host, rejoined, 'confirmation', 'introduction')
+  await bothReady(host, rejoined, 'introduction', 'game')
   const replayState = await replayed
   assert.equal(replayState.rolesSwapped, true)
   assert.equal(replayState.gameId, 'icon-communication')
@@ -409,9 +419,13 @@ try {
   const afterDuplicate = message(host, 'session', state => state)
   host.send('sync')
   assert.equal((await afterDuplicate).ready.host, true, 'a duplicate must not clear replay readiness')
-  const afterEarlyReplay = message(host, 'session', state => state.phase === 'game' && state)
+  const afterEarlyReplay = message(host, 'session', state => state.phase === 'confirmation' && state)
   rejoined.send('ready', 'results')
-  const earlyReplay = await afterEarlyReplay
+  await afterEarlyReplay
+  await bothReady(host, rejoined, 'confirmation', 'introduction')
+  const nextStarted = message(host, 'session', state => state.phase === 'game' && state)
+  await bothReady(host, rejoined, 'introduction', 'game')
+  const earlyReplay = await nextStarted
   assert.notEqual(earlyReplay.progress.matchId, replay.matchId)
   assert.equal(earlyReplay.progress.completed, 0)
   const afterStale = message(host, 'session', state => state)
@@ -543,6 +557,7 @@ try {
   assert.match(await canceled, /canceled/)
   console.log('Passed: matchmaking deduplication, cancellation, concurrency, language validation, active-room exclusion and protected reciprocal seats.')
   console.log('Passed: accounts, profiles, Firestore rules, friendships, invitations, capacity, chat, signaling, game transitions, and reconnection.')
+  }
   }
 } finally {
   unsubscribes.forEach(stop => stop())

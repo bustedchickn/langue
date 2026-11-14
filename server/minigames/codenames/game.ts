@@ -17,6 +17,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
   const startsAt = now + 3000
   const endsAt = Number.MAX_SAFE_INTEGER
   let clue: string | undefined
+  let clueCount = 0
   let remaining = 0
   let completed = 0
   let wrongGuesses = 0
@@ -50,7 +51,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
           id: card.id, ...(revealed.has(card.id) ? { revealed: kinds[index] } : {}),
           ...(seat === 'host' ? { kind: kinds[index] } : {}),
         })),
-        ...(clue ? { clue } : {}), remaining, revision, turnsLeft, suddenDeath, hintsUnlocked: [...hintsUnlocked],
+        ...(clue ? { clue } : {}), clueCount, remaining, bonusGuess: !!clue && remaining === 1, revision, turnsLeft, suddenDeath, hintsUnlocked: [...hintsUnlocked],
       }
     },
     tick() {},
@@ -73,7 +74,8 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
         const language = players.host.learningLanguage
         if (!word || isBoardWord(word, cards.map(card => card.words[language]), language)) return false
         clue = word
-        remaining = Number(action.count)
+        clueCount = Number(action.count)
+        remaining = Number(action.count) + 1
         revision++
         return true
       }
