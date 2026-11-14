@@ -199,7 +199,7 @@ const gameNames = {
   'map-navigator': ["Map Navigator","Navigation sur carte","Navegación con mapa","Wegweiser","Navigazione sulla mappa","Navegação no mapa","マップナビ","지도 길 안내","地图导航","Навигация по карте"],
   'tandem-drive': ["Tandem Drive","Conduite en tandem","Conducción en tándem","Tandemfahrt","Guida in coppia","Direção em dupla","タンデムドライブ","협동 운전","双人驾驶","Вождение в тандеме"],
   'spot-difference': ["Spot the Difference","Jeu des différences","Encuentra las diferencias","Finde die Unterschiede","Trova le differenze","Encontre as diferenças","間違い探し","다른 그림 찾기","找不同","Найди отличия"],
-  'codenames': ["Codenames","Codenames","Codenames","Codenames","Codenames","Codenames","コードネーム","코드네임","代号","Кодовые имена"],
+  'codenames': ["Nicknames","Surnoms","Apodos","Spitznamen","Soprannomi","Apelidos","あだ名","별명","昵称","Прозвища"],
 } satisfies Record<string, SessionRow>
 
 export function gameName(language: Language, id: string, fallback: string): string {
