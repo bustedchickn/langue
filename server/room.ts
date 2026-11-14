@@ -4,7 +4,7 @@ import { db, friendshipRef, requireProfile, verify } from './store'
 import { defaultMinigame, minigames } from './minigames/registry'
 import type { ActiveMinigame } from './minigames/contracts'
 import type { Seat } from '../shared/minigames/contracts'
-import { randomUUID } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
 import { getAuth } from 'firebase-admin/auth'
 import type { MatchType } from '../shared/matchmaking'
 import { matchmakingConfig } from './matchmaking-rules'
@@ -27,6 +27,8 @@ export class DuoRoom extends Room {
   private game?: ActiveMinigame
   private gameTimer?: ReturnType<typeof setTimeout>
   private gameId = defaultMinigame
+  private rolesSwapped = false
+  private friendship = { host: false, guest: false, accepted: false }
   private automatic?: { host: string; guest: string; type: MatchType; secret: string }
 
   onCreate(options: { gameId?: unknown }) {
@@ -47,7 +49,8 @@ export class DuoRoom extends Room {
     this.onMessage('phase', (client, action) => {
       const seat = this.seat(client)
       if (!seat || this.closing) return
-      if ((this.phase === 'lobby' || this.phase === 'confirmation') && seat === 'host' &&
+      if (((this.phase === 'lobby' || this.phase === 'confirmation') && seat === 'host' ||
+          (this.phase === 'results' && !this.automatic)) &&
           !this.ready.host && !this.ready.guest && typeof action === 'object' && action &&
           typeof action.gameId === 'string' && minigames.has(action.gameId)) {
         this.gameId = action.gameId
@@ -68,8 +71,44 @@ export class DuoRoom extends Room {
         this.phase = 'introduction'
         this.broadcastSnapshot()
       } else {
+        if (phase === 'results') {
+          if (this.automatic) {
+            const games = [...minigames.keys()]
+            this.gameId = games[randomInt(games.length)]
+            this.rolesSwapped = randomInt(2) === 1
+          } else {
+            this.rolesSwapped = !this.rolesSwapped
+          }
+        }
         this.startGame()
       }
+    })
+    this.onMessage('friend', client => {
+      const seat = this.seat(client)
+      if (!seat || !this.automatic || this.phase !== 'results' || !this.host || !this.guest) return
+      const uid = this[seat]!.profile.uid
+      const peer = this[seat === 'host' ? 'guest' : 'host']!.profile.uid
+      const { ref, members } = friendshipRef(uid, peer)
+      void db.runTransaction(async tx => {
+        const existing = (await tx.get(ref)).data()
+        if (!existing) {
+          tx.create(ref, { members, from: uid, to: peer, status: 'pending' })
+          return { from: uid, to: peer, status: 'pending' }
+        }
+        if (existing.status === 'pending' && existing.to === uid) {
+          tx.update(ref, { status: 'accepted' })
+          return { ...existing, status: 'accepted' }
+        }
+        return existing
+      }).then(relation => {
+        if (!this.host || !this.guest || this.closing) return
+        this.friendship = {
+          host: this.friendship.host || relation.status === 'accepted' || relation.from === this.host.profile.uid,
+          guest: this.friendship.guest || relation.status === 'accepted' || relation.from === this.guest.profile.uid,
+          accepted: this.friendship.accepted || relation.status === 'accepted',
+        }
+        this.broadcastSnapshot()
+      }).catch(() => client.send('friend-error', 'Could not update friendship. Please try again.'))
     })
     this.onMessage('game-action', (client, payload: unknown) => {
       const seat = this.seat(client)
@@ -80,7 +119,7 @@ export class DuoRoom extends Room {
       if (matchId !== game.progress(now).matchId) return
       if (this.updateGame(now)) return
       if (!this.host?.connected || !this.guest?.connected) return
-      if (game.act(seat, action, now) && !this.updateGame(now)) {
+      if (game.act(this.gameSeat(seat), action, now) && !this.updateGame(now)) {
         this.publishGame()
         this.scheduleGame()
       }
@@ -271,6 +310,10 @@ export class DuoRoom extends Room {
     return this.host?.client.sessionId === client.sessionId ? this.guest : this.host
   }
 
+  private gameSeat(seat: Seat): Seat {
+    return this.rolesSwapped ? (seat === 'host' ? 'guest' : 'host') : seat
+  }
+
   private snapshot(): Session {
     const player = (member?: Member): Player | null => member ? {
       name: member.profile.displayName, username: member.profile.username, fluentLanguage: member.profile.fluentLanguage,
@@ -281,7 +324,8 @@ export class DuoRoom extends Room {
     } : null
     return {
       host: player(this.host), guest: player(this.guest), gameId: this.gameId, phase: this.phase, chat: this.chat,
-      matchType: this.automatic?.type, ready: { ...this.ready },
+      matchType: this.automatic?.type, ready: { ...this.ready }, rolesSwapped: this.rolesSwapped,
+      ...(this.automatic ? { friendship: { ...this.friendship } } : {}),
       ...(this.phase === 'game' && this.game ? { progress: this.game.progress(Date.now()) } : {}),
       ...(this.phase === 'results' && this.game ? { results: this.game.results() } : {}),
     }
@@ -300,8 +344,10 @@ export class DuoRoom extends Room {
     const game = minigames.get(this.gameId)!
     const seats = [this.host, this.guest]
     if (seats.length < game.config.minPlayers || seats.length > game.config.maxPlayers) return
-    const { displayName: hostName, learningLanguage: hostLanguage } = this.host.profile
-    const { displayName: guestName, learningLanguage: guestLanguage } = this.guest.profile
+    const hostProfile = (this.rolesSwapped ? this.guest : this.host).profile
+    const guestProfile = (this.rolesSwapped ? this.host : this.guest).profile
+    const { displayName: hostName, learningLanguage: hostLanguage } = hostProfile
+    const { displayName: guestName, learningLanguage: guestLanguage } = guestProfile
     this.game = game.start(randomUUID(), {
       host: { name: hostName, learningLanguage: hostLanguage },
       guest: { name: guestName, learningLanguage: guestLanguage },
@@ -347,7 +393,7 @@ export class DuoRoom extends Room {
     if (!this.game || this.phase !== 'game') return
     const now = Date.now()
     const { gameId, matchId, round } = this.game.progress(now)
-    client.send('game-view', { gameId, matchId, round, data: this.game.view(seat, now) })
+    client.send('game-view', { gameId, matchId, round, data: this.game.view(this.gameSeat(seat), now) })
   }
 }
 

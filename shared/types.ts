@@ -61,6 +61,8 @@ export interface Session {
   matchType?: MatchType
   phase: 'lobby' | 'confirmation' | 'introduction' | 'game' | 'results'
   ready: { host: boolean; guest: boolean }
+  rolesSwapped: boolean
+  friendship?: { host: boolean; guest: boolean; accepted: boolean }
   chat: ChatMessage[]
   progress?: GameProgress
   results?: GameResults

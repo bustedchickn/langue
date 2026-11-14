@@ -72,6 +72,8 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   leave: () => void; invite: () => void
 }) {
   const [leaving, setLeaving] = useState(false)
+  const [friendError, setFriendError] = useState('')
+  const [friendBusy, setFriendBusy] = useState(false)
   const leaveDialog = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const phase = session?.phase
@@ -92,6 +94,14 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
     : phase === 'lobby' && !session?.matchType ? 'Waiting for your friend…' : 'Connecting to your partner…'
 
   useEffect(() => { heading.current?.focus() }, [phase])
+  useEffect(() => {
+    if (!room) return
+    return room.onMessage('friend-error', (message: string) => {
+      setFriendBusy(false)
+      setFriendError(message)
+    })
+  }, [room])
+  useEffect(() => { setFriendBusy(false) }, [session?.friendship?.host, session?.friendship?.guest, session?.friendship?.accepted])
   useEffect(() => {
     if (leaving) leaveDialog.current?.showModal()
     else leaveDialog.current?.close()
@@ -154,7 +164,30 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
             send={payload => room?.send('game-action', payload)} />}
         </>}
         {phase === 'results' && <div className="results-transition stack">
-          {session?.results && <Results result={session.results} seat={seat} />}
+          {session?.results && <Results result={session.results} seat={session.rolesSwapped ? peer : seat} />}
+          {session?.matchType && session.friendship && <section className="friend-celebration stack">
+            {session.friendship.accepted ? <>
+              <div className="friend-animation" role="img" aria-label="High five and hug">
+                <span className="high-five">🙌</span><span className="hug">🫂</span>
+              </div>
+              <p role="status">You’re friends!</p>
+            </> : <>
+              <h2>Keep the conversation going</h2>
+              <p>{session.friendship[seat] ? 'Friend request sent!' : session.friendship[peer] ? 'Your partner would like to be friends!' : 'Send your partner a high five and a friend request.'}</p>
+              <button className="secondary" disabled={!room || friendBusy || session.friendship[seat]} onClick={() => {
+                setFriendError('')
+                setFriendBusy(true)
+                room?.send('friend')
+              }}>{session.friendship[seat] ? 'Request sent' : session.friendship[peer] ? 'Accept friendship' : 'Add friend 🙌'}</button>
+            </>}
+            {friendError && <p className="error" role="alert">{friendError}</p>}
+          </section>}
+          {!session?.matchType && <label>Choose the next game
+            <select value={session?.gameId} disabled={!connected || voted || partnerVoted}
+              onChange={event => room?.send('phase', { gameId: event.target.value })}>
+              {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
+            </select>
+          </label>}
           {readyButton('Play Again')}
         </div>}
       </section>

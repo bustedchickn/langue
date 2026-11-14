@@ -235,15 +235,25 @@ try {
   assert.ok(!guestOtherMessages.some(({ type, value }) =>
     type === 'instruction' || /"(instruction|instructions|solution|hint|puzzleId)":/.test(JSON.stringify(value) ?? '')))
 
-  const replayed = message(host, 'session', state => state.progress && state.progress.matchId !== match.matchId && state.progress)
+  const nextGame = message(host, 'session', state => state.phase === 'results' && state.gameId === 'icon-communication' && state)
+  rejoined.send('phase', { gameId: 'icon-communication' })
+  await nextGame
+  const swappedHostView = message(host, 'game-view', value => value.gameId === 'icon-communication' && value)
+  const swappedGuestView = message(rejoined, 'game-view', value => value.gameId === 'icon-communication' && value)
+  const replayed = message(host, 'session', state => state.progress && state.progress.matchId !== match.matchId && state)
   await bothReady(host, rejoined, 'results', 'game')
-  const replay = await replayed
+  const replayState = await replayed
+  assert.equal(replayState.rolesSwapped, true)
+  assert.equal(replayState.gameId, 'icon-communication')
+  assert.equal((await swappedHostView).data.role, 'describer')
+  assert.equal((await swappedGuestView).data.role, 'selector')
+  const replay = replayState.progress
   assert.equal(replay.round, 1)
   assert.equal(replay.score, 0)
   assert.equal(replay.completed, 0)
   assert.equal(rejoined.roomId, host.roomId)
 
-  if (process.env.IDLE_TEST_TIMEOUT === 'true') {
+  if (process.env.IDLE_TEST_TIMEOUT === 'true' && replay.gameId === 'lost-instructions') {
     const defeat = room => observe(next => room.onMessage('session', next),
       state => state.results?.outcome === 'defeat' && state.results, 100000)
     const [hostResult, guestResult] = await Promise.all([defeat(host), defeat(rejoined)])
@@ -257,6 +267,7 @@ try {
   await rejoined.leave()
   assert.match(await ended, /left/)
   const queue = '/matchmaking'
+  assert.equal((await alice.request(path, 'PATCH', { action: 'remove' })).status, 200)
   async function findSeat(player) {
     const deadline = Date.now() + 12000
     while (Date.now() < deadline) {
@@ -330,12 +341,20 @@ try {
   assert.equal(firstClock.progress.completed, 0)
   const results = message(iconPartner, 'session', value => value.results && value.results, 12000)
   assert.equal((await results).incorrectGuesses, 1)
+  const requestedFriend = message(iconPartner, 'session', value => value.friendship?.host && value)
+  matchedAlice.send('friend')
+  assert.equal((await requestedFriend).friendship.accepted, false)
+  const friendsAgain = message(matchedAlice, 'session', value => value.friendship?.accepted && value)
+  iconPartner.send('friend')
+  await friendsAgain
+  assert.equal((await getDoc(doc(alice.firestore, 'friendships', request.id))).data().status, 'accepted')
   const iconReplay = message(iconPartner, 'session', value => value.progress && value)
   await bothReady(matchedAlice, iconPartner, 'results', 'game')
   const replayedIcon = await iconReplay
   assert.equal(replayedIcon.progress.round, 1)
   assert.equal(replayedIcon.progress.score, 0)
   assert.notEqual(replayedIcon.progress.matchId, icon.matchId)
+  assert.equal(typeof replayedIcon.rolesSwapped, 'boolean')
   const matchEnded = message(iconPartner, 'ended')
   await matchedAlice.leave()
   await matchEnded

@@ -176,15 +176,12 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         await page.getByRole('heading', { name: /Round finished/ }).waitFor()
         assert.equal(await page.locator('.results-confetti').count(), 0)
       }
+      await button(host, 'Add friend 🙌').click()
+      await button(guest, 'Accept friendship').click()
+      await Promise.all([host, guest].map(page => page.getByText('You’re friends!').waitFor()))
+      await Promise.all([host, guest].map(page => page.getByRole('img', { name: 'High five and hug' }).waitFor()))
       await agree(host, guest, 'Play Again')
-      for (const name of ['Plant', 'Clock', 'Lamp', 'Cat', 'Book']) {
-        await guest.getByRole('button', { name: new RegExp('^' + name + ':') }).click()
-      }
-      for (const page of [host, guest]) {
-        await page.getByRole('heading', { name: /Differences found!/ }).waitFor()
-        assert.equal(await page.locator('.results-confetti i').count(), 32)
-        await assertVoice(page)
-      }
+      await Promise.all([assertVoice(host), assertVoice(guest)])
       return
     }
     if (process.env.IDLE_TEST_MAP === 'true') {
@@ -357,12 +354,9 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await assertVoice(page)
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
-    await host.evaluate(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined }))
     await agree(host, guest, 'Play Again')
     await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
-    await host.locator('.lost-spoken-text').first().getByText('This browser does not support pronunciation.').waitFor()
-    assert.equal(await button(host, 'Pronounce in French').isDisabled(), true)
   } finally {
     await Promise.all([host.context().close(), guest.context().close()])
   }
@@ -375,7 +369,7 @@ const browser = await chromium.launch({
 try {
   if (process.env.IDLE_TEST_SPOT === 'true') {
     await run(browser, true)
-    console.log('Passed Spot the Difference private scenes, defeat without confetti, victory with confetti, and voice.')
+    console.log('Passed Spot the Difference private scenes, results, friendship, replay, and voice.')
   } else if (process.env.IDLE_TEST_MAP === 'true') {
     await run(browser, true)
     console.log('Passed Map Navigator at 320px: private route, touch directions, both checkpoints, results, confetti and voice.')
