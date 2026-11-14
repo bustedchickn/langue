@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
 import { pieceName, type Piece } from '../shared/minigames/lost-instructions'
-import { wordCards } from '../shared/minigames/codenames'
+import { codenamesConfig, wordCards } from '../shared/minigames/codenames'
+import { sceneObjectWord } from '../shared/minigames/spot-difference'
 
 const url = process.env.IDLE_BROWSER_URL ?? 'http://localhost:5173'
 const tag = Date.now().toString(36)
 let playerSerial = 0
 const focusedGameTests = ['IDLE_TEST_GAME_UPDATES', 'IDLE_TEST_MAP', 'IDLE_TEST_VOICE', 'IDLE_TEST_CODENAMES',
-  'IDLE_TEST_SPOT', 'IDLE_TEST_TANDEM', 'IDLE_TEST_SOUND'].some(key => process.env[key] === 'true')
+  'IDLE_TEST_SPOT', 'IDLE_TEST_TANDEM', 'IDLE_TEST_SOUND', 'IDLE_TEST_POLISH', 'IDLE_TEST_EXIT'].some(key => process.env[key] === 'true')
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const slots = (page: Page) => page.locator('[data-lost-slot]')
 const positions = ['Left', 'Middle', 'Right']
@@ -125,6 +126,8 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Save profile').click()
   await button(page, 'Play').waitFor()
   await button(page, 'Play').click()
+  await page.getByLabel('Communication level').selectOption(process.env.IDLE_TEST_BEGINNER === 'true' &&
+    !['Bob', 'Remy', 'IconGuest', 'TapGuest'].includes(name) ? 'Beginner' : 'Fluent')
   await button(page, 'Save language assessment').click()
   await button(page, 'Play').waitFor()
   if ((name === 'Alice' || name === 'Lina') && !focusedGameTests) {
@@ -167,6 +170,16 @@ async function assertVoice(page: Page) {
       .reduce((sum, stat) => sum + (stat.packetsReceived ?? 0), 0)
     return received > previous
   }, baseline, { timeout: 8000 })
+}
+
+async function assertWordsFit(page: Page) {
+  await page.evaluate(() => document.fonts.ready)
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLElement>('.word-label')].every(label => {
+    const text = label.getBoundingClientRect()
+    const area = label.parentElement!.getBoundingClientRect()
+    return text.width <= area.width + .5 && text.height <= area.height + .5 &&
+      text.left >= area.left - .5 && text.right <= area.right + .5 && label.scrollWidth <= label.clientWidth
+  }))
 }
 
 type VoiceTestWindow = Window & {
@@ -374,6 +387,7 @@ async function checkGameGuides(host: Page, guest: Page) {
       assert.equal(await page.locator('.game-instructions').getAttribute('open'), '')
       assert.equal(await page.locator('.game-instructions ol li').count(), 3)
       assert.equal(await page.locator('.game-instructions ul li').count(), 2)
+      assert.equal(await page.locator('.instruction-recipe svg[role=img]').count(), 3)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
     }
   }
@@ -382,7 +396,7 @@ async function checkGameGuides(host: Page, guest: Page) {
   console.log('Passed clear role, goal, controls, and timing guides for all six games at 320px.')
 }
 
-async function run(browser: Browser, touch: boolean, icons = false, tandem = false) {
+async function run(browser: Browser, touch: boolean, icons = false, tandem = false, endGameId?: string) {
   const [host, guest] = await Promise.all([
     player(browser, icons ? (touch ? 'TapHost' : 'IconHost') : touch ? 'Lina' : 'Alice', touch),
     player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
@@ -428,7 +442,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     }
     await button(guest, 'Play').click()
     await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
-    if (process.env.IDLE_TEST_GAME_UPDATES === 'true' && !touch && !icons) await checkGameGuides(host, guest)
+    if ((process.env.IDLE_TEST_GAME_UPDATES === 'true' || process.env.IDLE_TEST_POLISH === 'true') && !touch && !icons) await checkGameGuides(host, guest)
     if (process.env.IDLE_TEST_SOUND === 'true') {
       await host.waitForFunction(() => (window as unknown as { soundEvents: { action: string; src: string; loop: boolean }[] }).soundEvents
         .some(event => event.action === 'play' && event.src.includes('connected2') && !event.loop))
@@ -437,6 +451,46 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         const search = events.map(event => event.action === 'play' && event.src.includes('connecting1')).lastIndexOf(true)
         return events.slice(search + 1).some(event => event.action === 'pause' && event.src.includes('connecting1'))
       })
+      return
+    }
+
+    if (endGameId) {
+      await host.getByLabel('Minigame').selectOption(endGameId)
+      await startGame(host, guest)
+      for (const page of [host, guest]) {
+        await page.locator('.game-exit-controls').getByRole('button', { name: 'End early', exact: true }).waitFor()
+        await page.locator('.game-exit-controls').getByRole('button', { name: 'Quit', exact: true }).waitFor()
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
+      }
+      await host.locator('.game-exit-controls').getByRole('button', { name: 'Quit', exact: true }).click()
+      await host.getByRole('dialog', { name: 'Leave this session?' }).getByRole('button', { name: 'Stay', exact: true }).click()
+      await button(host, 'End early').click()
+      await host.getByRole('dialog', { name: 'End this game early?' }).getByRole('button', { name: 'Keep playing', exact: true }).click()
+      assert.equal(await host.getByRole('heading', { name: 'Your results', exact: true }).count(), 0)
+      await button(guest, 'End early').click()
+      await guest.getByRole('dialog', { name: 'End this game early?' }).getByRole('button', { name: 'End game', exact: true }).click()
+      for (const page of [host, guest]) {
+        await page.getByRole('heading', { name: 'Your results', exact: true }).waitFor()
+        await page.getByText('A player ended this game early.', { exact: false }).waitFor()
+        await page.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).waitFor()
+        assert.equal(await page.locator('.results-confetti').count(), 0)
+        assert.equal(await page.locator('.game-exit-controls').count(), 0)
+      }
+      await Promise.all([assertVoice(host), assertVoice(guest)])
+      await host.getByRole('textbox', { name: 'Message', exact: true }).fill('We can still chat after ending early')
+      await button(host, 'Send').click()
+      await guest.getByText('We can still chat after ending early', { exact: true }).waitFor()
+      await agree(host, guest, 'Play Again')
+      await button(host, 'End early').waitFor()
+      if (endGameId === 'tandem-drive') {
+        await host.locator('.game-exit-controls').getByRole('button', { name: 'Quit', exact: true }).click()
+        await host.getByRole('dialog', { name: 'Leave this session?' }).getByRole('button', { name: 'Leave session', exact: true }).click()
+      } else {
+        await button(host, 'End early').click()
+        await host.getByRole('dialog', { name: 'End this game early?' }).getByRole('button', { name: 'End game', exact: true }).click()
+        await host.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).click()
+      }
+      await Promise.all([host, guest].map(page => button(page, 'Play').waitFor()))
       return
     }
 
@@ -449,6 +503,13 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await host.getByLabel('Minigame').selectOption('codenames')
       await guest.getByRole('heading', { name: 'Codenames' }).waitFor()
       await startGame(host, guest)
+      for (const page of [host, guest]) {
+        for (const width of [280, 320, 1280]) {
+          await page.setViewportSize({ width, height: 800 })
+          await assertWordsFit(page)
+        }
+        await page.setViewportSize({ width: 320, height: 700 })
+      }
       await host.getByLabel('One-word clue').fill('animal')
       await button(host, 'Give clue').click()
       await guest.getByText(/Indice.*animal/).waitFor()
@@ -462,11 +523,13 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       assert.equal((await card.innerText()).trim(), item.words.English)
       const info = card.locator('..').getByRole('button', { name: /^Définition de/ })
       await info.click()
+      await guest.waitForFunction(() => !!document.querySelector('.word-info[aria-expanded="true"]'))
       assert.equal(await info.getAttribute('aria-expanded'), 'true')
       assert.equal((await card.locator('..').getByRole('tooltip').innerText()).trim(), item.definitions.French)
       await card.click()
-      await host.getByText('Team words found 1 · Team score 1').waitFor()
+      await host.getByText('Team words found 1 · Team score ' + (codenamesConfig.scoring.pointsPerWord - codenamesConfig.scoring.hintPenalty)).waitFor()
       assert.equal(await card.getAttribute('data-revealed'), 'true')
+      await assertWordsFit(guest)
       assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), 320)
       return
     }
@@ -476,9 +539,24 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await startGame(host, guest)
       await host.getByLabel('Player 1 scene', { exact: true }).waitFor()
       await guest.getByLabel('Player 2 scene', { exact: true }).waitFor()
-      await button(guest, 'Finish Round').click()
+      for (const [page, language, tag] of [[host, 'French', 'fr'], [guest, 'English', 'en']] as const) {
+        const info = page.locator('.scene-word-info').first()
+        const name = (await info.getAttribute('aria-label'))!.split(' word for ')[1]
+        const before = await page.locator('.spot-badges').innerText()
+        await info.click()
+        const tooltip = page.locator('.scene-learning-word:not([hidden])')
+        assert.equal((await tooltip.innerText()).trim(), sceneObjectWord(name, language))
+        assert.equal(await tooltip.getAttribute('lang'), tag)
+        assert.equal(await info.getAttribute('aria-expanded'), 'true')
+        assert.equal((await page.locator('.spot-badges').innerText()).split('found')[0], before.split('found')[0])
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
+        await page.keyboard.press('Escape')
+        assert.equal(await info.getAttribute('aria-expanded'), 'false')
+      }
+      await button(guest, 'End early').click()
+      await guest.getByRole('dialog', { name: 'End this game early?' }).getByRole('button', { name: 'End game', exact: true }).click()
       for (const page of [host, guest]) {
-        await page.getByRole('heading', { name: /Round finished/ }).waitFor()
+        await page.getByRole('heading', { name: 'Game ended early', exact: true }).waitFor()
         assert.equal(await page.locator('.results-confetti').count(), 0)
       }
       await button(host, 'Add friend 🙌').click()
@@ -544,8 +622,8 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       await host.getByLabel('Minigame').selectOption('tandem-drive')
       await guest.getByRole('heading', { name: 'Tandem Drive' }).waitFor()
       await startGame(host, guest)
-      await host.getByText('Optic · Navigation', { exact: true }).waitFor()
-      await guest.getByText('Radar · Cadence', { exact: true }).waitFor()
+      await host.locator('.drive-telemetry').getByText('Optic · Navigation', { exact: true }).waitFor()
+      await guest.locator('.drive-telemetry').getByText('Radar · Cadence', { exact: true }).waitFor()
       assert.equal(await host.locator('canvas').count(), 1)
       assert.equal(await guest.locator('canvas').count(), 1)
       assert.equal(await host.locator('.drive-beats').count(), 0)
@@ -555,12 +633,33 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       const before = await guest.locator('canvas').evaluate(canvas => (canvas as HTMLCanvasElement).toDataURL())
       const left = button(host, 'Left thruster')
       const right = button(guest, 'Right thruster')
-      await Promise.all([left.focus(), right.focus()])
+      await Promise.all([host.getByRole('heading', { name: 'Tandem Drive', exact: true }).focus(),
+        guest.getByRole('heading', { name: 'Tandem Drive', exact: true }).focus()])
       await Promise.all([host.keyboard.down('Space'), guest.keyboard.down('Space')])
       await guest.waitForFunction(image => document.querySelector('canvas')?.toDataURL() !== image, before)
       await Promise.all([host.keyboard.up('Space'), guest.keyboard.up('Space')])
       assert.equal(await left.getAttribute('aria-pressed'), 'false')
       assert.equal(await right.getAttribute('aria-pressed'), 'false')
+      const area = host.locator('.drive-viewport')
+      await area.scrollIntoViewIfNeeded()
+      const bounds = (await area.boundingBox())!
+      await host.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+      await host.mouse.down()
+      await host.waitForFunction(() => document.querySelector('.drive-pedal')?.getAttribute('aria-pressed') === 'true')
+      await host.keyboard.down('Space')
+      await host.mouse.up()
+      assert.equal(await left.getAttribute('aria-pressed'), 'true', 'Space remains held after a pointer release')
+      await host.keyboard.up('Space')
+      await host.waitForFunction(() => document.querySelector('.drive-pedal')?.getAttribute('aria-pressed') === 'false')
+      await host.getByLabel('Message', { exact: true }).fill('A message')
+      await host.keyboard.press('Space')
+      assert.equal(await host.getByLabel('Message', { exact: true }).inputValue(), 'A message ')
+      assert.equal(await left.getAttribute('aria-pressed'), 'false', 'Typing spaces must not fire a thruster')
+      await area.focus()
+      await host.keyboard.down('Space')
+      await host.getByLabel('Message', { exact: true }).focus()
+      assert.equal(await left.getAttribute('aria-pressed'), 'false', 'Moving focus to chat releases a held key')
+      await host.keyboard.up('Space')
       await Promise.all([assertVoice(host), assertVoice(guest)])
       return
     }
@@ -623,6 +722,14 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await host.getByText(/Starts in/).waitFor()
     assert.equal(await host.getByText('Your private instruction').count(), 0)
     await host.getByText('Your private instruction').waitFor()
+    await host.getByText('Hint: show the goal arrangement', { exact: true }).click()
+    await host.getByRole('figure', { name: 'Your private target arrangement' }).waitFor()
+    assert.equal(await guest.locator('.shape-target').count(), 0)
+    if (process.env.IDLE_TEST_BEGINNER === 'true') {
+      const seconds = parseInt(await host.locator('.game-progress time').innerText())
+      assert.ok(seconds > 125 && seconds <= 135, 'Mixed beginner/fluent team receives 135 seconds')
+      await host.locator('.stage-card > .practice-time').getByText(/50% more/).waitFor()
+    }
     await Promise.all([assertVoice(host), assertVoice(guest)])
     assert.equal(await guest.getByText('Your private instruction').count(), 0)
     const speaker = button(host, 'Pronounce in French')
@@ -650,6 +757,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     await guest.getByText('A clue from the instructor', { exact: true }).waitFor()
     await button(guest, 'Check arrangement').click()
     await guest.getByText('That arrangement is incorrect. Try again.').waitFor()
+    assert.equal(await guest.locator('.shape-success').count(), 0)
 
     for (let round = 1; round <= 3; round++) {
       const status = 'Round ' + round + ' of 3'
@@ -682,10 +790,12 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         ;[order[from], order[to]] = [order[to], order[from]]
       }
       await button(guest, 'Check arrangement').click()
+      await Promise.all([host, guest].map(page => page.locator('.shape-success').getByText('Puzzle ' + round + ' complete', { exact: true }).waitFor()))
     }
 
     for (const page of [host, guest]) {
       await page.getByRole('heading', { name: 'Victory' }).waitFor()
+      await page.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).waitFor()
       const results = await page.locator('.game-results').innerText()
       assert.match(results, /Puzzles completed\s+3/)
       assert.match(results, /Puzzles attempted\s+3/)
@@ -720,7 +830,24 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_GAME_UPDATES === 'true') {
+  if (process.env.IDLE_TEST_EXIT === 'true') {
+    for (const id of ['lost-instructions', 'icon-communication', 'map-navigator', 'tandem-drive', 'spot-difference', 'codenames']) {
+      await run(browser, true, false, false, id)
+      console.log('Passed End early, cancellation, shared results, voice/chat, replay, and Quit for ' + id + '.')
+    }
+  } else if (process.env.IDLE_TEST_POLISH === 'true') {
+    process.env.IDLE_TEST_BEGINNER = 'true'
+    try { await run(browser, false) } finally { delete process.env.IDLE_TEST_BEGINNER }
+    console.log('Passed illustrated guides, private shape image, success checks including the final round, and beginner team time.')
+    process.env.IDLE_TEST_CODENAMES = 'true'
+    try { await run(browser, true) } finally { delete process.env.IDLE_TEST_CODENAMES }
+    console.log('Passed Codenames word fitting at 280, 320, and 1280px, including revealed cards.')
+    process.env.IDLE_TEST_SPOT = 'true'
+    try { await run(browser, true) } finally { delete process.env.IDLE_TEST_SPOT }
+    console.log('Passed individual learning-language word popovers without guessing.')
+    await run(browser, true, false, true)
+    console.log('Passed global Space, screen pointer hold, combined input release, and safe chat typing.')
+  } else if (process.env.IDLE_TEST_GAME_UPDATES === 'true') {
     await run(browser, false)
     console.log('Passed randomized shape prompts, mouse swaps, and scoring.')
     await run(browser, true)

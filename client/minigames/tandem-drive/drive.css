@@ -1,7 +1,10 @@
 .drive { display: grid; gap: .65rem; padding: .75rem; background: #0f172a; color: #e2e8f0; border-radius: .75rem; font-family: monospace; }
 .drive-telemetry, .drive-beats { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
 .drive-map-brief { margin: 0; color: #cbd5e1; font-size: .8rem; }
-.drive-viewport { position: relative; }
+.drive-viewport { position: relative; touch-action: none; cursor: pointer; user-select: none; border-radius: .5rem; }
+.drive-viewport:focus-visible { outline: 3px solid #b7b1f2; outline-offset: 3px; }
+.drive-viewport[aria-pressed=true] { box-shadow: 0 0 0 3px #89e7e9; }
+.drive-control-hint { margin: 0; font: .85rem var(--font-body); line-height: 1.4; color: #f1e9ff; }
 .drive-viewport canvas { display: block; width: 100%; height: auto; }
 .drive-viewport::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, #0004 2px 4px); }
 .drive-beats span { padding: .25rem .5rem; border: 1px solid #475569; border-radius: .25rem; }

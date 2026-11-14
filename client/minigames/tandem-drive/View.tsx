@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
 import { beatMs, gateDistance, lanes, releaseRange, type DriveView } from '../../../shared/minigames/tandem-drive'
 import { driveStep } from '../../../shared/minigames/drive-physics'
@@ -13,6 +13,9 @@ export function TandemDriveView({ data, progress, disabled, send }: {
   const frame = useRef({ view, received: performance.now() })
   const latestSend = useRef(send)
   const pressed = useRef(false)
+  const sources = useRef(new Set<string>())
+  const controls = useRef({ disabled, swapped: view.swapped })
+  controls.current = { disabled, swapped: view.swapped }
   const [holding, setHolding] = useState(false)
 
   useEffect(() => { latestSend.current = send }, [send])
@@ -35,31 +38,73 @@ export function TandemDriveView({ data, progress, disabled, send }: {
   }, [])
 
   function pedal(down: boolean) {
-    if (pressed.current === down || (disabled && down)) return
+    if (pressed.current === down || (controls.current.disabled && down)) return
     pressed.current = down
     setHolding(down)
-    latestSend.current({ type: 'pedal', down, swapped: view.swapped })
+    latestSend.current({ type: 'pedal', down, swapped: controls.current.swapped })
   }
+
+  function hold(source: string, down: boolean) {
+    if (down && controls.current.disabled) return
+    if (down) sources.current.add(source)
+    else sources.current.delete(source)
+    pedal(sources.current.size > 0)
+  }
+
+  function pointerDown(event: PointerEvent<HTMLElement>) {
+    if (controls.current.disabled || !event.isPrimary || event.button !== 0) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    hold('pointer:' + event.pointerId, true)
+  }
+  function pointerRelease(event: PointerEvent<HTMLElement>) { hold('pointer:' + event.pointerId, false) }
 
   useEffect(() => {
     const swapped = view.swapped
     setHolding(false)
     const release = () => {
+      sources.current.clear()
       if (!pressed.current) return
       pressed.current = false
       setHolding(false)
       latestSend.current({ type: 'pedal', down: false, swapped })
     }
+    const typing = (target: EventTarget | null) => target instanceof HTMLElement &&
+      !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable=false])')
+    const keyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const space = event.code === 'Space' || event.key === ' '
+      const enter = event.key === 'Enter' && !!target?.closest('.drive-pedal, .drive-viewport')
+      if ((!space && !enter) || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented || typing(target) ||
+          target?.closest('summary, a, dialog[open]') ||
+          (target?.closest('button') && !target.closest('.drive-pedal'))) return
+      if (controls.current.disabled) return
+      event.preventDefault()
+      hold(space ? 'space' : 'enter', true)
+    }
+    const keyUp = (event: KeyboardEvent) => {
+      const source = event.code === 'Space' || event.key === ' ' ? 'space' : event.key === 'Enter' ? 'enter' : undefined
+      if (source && sources.current.has(source)) {
+        event.preventDefault()
+        hold(source, false)
+      }
+    }
+    const focus = (event: FocusEvent) => { if (typing(event.target)) release() }
     const timer = setInterval(() => {
       if (pressed.current && !disabled) latestSend.current({ type: 'pedal', down: true, swapped })
     }, 150)
     window.addEventListener('blur', release)
     document.addEventListener('visibilitychange', release)
+    window.addEventListener('keydown', keyDown)
+    window.addEventListener('keyup', keyUp)
+    document.addEventListener('focusin', focus)
     return () => {
       release()
       clearInterval(timer)
       window.removeEventListener('blur', release)
       document.removeEventListener('visibilitychange', release)
+      window.removeEventListener('keydown', keyDown)
+      window.removeEventListener('keyup', keyUp)
+      document.removeEventListener('focusin', focus)
     }
   }, [view.swapped, disabled, progress.matchId])
 
@@ -75,7 +120,10 @@ export function TandemDriveView({ data, progress, disabled, send }: {
       <strong>{view.gateKind === 'cycle' ? 'CYCLING SHUTTER' : released ? 'GATE RELEASED · ' + ((view.unlockedUntil - progress.serverNow) / 1000).toFixed(1) + 's'
         : 'GATE LOCKED'}</strong> <span>{remaining}px to gate</span>
     </div>
-    <div className="drive-viewport" aria-label={`Current heading ${Math.round(((view.angle + Math.PI / 2) * 180 / Math.PI + 360) % 360)} degrees`}>
+    <p className="drive-control-hint">Hold Space or press and hold the driving area to use your {view.side} thruster. Release to stop your side. You can type normally in chat.</p>
+    <div className="drive-viewport" role="button" tabIndex={disabled ? -1 : 0} aria-pressed={holding} aria-disabled={disabled}
+      aria-label={'Hold driving area for your ' + view.side + ' thruster'}
+      onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}>
       <canvas ref={canvas} width={500} height={378} aria-label="Northbound crawler, gates and visible barriers" />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}
@@ -87,19 +135,8 @@ export function TandemDriveView({ data, progress, disabled, send }: {
           release={() => send({ type: 'release-gate', swapped: view.swapped })} />}
     <p role="status">{view.message || 'Hold both pedals to drive straight. Hold one to pivot. Release to stop.'}</p>
     <button className="secondary drive-pedal" data-side={view.side} disabled={disabled} aria-pressed={holding}
-      onPointerDown={event => {
-        if (!event.isPrimary || event.button !== 0) return
-        event.currentTarget.setPointerCapture(event.pointerId)
-        pedal(true)
-      }}
-      onPointerUp={() => pedal(false)} onPointerCancel={() => pedal(false)} onLostPointerCapture={() => pedal(false)}
-      onKeyDown={event => {
-        if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); pedal(true) }
-      }}
-      onKeyUp={event => {
-        if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); pedal(false) }
-      }}
-      onBlur={() => pedal(false)}>{view.side === 'left' ? 'Left' : 'Right'} thruster</button>
+      onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}
+      >{view.side === 'left' ? 'Left' : 'Right'} thruster</button>
   </div>
 }
 
@@ -127,7 +164,7 @@ function Cadence({ startsAt, openBeat, serverNow, disabled, release, cycle }: {
 
 export function TandemDriveResults({ result }: { result: GameResults }) {
   return <>
-    <h3 className="game-outcome">{result.outcome === 'victory' ? 'Extraction complete' : 'Run ended'}</h3>
+    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Extraction complete' : 'Run ended'}</h3>
     <p>{result.players.join(' & ')}</p>
     <p>Gates cleared · {result.completed}</p>
     <p>Elapsed · {Math.ceil(result.elapsedMs / 1000)}s</p>

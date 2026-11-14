@@ -112,11 +112,23 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
         <p className="lost-instruction" lang={view.language && languageTags[view.language]}>{view.instruction}</p>
         {view.language && <PronunciationButton text={view.instruction} language={view.language} />}
       </div>
-      {view.hint && <details><summary>Hint</summary><div className="lost-spoken-text">
-        <p lang={view.hintLanguage && languageTags[view.hintLanguage]}>{view.hint}</p>
-        {view.hintLanguage && <PronunciationButton text={view.hint} language={view.hintLanguage}
-          label={'Pronounce hint in ' + view.hintLanguage} />}
-      </div></details>}
+      {(view.targetArrangement || view.hint) && <details key={progress.matchId + ':' + progress.round}>
+        <summary>Hint: show the goal arrangement</summary>
+        {view.targetArrangement && <figure className="shape-target" aria-label="Your private target arrangement">
+          <figcaption>Your target arrangement <small>Describe this picture to your partner.</small></figcaption>
+          <div className="shape-target-pieces">{view.targetArrangement.map((piece, index) => <div className="shape-target-piece" key={piece.id}
+            aria-label={['Left', 'Middle', 'Right'][index] + ': ' + piece.color + ' ' + piece.shape}>
+            <span className="lost-piece"><Shape piece={piece} /></span>
+            <strong>{['Left', 'Middle', 'Right'][index]}</strong>
+            <small>{piece.color} {piece.shape}</small>
+          </div>)}</div>
+        </figure>}
+        {view.hint && <div className="lost-spoken-text">
+          <p lang={view.hintLanguage && languageTags[view.hintLanguage]}>{view.hint}</p>
+          {view.hintLanguage && <PronunciationButton text={view.hint} language={view.hintLanguage}
+            label={'Pronounce hint in ' + view.hintLanguage} />}
+        </div>}
+      </details>}
     </div> : <p>Get ready to give instructions.</p>}
   </>
   return <>

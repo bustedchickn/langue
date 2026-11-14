@@ -5,6 +5,7 @@ import { languageTags } from '../../../shared/types'
 import { codenamesCopy } from './copy'
 import { playEffect } from '../../sounds'
 import './codenames.css'
+import { FittedWord } from './FittedWord'
 
 export function CodenamesView({ data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
@@ -52,20 +53,25 @@ export function CodenamesView({ data, disabled, send }: {
         const item = cards.get(card.id)!
         const word = item.words[view.language]
         const kind = card.revealed ?? card.kind
+        const hintOpen = showDefinition === card.id && view.hintsUnlocked.includes(card.id)
         return <div className="word-card-wrap" key={card.id}>
           <button className="word-card" data-id={card.id} data-kind={kind} data-revealed={!!card.revealed}
             disabled={disabled || view.role !== 'guesser' || (!view.remaining && !view.suddenDeath) || !!card.revealed}
             aria-label={card.revealed ? word + ' — ' + text[card.revealed] : word}
             lang={languageTags[view.language]} onClick={() => send({ type: 'guess', id: card.id, revision: view.revision })}>
-            <span>{word}</span>{card.revealed && <span className="word-revealed-mark" aria-hidden="true">
+            <FittedWord word={word} revealed={!!card.revealed} />{card.revealed && <span className="word-revealed-mark" aria-hidden="true">
               {card.revealed === 'team' ? '✓' : card.revealed === 'assassin' ? '✕' : '–'}
             </span>}
           </button>
-          <button type="button" className="word-info" aria-label={text.definition(word)}
-            aria-expanded={showDefinition === card.id}
-            onClick={() => setShowDefinition(showDefinition === card.id ? undefined : card.id)}>i</button>
-          <span className={'word-definition' + (showDefinition === card.id ? ' is-open' : '')}
-            lang={languageTags[view.fluentLanguage]} role="tooltip">{item.definitions[view.fluentLanguage]}</span>
+          <button type="button" className="word-info" disabled={disabled}
+            aria-label={view.hintsUnlocked.includes(card.id) ? text.definition(word) : text.definition(word) + ', ' + text.hintCost}
+            aria-expanded={hintOpen}
+            onClick={() => {
+              setShowDefinition(hintOpen ? undefined : card.id)
+              if (!view.hintsUnlocked.includes(card.id)) send({ type: 'hint', id: card.id, revision: view.revision })
+            }}>{text.hint}</button>
+          {hintOpen && <span className="word-definition is-open"
+            lang={languageTags[view.fluentLanguage]} role="tooltip">{item.definitions[view.fluentLanguage]}</span>}
         </div>
       })}
     </div>
@@ -76,7 +82,7 @@ export function CodenamesView({ data, disabled, send }: {
 
 export function CodenamesResultsView({ result }: { result: GameResults }) {
   const data = result as CodenamesResults
-  const message = data.lossReason === 'assassin'
+  const message = result.endedEarly ? 'The game ended before all team words were found. Your current progress is shown below.' : data.lossReason === 'assassin'
     ? 'You lost by guessing the black square.'
     : data.lossReason === 'neutral'
       ? 'You lost by guessing a neutral square in sudden death.'
@@ -84,11 +90,13 @@ export function CodenamesResultsView({ result }: { result: GameResults }) {
         ? 'You found all the purple squares!'
         : 'The round is over.'
   return <section className="stack">
-    <h3 className="game-outcome">{result.outcome === 'victory' ? 'You won!' : 'You lost'}</h3>
+    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'You won!' : 'You lost'}</h3>
     <p role="status">{message}</p>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
       <div><dt>Words found</dt><dd>{result.completed} / {codenamesTeamWords}</dd></div>
+      <div><dt>Incorrect guesses</dt><dd>{data.wrongGuesses}</dd></div>
+      <div><dt>Hints used</dt><dd>{data.hintsUsed}</dd></div>
       <div><dt>Final score</dt><dd>{result.score}</dd></div>
     </dl>
   </section>

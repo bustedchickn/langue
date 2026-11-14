@@ -1,0 +1,17 @@
+.instruction-recipe { margin: .7rem 0 1rem; padding: .75rem; border: 1px solid #e4cbb7; border-radius: 1rem; background: #fff8e9; }
+.instruction-recipe > figcaption { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .65rem; font: 700 1.15rem var(--font-display); }
+.instruction-recipe > figcaption > span { padding: .2rem .5rem; border-radius: .3rem; color: #5b426e; background: #e9dcf8; font: 700 .65rem var(--font-body); letter-spacing: .05em; text-transform: uppercase; transform: rotate(-3deg); }
+.instruction-recipe-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; }
+.instruction-recipe-step { position: relative; min-width: 0; }
+.instruction-recipe-step > svg:first-child { display: block; width: 100%; height: auto; overflow: visible; }
+.instruction-recipe-caption { display: grid; gap: .2rem; margin-top: .4rem; }
+.instruction-recipe-caption strong { font-size: .95rem; color: #51445f; }
+.instruction-recipe-caption b { display: inline-grid; place-items: center; width: 1.2rem; height: 1.2rem; border-radius: 50%; background: #e3d1f0; font-size: .75rem; }
+.instruction-recipe-caption > span { font-size: .8rem; line-height: 1.35; color: #66505d; }
+.instruction-recipe-step .instruction-recipe-arrow { position: absolute; width: 1.5rem; right: -1.3rem; top: 34%; }
+@media (max-width: 560px) {
+  .instruction-recipe-steps { grid-template-columns: 1fr; gap: 1rem; }
+  .instruction-recipe-step { display: grid; grid-template-columns: minmax(0, 42%) minmax(0, 1fr); gap: .65rem; align-items: center; }
+  .instruction-recipe-caption { margin: 0; }
+  .instruction-recipe-step .instruction-recipe-arrow { top: auto; right: auto; left: 17%; bottom: -1.05rem; transform: rotate(90deg); width: 1.1rem; }
+}

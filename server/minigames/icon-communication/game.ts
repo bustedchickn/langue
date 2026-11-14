@@ -3,12 +3,14 @@ import type { GamePlayers } from '../../../shared/minigames/contracts'
 import { gameIcons } from '../../../shared/minigames/icons'
 import { iconCommunicationConfig, type IconResults, type IconView } from '../../../shared/minigames/icon-communication'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
+import { gameTimeMultiplier, practiceDuration } from '../../../shared/minigames/timing'
 
 export function startIconCommunication(
   matchId: string, players: GamePlayers, now: number,
   config = iconCommunicationConfig, pick = randomInt,
 ): ActiveMinigame {
   const size = config.gridRows * config.gridColumns
+  const timeMultiplier = gameTimeMultiplier(players)
   if (!Number.isSafeInteger(size) || size < 1 || size > gameIcons.size) throw new Error('Invalid icon grid size.')
   let grid: string[] = []
   let startsAt = now
@@ -33,7 +35,18 @@ export function startIconCommunication(
     guessed = new Set()
     const { minimumRevealDelayMs: min, maximumRevealDelayMs: max } = config
     startsAt = time + min + pick(max - min + 1)
-    endsAt = startsAt + (completed === 0 ? config.firstRoundDurationMs : config.roundDurationMs)
+    endsAt = startsAt + practiceDuration(completed === 0 ? config.firstRoundDurationMs : config.roundDurationMs, timeMultiplier)
+  }
+
+  function finish(outcome: IconResults['outcome'], time: number, endedEarly = false) {
+    result = {
+      gameId: config.id, outcome, completed,
+      attempted: outcome === 'victory' || time < startsAt ? completed : completed + 1, incorrectGuesses,
+      elapsedMs: Math.max(0, time - now), score: completed * config.scoring.pointsPerCorrectGuess,
+      players: [players.host.name, players.guest.name], vocabulary: [...seen],
+      learningLanguages: { host: players.host.learningLanguage, guest: players.guest.learningLanguage },
+      ...(endedEarly ? { endedEarly: true } : {}),
+    }
   }
 
   function tick(time: number) {
@@ -44,21 +57,14 @@ export function startIconCommunication(
       seen.add(target)
       feedback = undefined
     }
-    if (time >= endsAt) {
-      result = {
-        gameId: config.id, outcome: 'defeat', completed, attempted: completed + 1, incorrectGuesses,
-        elapsedMs: endsAt - now, score: completed * config.scoring.pointsPerCorrectGuess,
-        players: [players.host.name, players.guest.name], vocabulary: [...seen],
-        learningLanguages: { host: players.host.learningLanguage, guest: players.guest.learningLanguage },
-      }
-    }
+    if (time >= endsAt) finish('defeat', endsAt)
   }
 
   prepare(now)
   return {
     progress: time => ({
       gameId: config.id, matchId, round: completed + 1, rounds: config.rounds, completed, score: completed * config.scoring.pointsPerCorrectGuess,
-      startsAt, endsAt, serverNow: time, hidePreparationTimer: true,
+      startsAt, endsAt, serverNow: time, hidePreparationTimer: true, timeMultiplier,
     }),
     view(seat): IconView {
       const common = { language, revision, feedback }
@@ -66,6 +72,7 @@ export function startIconCommunication(
       return target ? { ...common, role: 'describer', target } : { ...common, role: 'describer' }
     },
     tick,
+    finishEarly(time) { tick(time); if (!result) finish('defeat', time, true) },
     results: () => result,
     act(seat, action, time) {
       tick(time)
@@ -80,12 +87,7 @@ export function startIconCommunication(
         completed++
         feedback = 'correct'
         if (completed >= (config.rounds ?? Number.POSITIVE_INFINITY)) {
-          result = {
-            gameId: config.id, outcome: 'victory', completed, attempted: completed, incorrectGuesses,
-            elapsedMs: time - now, score: completed * config.scoring.pointsPerCorrectGuess,
-            players: [players.host.name, players.guest.name], vocabulary: [...seen],
-            learningLanguages: { host: players.host.learningLanguage, guest: players.guest.learningLanguage },
-          }
+          finish('victory', time)
         } else {
           prepare(time)
         }

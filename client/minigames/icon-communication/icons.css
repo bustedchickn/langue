@@ -1,6 +1,6 @@
 .icon-grid { display: grid; gap: .5rem; }
-.icon-grid .icon-tile { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 48px; padding: .4rem; touch-action: manipulation; }
+.icon-grid .icon-tile { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 48px; padding: .4rem; touch-action: manipulation; background: #f7f7f5; border-color: #d1d1cf; }
 .icon-tile img { width: min(100%, 75px); pointer-events: none; }
-.icon-grid .icon-tile[data-selected], .icon-grid .icon-tile:active { border-color: var(--accent); background: #FBF3B9; }
+.icon-grid .icon-tile[data-selected], .icon-grid .icon-tile:active { border-color: #4c4c4c; background: #e6e6e3; }
 .icon-target { width: min(100%, 170px); margin-inline: auto; }
 .icon-wait { min-height: 6rem; }

@@ -59,7 +59,7 @@ export function pieceName(piece: Pick<Piece, 'shape' | 'color'>, language: Langu
   return shapeNames[piece.shape][language] + ' ' + colorNames[piece.color][language][piece.shape === 'star' ? 1 : 0]
 }
 export type LostView =
-  | { role: 'instructor'; instruction?: string; hint?: string; language?: Language; hintLanguage?: Language }
+  | { role: 'instructor'; instruction?: string; hint?: string; language?: Language; hintLanguage?: Language; targetArrangement?: Piece[] }
   | { role: 'operator'; slots?: Piece[]; revision: number; feedback?: 'incorrect' }
 
 export type LostAction =

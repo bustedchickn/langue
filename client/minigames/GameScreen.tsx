@@ -30,6 +30,7 @@ export function ActiveGame({ progress, view, ready, send, fluentLanguage }: {
       {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? (words?.start ?? 'Starts in') + ' ' : 'Time left '}<time>{seconds}s</time></span>}
     </div>
     <p role="status">{words ? words.found + ' ' + progress.completed + ' · ' + words.score + ' ' + progress.score : progress.completed + ' solved · ' + progress.score + ' points'}</p>
+    {!progress.untimed && (progress.timeMultiplier ?? 1) > 1 && <p className="practice-time">Extra practice time · {Math.round(((progress.timeMultiplier ?? 1) - 1) * 100)}% more time for your team’s language levels</p>}
     {!ready && <p role="status">{words?.waitingPartner ?? 'Waiting for both players. The timer is still running.'}</p>}
     {current ? <game.View key={progress.matchId} data={view.data} progress={progress} disabled={!ready || counting || seconds === 0 || view.round !== progress.round}
       send={action => send({ matchId: progress.matchId, action })} /> : <p>{words?.loading ?? 'Loading your role…'}</p>}
@@ -47,7 +48,7 @@ export function Results({ result, seat, fluentLanguage }: { result: GameResults;
       }} />)}
     </div>}
     {words ? <>
-      <h3 className="game-outcome">{result.outcome === 'victory' ? words.victory : words.defeat}</h3>
+      <h3 className="game-outcome">{result.endedEarly ? words.endedEarly : result.outcome === 'victory' ? words.victory : words.defeat}</h3>
       <p>{result.players.join(' & ')}</p>
       <dl className="game-results">
         <div><dt>{words.found}</dt><dd>{result.completed}</dd></div>
@@ -55,7 +56,7 @@ export function Results({ result, seat, fluentLanguage }: { result: GameResults;
         <div><dt>{words.score}</dt><dd>{result.score}</dd></div>
       </dl>
     </> : CustomResults ? <CustomResults result={result} seat={seat} /> : <>
-    <h3 className="game-outcome">{result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
+    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
       <div><dt>Puzzles completed</dt><dd>{result.completed}</dd></div>

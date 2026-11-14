@@ -52,7 +52,9 @@ test('gate blocks the vehicle until cadence releases it, and the switch is rolle
     let draw = 0
     const game = startTandemDrive('a', players, 0, () => {
       const index = draw++
-      return index === 0 ? roll : index === 9 || (index - 1) % 10 === 0 ? 1 : 0
+      // Keep the scripted route clear while placing the first gate in lane 1.
+      const innerHazardSide = index >= 7 && (index - 7) % 10 === 0
+      return index === 0 ? roll : index === 9 || (innerHazardSide && Math.floor((index - 7) / 10) % 2 === 0) ? 1 : 0
     })
     const view = (now: number) => game.view('host', now) as DriveView
     let sawLocked = false
@@ -76,7 +78,7 @@ test('gate blocks the vehicle until cadence releases it, and the switch is rolle
         assert.equal('gate' in before, roll >= 30)
         break
       }
-      if (now === 17000) assert.fail('Did not reach the switch position.')
+      if (now === 17000) assert.fail(`Did not reach the switch position for roll ${roll}: ${JSON.stringify(before)}`)
       if (now % 100 === 0) {
         game.act('host', pedal(true), now)
         game.act('guest', pedal(true), now)

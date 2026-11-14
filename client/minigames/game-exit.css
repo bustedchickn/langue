@@ -1,0 +1,7 @@
+.game-exit-controls { display: grid; gap: .55rem; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid #d4c5e4; }
+.game-exit-controls > p { margin: 0; color: var(--muted); font-size: .85rem; }
+.game-end-dialog { width: min(28rem, calc(100vw - 2rem)); margin: auto; color: #30263d; }
+.game-end-dialog h2 { margin-bottom: 0; }
+.game-end-dialog p { margin: 0; }
+.game-end-dialog::backdrop { background: #25182b88; }
+.results-play-options { display: grid; gap: .75rem; padding-top: .8rem; border-top: 1px solid #d4c5e4; }

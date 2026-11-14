@@ -12,6 +12,9 @@ import { MicrophoneTest } from './MicrophoneTest'
 import { codenamesCopy } from './minigames/codenames/copy'
 import { GameInstructions } from './minigames/instructions'
 import { playEffect } from './sounds'
+import { ShapeSuccess } from './minigames/lost-instructions/ShapeSuccess'
+import { teamTimeMultiplier } from '../shared/minigames/timing'
+import { GameExitControls } from './minigames/GameExitControls'
 
 const prompts = {
   English: ['Hello!', 'My name is…', 'How are you?'],
@@ -86,6 +89,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const seat = host ? 'host' : 'guest'
   const peer = host ? 'guest' : 'host'
   const partner = session?.[peer]
+  const timeMultiplier = session?.progress?.timeMultiplier ?? teamTimeMultiplier([session?.host?.communicationLevel, session?.guest?.communicationLevel])
   const language = session?.[seat]?.learningLanguage
   const fluentLanguage = session?.[seat]?.fluentLanguage
   const connected = !!room && !!session?.host?.connected && !!session.guest?.connected
@@ -96,7 +100,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   const title = phase === 'confirmation' ? 'You found a partner!'
     : phase === 'introduction' ? 'Meet your partner!'
     : phase === 'game' ? game?.name ?? 'Game'
-    : phase === 'results' ? 'Great teamwork!'
+    : phase === 'results' ? session?.results?.endedEarly ? 'Your results' : 'Great teamwork!'
     : phase === 'lobby' && !session?.matchType ? 'Waiting for your friend…' : 'Connecting to your partner…'
 
   useEffect(() => { heading.current?.focus() }, [phase])
@@ -127,6 +131,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   </div>
 
   return <>
+    {session?.gameId === 'lost-instructions' && <ShapeSuccess progress={session.progress} result={session.results} />}
     <div className="game-toolbar">
       <button className="secondary" onClick={() => returningHome ? leave() : setLeaving(true)}>
         {phase === 'results' ? 'Back to home' : 'Leave session'}
@@ -160,12 +165,12 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
             </select>
           </label>}
           {game && <div><h2>{game.name}</h2><p className="muted">{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p></div>}
-          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} />}
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
           {readyButton('I’m ready!')}
         </>}
         {phase === 'introduction' && <>
           {partner && <Partner player={partner} />}
-          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} />}
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
           <MicrophoneTest />
           {language && <section className="prompt-card">
             <h2>Say hello!</h2>
@@ -176,12 +181,14 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         {phase === 'game' && <>
           {partner && <p className="muted">Playing with @{partner.username}</p>}
           {game && <p>{session?.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'].description : game.description}</p>}
-          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} compact
+          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} compact timeMultiplier={timeMultiplier}
             role={(view?.data as { role?: string } | undefined)?.role} />}
           {session?.progress && <ActiveGame progress={session.progress} view={view} ready={connected} fluentLanguage={fluentLanguage}
             send={payload => room?.send('game-action', payload)} />}
+          <GameExitControls room={room} matchId={session?.progress?.matchId} />
         </>}
         {phase === 'results' && <div className="results-transition stack">
+          {session?.results?.endedEarly && <p className="notice" role="status">A player ended this game early. Your current progress is shown below. You can play again or return home.</p>}
           {session?.results && <Results result={session.results} seat={session.rolesSwapped ? peer : seat} fluentLanguage={fluentLanguage} />}
           {session?.matchType && session.friendship && <section className="friend-celebration stack">
             {session.friendship.accepted ? <>
@@ -206,7 +213,9 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
               {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
             </select>
           </label>}
-          {readyButton('Play Again')}
+          <div className="results-play-options">
+            {readyButton('Play Again')}
+          </div>
         </div>}
       </section>
       {communication && <aside className="stack" aria-label="Communication">

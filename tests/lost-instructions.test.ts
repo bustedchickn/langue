@@ -95,12 +95,14 @@ test('roles receive distinct data and cannot act before the countdown ends', () 
   assert.deepEqual(active.view('guest', gameplay - 1), { role: 'operator', revision: 0 })
   assert.equal(active.act('guest', { type: 'submit', round: 1, revision: 0 }, gameplay - 1), false)
   assert.match(JSON.stringify(active.view('host', gameplay)), /cercle rouge/)
+  const instructor = active.view('host', gameplay) as Extract<LostView, { role: 'instructor' }>
+  assert.deepEqual(instructor.targetArrangement?.map(piece => piece.id), selected[0].solution)
   const { slots, role, revision } = operator(active.view('guest', gameplay))
   assert.equal(role, 'operator')
   assert.equal(revision, 0)
   assert.deepEqual(slots?.map(piece => piece.id), selected[0].initial)
   const guest = JSON.stringify(active.view('guest', gameplay))
-  for (const key of ['solution', 'instructions', 'hint', 'puzzleId']) assert.ok(!guest.includes(key))
+  for (const key of ['solution', 'instructions', 'hint', 'puzzleId', 'targetArrangement']) assert.ok(!guest.includes(key))
 })
 
 test('incorrect submissions leave the round and score unchanged, and invalid or repeated actions are ignored', () => {

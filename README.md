@@ -32,8 +32,14 @@ Run `npx playwright install chromium` once, then `npm run dev:players` to open t
 
 1. Set the first profile to fluent English and learning French. Set the other to fluent French and learning English. Select **Play** in both windows. Both should see **You found a partner!** and **Reciprocal match**.
 2. Both players select **I’m ready!**. On **Meet your partner!**, use **Test mic**, then join voice or use chat to say hello. Both players select **I’m ready to play!** to start.
-3. After the countdown, the Instructor reads their private clue. The Operator drags shapes to swap them or selects one shape and then its destination. Select **Check arrangement** to submit.
-4. Solve three puzzles within 90 seconds. Select **Play Again** on both devices to stay together, or **Back to home** to leave.
+3. After the countdown, the Instructor reads their private clue and target picture. The Operator drags shapes to swap them or selects one shape and then its destination. Select **Check arrangement** to submit; both players see a check-mark celebration for a correct puzzle.
+4. Solve three puzzles before the shared timer ends. The base allowance is 90 seconds, with extra practice time for lower language levels. Select **Play Again** on both devices to stay together, or **Back to home** to leave.
+
+All six games include illustrated steps alongside their written instructions, with a pointing hand and tap rings for interactive steps. In Tandem Drive, hold **Space**, the driving area, or your thruster button to drive your side; release to stop. Typing in chat does not activate a thruster. In Spot the Difference, an object's **i** icon shows its word in your own learning language and does not count as a guess.
+
+Every game has **End early** and **Quit** at the bottom. End early asks for confirmation, then shows both players their current results while keeping voice, chat, and replay available. Either player can end early, including while their partner is reconnecting. Quit asks for confirmation during play and returns both players home. The results screen also has **Quit** below **Play Again**.
+
+Timed games use the longer allowance needed by the two players in their selected learning languages: **Just Starting 2×**, **Beginner 1.5×**, **Conversational 1.25×**, **Comfortable 1.1×**, and **Fluent 1×**. Checking **I consider myself fluent** also uses 1×. Unassessed profiles retain the base timing. The allowance is fixed when each game starts and remains in force on reconnect; countdowns and incorrect-guess penalties keep their base values. Codenames remains untimed.
 
 The countdown and timer continue during disconnects. Moves are blocked until both players are back. A reconnect or refresh in the same tab restores the seat, clue or board, and score within the reconnect window. If the match times out during the grace period, the returning player sees the results.
 
@@ -51,6 +57,8 @@ The server keeps one in-memory queue and room-ownership map per deployment. A he
 - `npm run smoke` tests the Firebase and Colyseus integration, including role privacy, gameplay, reconnection, and replay. Run it with the emulators and game server running.
 - Set `IDLE_TEST_TIMEOUT=true` before running `npm run smoke` to also test the live 90-second deadline and shared defeat screen.
 - `npm run test:browser` uses Playwright Chromium against the running Vite app with the Firebase emulators. It exercises mouse and emulated touch at 320 px, gameplay chat, results, and persistent WebRTC audio with fake microphones. Set `IDLE_CHROMIUM_PATH` to an installed Chrome executable to use it instead of the Playwright download.
+- Set `IDLE_TEST_POLISH=true` for illustrated guides, a mixed Beginner/Fluent timer, private shape target images and success checks, responsive Codenames word fitting, learning-word popovers, and driving with Space and pointer holds. Browser fixtures explicitly select Fluent for baseline timing unless exercising beginner time.
+- Set `IDLE_TEST_EXIT=true` to exercise End early and Quit in all six games, including cancellation, shared results, replay, continued voice/chat, and returning both players home.
 - Set `IDLE_TEST_VOICE=true` for the focused voice regression: guest-first joining, temporary-credential refresh, ICE recovery from both seats, room reconnection, mute/unmute, leaving/rejoining, retry, and text chat during voice failure. It uses two isolated browser contexts and fake microphones. With the emulators and `npm run dev` running, use PowerShell:
 
   ```powershell

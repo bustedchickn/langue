@@ -301,6 +301,38 @@ try {
   assert.equal(replay.completed, 0)
   assert.equal(rejoined.roomId, host.roomId)
 
+  for (const invalid of [null, {}, { matchId: match.matchId }]) {
+    host.send('end-game', invalid)
+    const synced = message(host, 'session', state => state)
+    host.send('sync')
+    const unchanged = await synced
+    assert.equal(unchanged.phase, 'game', 'malformed or stale early-end requests must not stop a game')
+    assert.equal(unchanged.progress.matchId, replay.matchId)
+  }
+  const earlyResults = [host, rejoined].map(room => message(room, 'session', state => state.phase === 'results' && state))
+  rejoined.send('end-game', { matchId: replay.matchId })
+  const [hostEarly, guestEarly] = await Promise.all(earlyResults)
+  assert.deepEqual(hostEarly.results, guestEarly.results)
+  assert.equal(hostEarly.results.endedEarly, true)
+  assert.deepEqual(hostEarly.ready, { host: false, guest: false })
+  const voted = message(rejoined, 'session', state => state.phase === 'results' && state.ready.host && state)
+  host.send('ready', 'results')
+  await voted
+  host.send('end-game', { matchId: replay.matchId })
+  const afterDuplicate = message(host, 'session', state => state)
+  host.send('sync')
+  assert.equal((await afterDuplicate).ready.host, true, 'a duplicate must not clear replay readiness')
+  const afterEarlyReplay = message(host, 'session', state => state.phase === 'game' && state)
+  rejoined.send('ready', 'results')
+  const earlyReplay = await afterEarlyReplay
+  assert.notEqual(earlyReplay.progress.matchId, replay.matchId)
+  assert.equal(earlyReplay.progress.completed, 0)
+  const afterStale = message(host, 'session', state => state)
+  host.send('end-game', { matchId: replay.matchId })
+  host.send('sync')
+  assert.equal((await afterStale).phase, 'game')
+  console.log('Passed: authenticated early end, shared results, stale/duplicate rejection, and fresh replay.')
+
   if (process.env.IDLE_TEST_TIMEOUT === 'true' && replay.gameId === 'lost-instructions') {
     const defeat = room => observe(next => room.onMessage('session', next),
       state => state.results?.outcome === 'defeat' && state.results, 100000)

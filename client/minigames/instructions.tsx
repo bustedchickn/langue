@@ -1,9 +1,12 @@
 import type { Seat } from '../../shared/minigames/contracts'
 import { iconCommunicationConfig } from '../../shared/minigames/icon-communication'
+import { codenamesConfig } from '../../shared/minigames/codenames'
 import './instructions.css'
+import { InstructionIllustration } from './InstructionIllustration'
+import { durationLabel, practiceDuration } from '../../shared/minigames/timing'
 
 type RoleGuide = { id: string; name: string; steps: readonly string[] }
-type GameGuide = { goal: string; roles: Record<Seat, RoleGuide>; rules: readonly string[] }
+type GameGuide = { goal: string; roles: Record<Seat, RoleGuide>; rules: readonly string[] | ((multiplier: number) => readonly string[]) }
 
 const guides: Record<string, GameGuide> = {
   'lost-instructions': {
@@ -20,7 +23,7 @@ const guides: Record<string, GameGuide> = {
         'When all three positions match the clue, select Check arrangement. A correct answer starts the next puzzle; a mistake lets you keep trying.',
       ] },
     },
-    rules: ['You have 90 seconds total for all three puzzles, after the starting countdown. Each solved puzzle earns 100 points.',
+    rules: scale => [`You have ${durationLabel(practiceDuration(90000, scale))} total for all three puzzles, after the starting countdown. Each solved puzzle earns 100 points.`,
       'Every piece on a board has a different shape-and-color pair. New pieces and a new clue are generated for each puzzle.'],
   },
   'icon-communication': {
@@ -37,7 +40,7 @@ const guides: Record<string, GameGuide> = {
         'Keep explaining until your partner chooses correctly. Watch the timer and give a more specific clue if they choose the wrong icon.',
       ] },
     },
-    rules: [`Round 1 gives you ${iconCommunicationConfig.firstRoundDurationMs / 1000} seconds after the icon appears. Every later round gives you ${iconCommunicationConfig.roundDurationMs / 1000} seconds. The short wait before each reveal does not use that round’s time.`,
+    rules: scale => [`Round 1 gives you ${durationLabel(practiceDuration(iconCommunicationConfig.firstRoundDurationMs, scale))} after the icon appears. Every later round gives you ${durationLabel(practiceDuration(iconCommunicationConfig.roundDurationMs, scale))}. The short wait before each reveal does not use that round’s time.`,
       'Each wrong choice removes 2 seconds from the current round. You can try again, but the game ends if the timer reaches zero. Complete ten rounds to win.'],
   },
   'map-navigator': {
@@ -54,7 +57,7 @@ const guides: Record<string, GameGuide> = {
         'Visit both checkpoints in order before reaching the destination. The checkpoint counter confirms each one; ask for help if a move is marked as a wrong turn.',
       ] },
     },
-    rules: ['You have 2 minutes after the countdown. Reaching the destination after both checkpoints wins the game.',
+    rules: scale => [`You have ${durationLabel(practiceDuration(120000, scale))} after the countdown. Reaching the destination after both checkpoints wins the game.`,
       'A completed route starts at 100 points. Each wrong turn, backward step, or attempt to move off the map removes 5 points.'],
   },
   'tandem-drive': {
@@ -71,8 +74,8 @@ const guides: Record<string, GameGuide> = {
         'Hold your thruster to move your side of the vehicle. Work with your partner to steer and share any obstacles only you can see.',
       ] },
     },
-    rules: ['Hold a thruster with a mouse or touch, or focus its button and hold Space or Enter. Releasing the button releases that thruster.',
-      'You have 2 minutes 30 seconds. Collisions damage the hull; clearing a gate repairs some damage. If a side switch occurs, read your new role and thruster label before continuing.'],
+    rules: scale => ['Hold Space without focusing a button, or press and hold the driving area or your thruster button. You can also focus a thruster and hold Enter. Releasing stops that control. Typing in chat never activates a thruster.',
+      `You have ${durationLabel(practiceDuration(150000, scale))}. Collisions damage the hull; clearing a gate repairs some damage. If a side switch occurs, read your new role and thruster label before continuing.`],
   },
   'spot-difference': {
     goal: 'Find all three differences among the five objects in your two scenes.',
@@ -88,8 +91,8 @@ const guides: Record<string, GameGuide> = {
         'Click or tap an object when you agree it is different. Found differences are marked for both players and cannot score twice.',
       ] },
     },
-    rules: ['Find all three differences within 2 minutes. Each correct find earns 20 points; each incorrect choice removes 2 points.',
-      'Finish Round ends the round immediately, even if differences remain. Reset finds clears the shared finds and mistakes while the current timer keeps running.'],
+    rules: scale => [`Find all three differences within ${durationLabel(practiceDuration(120000, scale))}. Each correct find earns 20 points; each incorrect choice removes 2 points. Use the i icons to see words in your learning language without guessing.`,
+      'End early below the game shows your current results, even if differences remain. Reset finds clears the shared finds and mistakes while the current timer keeps running.'],
   },
   codenames: {
     goal: 'Find all nine purple team words on a board of 25 cards while avoiding the black assassin card.',
@@ -101,29 +104,32 @@ const guides: Record<string, GameGuide> = {
       ] },
       guest: { id: 'guesser', name: 'Guesser', steps: [
         'Read or listen to the one-word clue and its number. Choose that many related words, one card at a time.',
-        'A purple team card scores one point. A neutral card ends the turn. The black assassin ends the game immediately.',
-        'Use the i button for a definition in your fluent language. If unsure, select Pass remaining guesses to end the current turn.',
+        `A purple team card earns ${codenamesConfig.scoring.pointsPerWord} points. A neutral card ends the turn. The black assassin ends the game immediately.`,
+        `Use the hint button for a definition in your fluent language; each new hint costs ${codenamesConfig.scoring.hintPenalty} points. If unsure, select Pass remaining guesses to end the current turn.`,
       ] },
     },
-    rules: ['There is no time limit. You have nine clue turns to find all nine team words.',
+    rules: [`There is no time limit. You have nine clue turns to find all nine team words. Correct words earn ${codenamesConfig.scoring.pointsPerWord} points; incorrect guesses cost ${codenamesConfig.scoring.incorrectPenalty} points. A hint costs ${codenamesConfig.scoring.hintPenalty} points once per card and is shared by both players.`,
       'After nine turns, sudden death begins: no new clues are given, and every remaining guess must be a team word. Any wrong choice ends the game.'],
   },
 }
 
-export function GameInstructions({ gameId, seat, role, compact = false }: {
-  gameId: string; seat: Seat; role?: string; compact?: boolean
+export function GameInstructions({ gameId, seat, role, compact = false, timeMultiplier = 1 }: {
+  gameId: string; seat: Seat; role?: string; compact?: boolean; timeMultiplier?: number
 }) {
   const guide = guides[gameId]
   if (!guide) return null
   const assigned = Object.values(guide.roles).find(value => value.id === role) ?? guide.roles[seat]
+  const rules = typeof guide.rules === 'function' ? guide.rules(timeMultiplier) : guide.rules
   return <details className="game-instructions" open={!compact}>
     <summary>How to play</summary>
     <div className="game-instructions-content">
+      <InstructionIllustration gameId={gameId} />
       <p><strong>Goal:</strong> {guide.goal}</p>
       <p className="game-instructions-role">Your role: <strong>{assigned.name}</strong></p>
       <ol>{assigned.steps.map(step => <li key={step}>{step}</li>)}</ol>
       <p className="game-instructions-rules-title"><strong>Timing and rules</strong></p>
-      <ul>{guide.rules.map(rule => <li key={rule}>{rule}</li>)}</ul>
+      <ul>{rules.map(rule => <li key={rule}>{rule}</li>)}</ul>
+      {gameId !== 'codenames' && timeMultiplier > 1 && <p className="practice-time">Your team gets {Math.round((timeMultiplier - 1) * 100)}% extra practice time. When levels differ, both players share the longer allowance.</p>}
       <p className="muted">Use room voice or text chat to work together. Both players must be ready before play starts.</p>
     </div>
   </details>

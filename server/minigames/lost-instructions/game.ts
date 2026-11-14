@@ -3,6 +3,7 @@ import type { GamePlayers, GameResults, Seat } from '../../../shared/minigames/c
 import { lostInstructions, type LostView } from '../../../shared/minigames/lost-instructions'
 import { generatePuzzles, type Puzzle } from './puzzles'
 import type { Language } from '../../../shared/types'
+import { gameTimeMultiplier, practiceDuration } from '../../../shared/minigames/timing'
 
 export function translate(text: Puzzle['instructions'], language: string, warn: (message: string) => void): { text: string; language: Language } {
   if (Object.hasOwn(text, language)) {
@@ -21,7 +22,8 @@ export function startLostInstructions(
 ): ActiveMinigame {
   if (!selected.length) throw new Error('Lost Instructions requires at least one puzzle.')
   const startsAt = now + config.countdownMs
-  const endsAt = startsAt + config.durationMs
+  const timeMultiplier = gameTimeMultiplier(players)
+  const endsAt = startsAt + practiceDuration(config.durationMs, timeMultiplier)
   let completed = 0
   let score = 0
   let revision = 0
@@ -35,10 +37,11 @@ export function startLostInstructions(
 
   log('roles-assigned', { host: 'instructor', guest: 'operator' })
 
-  function finish(outcome: GameResults['outcome'], time: number) {
+  function finish(outcome: GameResults['outcome'], time: number, endedEarly = false) {
     result = {
-      gameId: config.id, outcome, completed, attempted: Math.min(completed + 1, selected.length),
+      gameId: config.id, outcome, completed, attempted: endedEarly && time < startsAt ? 0 : Math.min(completed + 1, selected.length),
       elapsedMs: Math.max(0, time - startsAt), score, players: [players.host.name, players.guest.name],
+      ...(endedEarly ? { endedEarly: true } : {}),
     }
     log('game-completed', { outcome, completed, score })
   }
@@ -49,17 +52,19 @@ export function startLostInstructions(
 
   return {
     tick,
+    finishEarly(time) { tick(time); if (!result) finish('defeat', time, true) },
     results: () => result,
     progress: time => ({
       gameId: config.id, matchId, round: Math.min(completed + 1, selected.length), rounds: selected.length,
-      completed, score, startsAt, endsAt, serverNow: time,
+      completed, score, startsAt, endsAt, serverNow: time, timeMultiplier,
     }),
     view(seat: Seat, time: number): LostView {
       const active = time >= startsAt && !result
       if (seat === 'host') {
         if (!active) return { role: 'instructor' }
         const { instruction, hint } = clues[completed]
-        return { role: 'instructor', instruction: instruction.text, language: instruction.language, hint: hint?.text, hintLanguage: hint?.language }
+        return { role: 'instructor', instruction: instruction.text, language: instruction.language, hint: hint?.text, hintLanguage: hint?.language,
+          targetArrangement: selected[completed].solution.map(id => ({ ...selected[completed].objects.find(piece => piece.id === id)! })) }
       }
       if (!active) return { role: 'operator', revision }
       const { objects } = selected[completed]

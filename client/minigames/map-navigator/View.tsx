@@ -103,7 +103,7 @@ export function MapNavigatorView({ data, disabled, send }: {
 export function MapNavigatorResultsView({ result }: { result: GameResults }) {
   const map = result as MapNavigatorResults
   return <>
-    <h3 className="game-outcome">{result.outcome === 'victory' ? 'Destination reached' : 'Time’s up'}</h3>
+    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Destination reached' : 'Time’s up'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
       <div><dt>Moves</dt><dd>{map.moves}</dd></div>

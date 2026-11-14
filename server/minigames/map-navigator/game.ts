@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto'
+import { gameTimeMultiplier, practiceDuration } from '../../../shared/minigames/timing'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
 import { mapNavigatorConfig as config, mapNavigatorGrid, mapNavigatorLanguage, mapNavigatorLandmarks, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction, type Point } from '../../../shared/minigames/map-navigator'
@@ -45,8 +46,10 @@ function checkpointsOn(route: Point[]) {
 }
 
 export function startMapNavigator(matchId: string, players: GamePlayers, now: number, gameConfig = config): ActiveMinigame {
+  const timeMultiplier = gameTimeMultiplier(players)
+  const durationMs = practiceDuration(gameConfig.durationMs!, timeMultiplier)
   let startsAt = now + gameConfig.countdownMs!
-  let endsAt = startsAt + gameConfig.durationMs!
+  let endsAt = startsAt + durationMs
   let layout = createRandomRoute()
   let position = clone(layout.start)
   let direction: MapNavigatorView['direction'] = 'down'
@@ -60,20 +63,21 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
   const language = players.host.learningLanguage
   const translated = mapNavigatorLanguage(language)
 
-  function finish(outcome: MapNavigatorResults['outcome'], time: number, completedRoute: boolean) {
-    result = { gameId: gameConfig.id, outcome, completed: completedRoute ? 1 : 0, attempted: 1, elapsedMs: Math.max(0, time - startsAt), score: completedRoute ? Math.max(0, gameConfig.scoring.pointsPerRoute - wrongTurns * gameConfig.scoring.wrongTurnPenalty) : 0, players: [players.host.name, players.guest.name], moves, wrongTurns, completedRoute }
+  function finish(outcome: MapNavigatorResults['outcome'], time: number, completedRoute: boolean, endedEarly = false) {
+    result = { gameId: gameConfig.id, outcome, completed: completedRoute ? 1 : 0, attempted: time < startsAt ? 0 : 1, elapsedMs: Math.max(0, time - startsAt), score: completedRoute ? Math.max(0, gameConfig.scoring.pointsPerRoute - wrongTurns * gameConfig.scoring.wrongTurnPenalty) : 0, players: [players.host.name, players.guest.name], moves, wrongTurns, completedRoute, ...(endedEarly ? { endedEarly: true } : {}) }
   }
   function tick(time: number) { if (!result && time >= endsAt) finish('defeat', endsAt, false) }
   function reset(time: number) {
     startsAt = time + gameConfig.countdownMs!
-    endsAt = startsAt + gameConfig.durationMs!
+    endsAt = startsAt + durationMs
     layout = createRandomRoute(); route = layout.route; waypoints = checkpointsOn(route)
     position = clone(layout.start); direction = 'down'; moves = 0; wrongTurns = 0; checkpoints = 0; feedback = undefined; result = undefined
   }
 
   return {
     tick,
-    progress: time => ({ gameId: config.id, matchId, round: 1, completed: result?.completed ?? 0, score: result?.score ?? 0, startsAt, endsAt, serverNow: time }),
+    finishEarly(time) { tick(time); if (!result) finish('defeat', time, false, true) },
+    progress: time => ({ gameId: config.id, matchId, round: 1, completed: result?.completed ?? 0, score: result?.score ?? 0, startsAt, endsAt, serverNow: time, timeMultiplier }),
     view(seat): MapNavigatorView {
       return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position), direction,
         ...(seat === 'host' ? { goal: clone(layout.goal), route: route.map(clone), waypoints: waypoints.map(clone) } : {}),

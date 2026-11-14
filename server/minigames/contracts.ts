@@ -7,6 +7,7 @@ export interface ActiveMinigame {
   view(seat: Seat, now: number): unknown
   act(seat: Seat, action: unknown, now: number): boolean
   tick(now: number): void
+  finishEarly(now: number): void
   results(): GameResults | undefined
 }
 

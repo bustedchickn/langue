@@ -19,14 +19,41 @@ export type SpotDifferenceView = {
 }
 export type SpotDifferenceResults = GameResults & { found: number; incorrectGuesses: number }
 
+const objectWords: Record<string, Record<Language, string>> = {
+  Desk: { English: 'Desk', French: 'Bureau', Spanish: 'Escritorio' },
+  Chair: { English: 'Chair', French: 'Chaise', Spanish: 'Silla' },
+  Plant: { English: 'Plant', French: 'Plante', Spanish: 'Planta' },
+  Cactus: { English: 'Cactus', French: 'Cactus', Spanish: 'Cactus' },
+  Clock: { English: 'Clock', French: 'Horloge', Spanish: 'Reloj' },
+  Lamp: { English: 'Lamp', French: 'Lampe', Spanish: 'Lámpara' },
+  Candle: { English: 'Candle', French: 'Bougie', Spanish: 'Vela' },
+  Cat: { English: 'Cat', French: 'Chat', Spanish: 'Gato' },
+  Dog: { English: 'Dog', French: 'Chien', Spanish: 'Perro' },
+  Book: { English: 'Book', French: 'Livre', Spanish: 'Libro' },
+  Window: { English: 'Window', French: 'Fenêtre', Spanish: 'Ventana' },
+  Mug: { English: 'Mug', French: 'Tasse', Spanish: 'Taza' },
+  Globe: { English: 'Globe', French: 'Globe terrestre', Spanish: 'Globo terráqueo' },
+  Star: { English: 'Star', French: 'Étoile', Spanish: 'Estrella' },
+  Sofa: { English: 'Sofa', French: 'Canapé', Spanish: 'Sofá' },
+  Vase: { English: 'Vase', French: 'Vase', Spanish: 'Jarrón' },
+  Picture: { English: 'Picture', French: 'Tableau', Spanish: 'Cuadro' },
+  Backpack: { English: 'Backpack', French: 'Sac à dos', Spanish: 'Mochila' },
+  Basket: { English: 'Basket', French: 'Panier', Spanish: 'Cesta' },
+  Pencil: { English: 'Pencil', French: 'Crayon', Spanish: 'Lápiz' },
+}
+
+export function sceneObjectWord(name: string, language: Language) {
+  return objectWords[name]?.[language] ?? name
+}
+
 const words: Record<Language, string[]> = {
-  English: ['Desk', 'Plant', 'Clock', 'Lamp', 'Cat', 'Book', 'Above', 'Left', 'Right'],
-  French: ['Bureau', 'Plante', 'Horloge', 'Lampe', 'Chat', 'Livre', 'Au-dessus', 'Gauche', 'Droite'],
-  Spanish: ['Escritorio', 'Planta', 'Reloj', 'Lámpara', 'Gato', 'Libro', 'Encima', 'Izquierda', 'Derecha'],
+  English: ['Chair', 'Plant', 'Clock', 'Lamp', 'Cat', 'Book', 'Above', 'Left', 'Right'],
+  French: ['Chaise', 'Plante', 'Horloge', 'Lampe', 'Chat', 'Livre', 'Au-dessus', 'Gauche', 'Droite'],
+  Spanish: ['Silla', 'Planta', 'Reloj', 'Lámpara', 'Gato', 'Libro', 'Encima', 'Izquierda', 'Derecha'],
 }
 
 export const sceneObjects: SceneObject[] = [
-  { id: 'desk', name: 'Desk', emoji: '🪑', color: '#FBF3B9', detail: 'table / surface' }, { id: 'plant', name: 'Plant', emoji: '🪴', color: '#89E7E9', detail: 'potted greenery' },
+  { id: 'desk', name: 'Chair', emoji: '🪑', color: '#FBF3B9', detail: 'chair / seat' }, { id: 'plant', name: 'Plant', emoji: '🪴', color: '#89E7E9', detail: 'potted greenery' },
   { id: 'clock', name: 'Clock', emoji: '🕒', color: '#FDB7EA', detail: 'wall timepiece' }, { id: 'lamp', name: 'Lamp', emoji: '💡', color: '#FFDCCC', detail: 'light source' },
   { id: 'cat', name: 'Cat', emoji: '🐈', color: '#F26A8D', detail: 'small pet' }, { id: 'book', name: 'Book', emoji: '📖', color: '#B7B1F2', detail: 'reading item' },
   { id: 'window', name: 'Window', emoji: '🪟', color: '#89E7E9', detail: 'view outside' }, { id: 'mug', name: 'Mug', emoji: '☕', color: '#FBF3B9', detail: 'drink cup' },

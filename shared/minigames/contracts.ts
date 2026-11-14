@@ -1,7 +1,7 @@
-import type { Language } from '../types'
+import type { CommunicationLevel, Language } from '../types'
 
 export type Seat = 'host' | 'guest'
-export type GamePlayers = Record<Seat, { name: string; learningLanguage: Language; fluentLanguage?: Language }>
+export type GamePlayers = Record<Seat, { name: string; learningLanguage: Language; fluentLanguage?: Language; communicationLevel?: CommunicationLevel }>
 
 export interface GameConfig {
   id: string
@@ -24,6 +24,7 @@ export interface GameProgress {
   rounds?: number
   hidePreparationTimer?: boolean
   untimed?: boolean
+  timeMultiplier?: number
   completed: number
   score: number
   startsAt: number
@@ -39,6 +40,7 @@ export interface GameResults {
   elapsedMs: number
   score: number
   players: [string, string]
+  endedEarly?: boolean
 }
 
 export interface PrivateGameView {

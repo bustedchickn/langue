@@ -10,3 +10,4 @@
 .game-instructions-content .game-instructions-role { margin-top: .75rem; }
 .game-instructions-content .game-instructions-rules-title { margin-top: .85rem; }
 .game-instructions-content > :last-child { margin-bottom: 0; }
+.practice-time { padding: .45rem .65rem; border: 1px solid #c1d9cb; border-radius: .6rem; color: #315c45; background: #edf8f1; font-size: .85rem; }

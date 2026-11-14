@@ -43,6 +43,27 @@ test('codenames keeps the key private and validates turns, guesses and duplicate
   assert.equal(guest().remaining, 0)
 })
 
+test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cost 50', () => {
+  const players = {
+    host: { name: 'A', learningLanguage: 'English' as const },
+    guest: { name: 'B', learningLanguage: 'French' as const },
+  }
+  const game = startCodenames('points', players, 0, () => 0)
+  const host = () => game.view('host', 3000) as CodenamesView
+  const team = host().cards.find(card => card.kind === 'team')!
+  const neutral = host().cards.find(card => card.kind === 'neutral')!
+  assert.equal(game.act('host', { type: 'hint', id: team.id, revision: 0 }, 3000), true)
+  assert.equal(game.progress(3000).score, -10)
+  assert.deepEqual(host().hintsUnlocked, [team.id])
+  assert.equal(game.act('guest', { type: 'hint', id: team.id, revision: 1 }, 3000), false)
+  assert.equal(game.progress(3000).score, -10)
+  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 2, revision: 1 }, 3000), true)
+  assert.equal(game.act('guest', { type: 'guess', id: team.id, revision: 2 }, 3000), true)
+  assert.equal(game.progress(3000).score, 40)
+  assert.equal(game.act('guest', { type: 'guess', id: neutral.id, revision: 3 }, 3000), true)
+  assert.equal(game.progress(3000).score, -10)
+})
+
 test('codenames uses turns and ends when the assassin is chosen', () => {
   const players = { host: { name: 'A', learningLanguage: 'English' as const }, guest: { name: 'B', learningLanguage: 'French' as const } }
   const game = startCodenames('a', players, 0, () => 0)
@@ -51,6 +72,7 @@ test('codenames uses turns and ends when the assassin is chosen', () => {
   assert.equal(game.act('guest', { type: 'guess', id: assassin.id, revision: 1 }, 3001), true)
   assert.equal(game.results()?.outcome, 'defeat')
   assert.equal((game.results() as CodenamesResults).lossReason, 'assassin')
+  assert.equal(game.results()?.score, -50)
   const timed = startCodenames('b', players, 0, () => 0)
   timed.tick(1000000000)
   assert.equal(timed.results(), undefined)

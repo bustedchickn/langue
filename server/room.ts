@@ -10,6 +10,7 @@ import type { MatchType } from '../shared/matchmaking'
 import { matchmakingConfig } from './matchmaking-rules'
 import { activity, claimRoom, release } from './participation'
 import { parseVoiceSignal } from './voice'
+import { assessmentLevel } from '../shared/minigames/timing'
 
 const disconnectGrace = 30
 const waitingTime = 30 * 60 * 1000
@@ -125,6 +126,17 @@ export class DuoRoom extends Room {
         this.publishGame()
         this.scheduleGame()
       }
+    })
+    this.onMessage('end-game', (client, input: unknown) => {
+      const member = this.member(client)
+      const game = this.game
+      if (!member?.connected || !game || this.closing || this.phase !== 'game' || !input || typeof input !== 'object') return
+      const now = Date.now()
+      if ((input as Record<string, unknown>).matchId !== game.progress(now).matchId || this.updateGame(now)) return
+      game.finishEarly(now)
+      this.ready = { host: false, guest: false }
+      this.log('game-ended-early', { seat: this.seat(client) })
+      this.updateGame(now)
     })
     this.onMessage('chat', (client, input: unknown) => {
       const member = this.member(client)
@@ -317,8 +329,7 @@ export class DuoRoom extends Room {
     const player = (member?: Member): Player | null => member ? {
       name: member.profile.displayName, username: member.profile.username, fluentLanguage: member.profile.fluentLanguage,
       learningLanguage: member.profile.learningLanguage, connected: member.connected,
-      ...(member.profile.assessments?.[member.profile.learningLanguage]?.level
-        ? { communicationLevel: member.profile.assessments[member.profile.learningLanguage]!.level } : {}),
+      communicationLevel: assessmentLevel(member.profile.assessments?.[member.profile.learningLanguage]),
       ...(member.photoURL ? { photoURL: member.photoURL } : {}),
     } : null
     return {
@@ -348,8 +359,10 @@ export class DuoRoom extends Room {
     const { displayName: hostName, learningLanguage: hostLanguage } = hostProfile
     const { displayName: guestName, learningLanguage: guestLanguage } = guestProfile
     this.game = game.start(randomUUID(), {
-      host: { name: hostName, learningLanguage: hostLanguage, fluentLanguage: hostProfile.fluentLanguage },
-      guest: { name: guestName, learningLanguage: guestLanguage, fluentLanguage: guestProfile.fluentLanguage },
+      host: { name: hostName, learningLanguage: hostLanguage, fluentLanguage: hostProfile.fluentLanguage,
+        communicationLevel: assessmentLevel(hostProfile.assessments?.[hostLanguage]) },
+      guest: { name: guestName, learningLanguage: guestLanguage, fluentLanguage: guestProfile.fluentLanguage,
+        communicationLevel: assessmentLevel(guestProfile.assessments?.[guestLanguage]) },
     }, Date.now(), this.log)
     this.phase = 'game'
     this.log('game-initialized', { game: game.config.id })

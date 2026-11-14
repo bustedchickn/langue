@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto'
+import { gameTimeMultiplier, practiceDuration } from '../../../shared/minigames/timing'
 import type { GamePlayers, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { driveStep } from '../../../shared/minigames/drive-physics'
 import { beatMs, driveMaps, gateDistance, laneX, releaseDuration, releaseRange, stages, switchChancePercent, switchDistance, tandemDrive, type DriveView, type Hazard, type DriveMap } from '../../../shared/minigames/tandem-drive'
@@ -43,7 +44,8 @@ export function generateCourse(pick = randomInt, map: DriveMap = driveMaps[0]) {
 }
 
 export function startTandemDrive(matchId: string, players: GamePlayers, started: number, pick = randomInt): ActiveMinigame {
-  const endsAt = started + tandemDrive.durationMs
+  const timeMultiplier = gameTimeMultiplier(players)
+  const endsAt = started + practiceDuration(tandemDrive.durationMs, timeMultiplier)
   const map = driveMaps[[...matchId].reduce((sum, character) => sum + character.charCodeAt(0), 0) % driveMaps.length]
   const hasSwitch = pick(100) < switchChancePercent
   const course = generateCourse(pick, map)
@@ -63,9 +65,10 @@ export function startTandemDrive(matchId: string, players: GamePlayers, started:
   const navigation = (seat: Seat) => (seat === 'host') !== swapped
   const engaged = (seat: Seat, now: number) => pedals[seat] > now
 
-  function finish(outcome: GameResults['outcome'], now: number) {
+  function finish(outcome: GameResults['outcome'], now: number, endedEarly = false) {
     result = { gameId: tandemDrive.id, outcome, completed: stage, attempted: Math.min(stage + 1, stages),
-      elapsedMs: now - started, score: stage * tandemDrive.scoring.gate, players: [players.host.name, players.guest.name] }
+      elapsedMs: Math.max(0, now - started), score: stage * tandemDrive.scoring.gate, players: [players.host.name, players.guest.name],
+      ...(endedEarly ? { endedEarly: true } : {}) }
   }
 
   function advance(now: number, seconds: number) {
@@ -126,8 +129,14 @@ export function startTandemDrive(matchId: string, players: GamePlayers, started:
   return {
     updateIntervalMs: 1000 / 30,
     tick, results: () => result,
+    finishEarly(now) {
+      tick(now)
+      if (result) return
+      pedals.host = pedals.guest = now
+      finish('defeat', now, true)
+    },
     suspend(now) { pedals.host = pedals.guest = now },
-    progress: now => ({ gameId: tandemDrive.id, matchId, round: Math.min(stage + 1, stages), rounds: stages,
+    progress: now => ({ gameId: tandemDrive.id, matchId, round: Math.min(stage + 1, stages), rounds: stages, timeMultiplier,
       completed: stage, score: stage, startsAt: started, endsAt, serverNow: now }),
     view(seat, now): DriveView {
       const navigator = navigation(seat)

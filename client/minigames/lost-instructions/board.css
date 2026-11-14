@@ -16,3 +16,20 @@
 .lost-instruction { font-size: 1.2rem; overflow-wrap: anywhere; }
 .lost-spoken-text { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .lost-spoken-text > p { flex: 1 1 12rem; min-width: 0; }
+.shape-target { margin: .75rem 0; padding: .75rem; border: 1px solid #d5c4e4; border-radius: .85rem; background: #fff8e6; }
+.shape-target figcaption { font-weight: 700; }
+.shape-target figcaption small { display: block; font-weight: 400; color: #66505d; }
+.shape-target-pieces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; margin-top: .7rem; }
+.shape-target-piece { display: grid; justify-items: center; align-content: start; gap: .2rem; min-width: 0; padding: .5rem .2rem; border: 1px solid #dfd0ec; border-radius: .6rem; background: #fff; }
+.shape-target-piece strong { font-size: .9rem; }
+.shape-target-piece small { font-size: .72rem; text-align: center; overflow-wrap: anywhere; }
+.shape-success { position: fixed; z-index: 100; left: 50%; top: max(1rem, env(safe-area-inset-top)); transform: translateX(-50%); display: flex; align-items: center; gap: .65rem; width: max-content; max-width: calc(100vw - 2rem); padding: .7rem 1rem .7rem .7rem; border: 2px solid #70b78e; border-radius: 1.2rem; background: #f5fff8; color: #24543b; box-shadow: 0 8px 28px #24543b30; pointer-events: none; animation: shape-success-pop .35s cubic-bezier(.2,.8,.2,1); }
+.shape-success strong { display: block; font-size: 1.45rem; }
+.shape-success span { display: block; font-size: .9rem; }
+.shape-success-check { width: 4rem; flex: 0 0 4rem; }
+.shape-success-check path { stroke-dasharray: 70; stroke-dashoffset: 70; animation: shape-check-draw .4s .1s ease forwards; }
+.shape-success-sparks { transform-origin: center; animation: shape-sparks .6s ease-out; }
+@keyframes shape-success-pop { from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.8); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+@keyframes shape-check-draw { to { stroke-dashoffset: 0; } }
+@keyframes shape-sparks { from { transform: scale(.5); opacity: 0; } 55% { opacity: 1; } to { transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .shape-success, .shape-success-check path, .shape-success-sparks, .lost-piece { animation: none; } .shape-success-check path { stroke-dashoffset: 0; } }

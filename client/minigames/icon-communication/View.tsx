@@ -14,7 +14,7 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
     : view.feedback === 'incorrect' ? 'Incorrect. −' + config.incorrectGuessPenaltyMs / 1000 + ' seconds.' : ''
   return <>
     <p><strong>{view.role === 'selector' ? 'Selector' : 'Describer'}</strong> · Practice {view.language}</p>
-    <p className="muted">{progress.round === 1 ? 'First round: 20 seconds' : 'This round: 10 seconds'} after the icon appears. A wrong choice removes 2 seconds.</p>
+    <p className="muted">{progress.round === 1 ? 'First round: ' : 'This round: '}{Math.round((progress.round === 1 ? config.firstRoundDurationMs : config.roundDurationMs) * (progress.timeMultiplier ?? 1) / 1000)} seconds after the icon appears. A wrong choice removes 2 seconds.</p>
     <p role="status">{feedback}</p>
     {view.role === 'selector' ? <>
       <p>{view.revealed ? 'Listen to your partner or read their clue in chat, then click or tap the matching icon. You can try again after a wrong choice.' : 'Wait for your partner’s icon to appear. Only your partner will see which of these nine icons is the target.'}</p>
@@ -44,7 +44,7 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
 export function IconCommunicationResults({ result }: { result: GameResults; seat: Seat }) {
   const icons = result as IconResults
   return <>
-    <h3 className="game-outcome">{result.outcome === 'victory' ? 'All ten icons found!' : 'Time’s up'}</h3>
+    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'All ten icons found!' : 'Time’s up'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
       <div><dt>Icons identified</dt><dd>{result.completed}</dd></div>
