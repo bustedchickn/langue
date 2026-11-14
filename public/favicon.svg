@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" role="img" aria-label="Lost in Translation">
-  <image href="/lostintranslation.png" width="100" height="50" preserveAspectRatio="xMidYMid meet" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="L I T">
+  <rect width="96" height="96" rx="20" fill="#fffaf2" />
+  <text x="48" y="70" text-anchor="middle" font-family="Georgia, serif" font-size="58" font-weight="700" letter-spacing="-8">
+    <tspan fill="#ef628c">L</tspan><tspan fill="#a9a2ed">I</tspan><tspan fill="#ef628c">T</tspan>
+  </text>
 </svg>
