@@ -16,7 +16,7 @@ import './style.css'
 type Page = 'home' | 'friends' | 'profile'
 
 function Logo() {
-  return <h1 className="game-logo">Lost in<br />Translation<span>.</span></h1>
+  return <img className="game-logo-image" src="/lostintranslation.png" alt="Lost in Translation" />
 }
 
 function App() {
