@@ -1,2 +1,53 @@
-# langue
-Ihack 2026 language cooperation game
+# Lost in Translation
+
+Lost in Translation is a browser-based language practice game for two players. Its first minigame, Lost Instructions, gives the host clues in their learning language and gives the partner a shape puzzle to solve together. The React client uses Firebase Authentication for accounts and Firestore listeners for friends and invitations. An authenticated Colyseus server manages rooms, private instructions, text chat, and WebRTC signaling.
+
+## Run locally
+
+Use Node.js 24.12 or newer and Java 21 for the Firebase emulators.
+
+```powershell
+npm ci
+Copy-Item .env.example .env
+npm run emulators
+```
+
+In another terminal:
+
+```powershell
+npm run dev
+```
+
+Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. You can also join from Play using a room code or invitation link. Each player selects **Join Voice** to start audio.
+
+### Play with two browsers
+
+Run `npx playwright install chromium` once, then `npm run dev:players` to open two isolated browser windows. You can also use two separate browser profiles or a private window. Optionally add `VITE_QUICK_GUEST=true` to `.env` and restart Vite. Select **Quick test guest** in each window to create independent Firebase emulator accounts and profiles.
+
+1. In the first window select **Play**, then **Quick Create Room**. In the second window open the invitation link or enter the room code from the first window.
+2. Join voice or use the room chat. The host selects **Start Game**.
+3. After the countdown, the Instructor reads their private clue. The Operator drags shapes to swap them or selects one shape and then its destination. Select **Check arrangement** to submit.
+4. Solve three puzzles within 90 seconds. The host can select **Play Again** from the shared results screen while both players stay in the same room.
+
+The countdown and timer continue during disconnects. Moves are blocked until both players are back. A reconnect restores the seat, clue or board, and score. If the match times out during the grace period, the returning player sees the results.
+
+### Automated tests
+
+- `npm test` runs the minigame logic tests.
+- `npm run smoke` tests the Firebase and Colyseus integration, including role privacy, gameplay, reconnection, and replay. Run it with the emulators and game server running.
+- Set `IDLE_TEST_TIMEOUT=true` before running `npm run smoke` to also test the live 90-second deadline and shared defeat screen.
+- `npm run test:browser` uses Playwright Chromium against the running Vite app with the Firebase emulators. It exercises mouse and emulated touch at 320 px, gameplay chat, results, and persistent WebRTC audio with fake microphones. Set `IDLE_CHROMIUM_PATH` to an installed Chrome executable to use it instead of the Playwright download.
+
+The smoke tests create example documents in the local emulator. Chromium tests do not verify iOS Safari or real-world TURN relay.
+
+See the [minigame developer guide](MINIGAMES.md) for configuration, asset replacement, and the server/client integration points.
+
+## Deploy
+
+1. Create a Firebase project and a Cloud Firestore database. Enable Google, Email/Password, and Anonymous sign-in, and authorize your frontend domain in Firebase Authentication.
+2. Set the public `VITE_FIREBASE_*` web app settings, set `VITE_USE_EMULATORS=false`, and set the server's `FIREBASE_PROJECT_ID` to the same project. Remove both emulator host variables. Give the backend Firebase Admin access through Application Default Credentials.
+3. Deploy the Firestore rules with `npx --yes firebase-tools@14.17.0 deploy --only firestore:rules --project YOUR_PROJECT_ID`.
+4. Run `npm run build` followed by `npm start`. Point your HTTPS reverse proxy at the server and forward WebSocket upgrades. The server serves the built frontend from `dist` and expects same-origin API requests. Run one server instance, since active rooms live in its memory.
+5. Set `TURN_URLS` and the backend-only `TURN_SECRET` for a TURN server that supports shared-secret authentication, such as coturn. The game server issues short-lived relay credentials to signed-in players. Test voice between devices on different networks, including a restrictive network. Browsers require HTTPS or localhost for microphone access.
+
+`INVITE_SECONDS` controls invitation lifetime and defaults to 300 seconds. Rooms waiting for a partner expire after 30 minutes. A disconnected player's spot is held for 30 seconds. Chat lives in room memory until the session ends. The game and results screens share the same chat and voice controls as the lobby.
