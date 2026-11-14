@@ -18,7 +18,30 @@ import './style.css'
 type Page = 'home' | 'friends' | 'profile'
 
 function Logo() {
-  return <img className="game-logo-image" src="/lostintranslation.png" alt="Lost in Translation" />
+  const logos = ['/lostintranslationspanish.png', '/lostintranslationfrench.png']
+  const [current, setCurrent] = useState(() => Math.floor(Math.random() * logos.length))
+  const [previous, setPrevious] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (previous === null) return
+    const timeout = window.setTimeout(() => setPrevious(null), 650)
+    return () => window.clearTimeout(timeout)
+  }, [previous])
+
+  function changeLogo() {
+    if (previous !== null) return
+    setPrevious(current)
+    setCurrent((current + 1) % logos.length)
+  }
+
+  return <button type="button" className="game-logo-button" onClick={changeLogo}
+    aria-label="Switch logo language" title="Click to switch logo language">
+    <span className="game-logo-frame">
+      {previous !== null && <img className="game-logo-image game-logo-previous" src={logos[previous]} alt="" aria-hidden="true" />}
+      <img key={current} className={'game-logo-image' + (previous !== null ? ' game-logo-next' : '')}
+        src={logos[current]} alt="Lost in Translation" />
+    </span>
+  </button>
 }
 
 function App() {

@@ -33,9 +33,9 @@ export type DriveMap = {
 }
 
 export const driveMaps: readonly DriveMap[] = [
-  { id: 'neon-yard', name: 'Neon Yard', subtitle: 'A clear training route', background: '#020617', road: '#111622', grid: 'rgba(148, 163, 184, 0.07)', leftRail: '#f59e0b', rightRail: '#06b6d4', accent: '#34d399', gate: '#94a3b8', hazard: '#94a3b8' },
-  { id: 'ember-canyon', name: 'Ember Canyon', subtitle: 'Watch the narrow turns', background: '#1c1010', road: '#261719', grid: 'rgba(251, 146, 60, 0.12)', leftRail: '#fb923c', rightRail: '#f43f5e', accent: '#fbbf24', gate: '#fdba74', hazard: '#fda4af' },
-  { id: 'frost-station', name: 'Frost Station', subtitle: 'Keep your callouts crisp', background: '#071521', road: '#0c2430', grid: 'rgba(125, 211, 252, 0.12)', leftRail: '#38bdf8', rightRail: '#a78bfa', accent: '#67e8f9', gate: '#bae6fd', hazard: '#c4b5fd' },
+  { id: 'neon-yard', name: 'Neon Yard', subtitle: 'A clear training route', background: '#21172e', road: '#302240', grid: 'rgba(255, 255, 255, 0.09)', leftRail: '#fbf3b9', rightRail: '#82e5e9', accent: '#f26a8d', gate: '#b7b1f2', hazard: '#b7b1f2' },
+  { id: 'ember-canyon', name: 'Ember Canyon', subtitle: 'Watch the narrow turns', background: '#2b1929', road: '#382034', grid: 'rgba(255, 207, 219, 0.12)', leftRail: '#f9c18a', rightRail: '#82e5e9', accent: '#fbf3b9', gate: '#f8b1d4', hazard: '#ffdccc' },
+  { id: 'frost-station', name: 'Frost Station', subtitle: 'Keep your callouts crisp', background: '#171f38', road: '#25344c', grid: 'rgba(199, 239, 255, 0.12)', leftRail: '#fbf3b9', rightRail: '#82e5e9', accent: '#f26a8d', gate: '#b7b1f2', hazard: '#b7b1f2' },
 ] as const
 
 export type Hazard = { x: number; y: number; w: number; h: number; shape: 'crate' | 'drum' | 'rail'; vis: 'P1_ONLY' | 'P2_ONLY' | 'BOTH'; label: string }

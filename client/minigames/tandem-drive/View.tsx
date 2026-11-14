@@ -124,7 +124,7 @@ export function TandemDriveView({ data, progress, disabled, send }: {
     <div className="drive-viewport" role="button" tabIndex={disabled ? -1 : 0} aria-pressed={holding} aria-disabled={disabled}
       aria-label={'Hold driving area for your ' + view.side + ' thruster'}
       onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}>
-      <canvas ref={canvas} width={500} height={378} aria-label="Northbound crawler, gates and visible barriers" />
+      <canvas ref={canvas} width={500} height={378} aria-label="Pink car, gates and visible barriers" />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}
     {view.role === 'navigation' ? <p>{view.gate !== undefined ? <>Safe gate <strong>{lanes[view.gate]}</strong> · Tell your partner.</>

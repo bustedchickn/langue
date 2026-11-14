@@ -1,15 +1,15 @@
 import { gateDistance, lanes, laneX, stages, switchDistance, type DriveView } from '../../../shared/minigames/tandem-drive'
 
+const carImage = typeof Image === 'undefined' ? undefined : new Image()
+if (carImage) carImage.src = '/lostintranslationcar.png'
+
 // Canvas artwork adapted from the supplied Tandem Drive prototype.
 export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   const palette = view.map
   const ROAD_HALF_WIDTH = 240
   const FINISH_Y = -stages * gateDistance
-  const CAR_LENGTH = 68
-  const CAR_WIDTH = 44
   const car = { x: view.x, y: -view.distance, angle: view.angle }
   const role = view.role === 'navigation' ? 'P1' : 'P2'
-  const input = { p1LeftGas: view.left, p2RightGas: view.right }
   const staticObstacles = view.hazards
   const linguisticGates = [{
     y: -(view.stage + 1) * gateDistance,
@@ -257,68 +257,20 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   }
 
   function drawCar() {
-    // Draw Car Body rotated along car.angle
     ctx.save();
     ctx.translate(car.x, car.y);
-    ctx.rotate(car.angle);
-
-    // Forward Heading Sightline
-    ctx.strokeStyle = `${palette.accent}55`;
-    ctx.setLineDash([6, 6]);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(CAR_LENGTH * 0.5, 0);
-    ctx.lineTo(CAR_LENGTH * 0.5 + 75, 0);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Wheels (4 corners)
-    ctx.fillStyle = '#0f172a';
-    const wheelPositions = [
-      { x: 18, y: -23, side: 'L' },
-      { x: -18, y: -23, side: 'L' },
-      { x: 18, y: 23, side: 'R' },
-      { x: -18, y: 23, side: 'R' }
-    ];
-    for (const w of wheelPositions) {
-      const active = (w.side === 'L' && input.p1LeftGas) || (w.side === 'R' && input.p2RightGas);
-      ctx.fillStyle = active ? (w.side === 'L' ? '#fbbf24' : '#22d3ee') : '#1e293b';
-      roundRect(ctx, w.x - 9, w.y - 4, 18, 8, 3);
+    // The supplied image faces up; the physics heading points right at angle zero.
+    ctx.rotate(car.angle + Math.PI / 2);
+    if (carImage?.complete && carImage.naturalWidth) {
+      ctx.drawImage(carImage, 295, 0, 1350, 1935, -27, -38, 54, 76);
+    } else {
+      ctx.fillStyle = '#f26a8d';
+      ctx.strokeStyle = '#b7b1f2';
+      ctx.lineWidth = 2;
+      roundRect(ctx, -25, -36, 50, 72, 14);
       ctx.fill();
+      ctx.stroke();
     }
-
-    // Main Chassis
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#f8fafc';
-    ctx.lineWidth = 2;
-    roundRect(ctx, -CAR_LENGTH / 2, -CAR_WIDTH / 2, CAR_LENGTH, CAR_WIDTH, 10);
-    ctx.fill();
-    ctx.stroke();
-
-    // Left & Right Differential Side Pods
-    // Left Side (P1 Amber)
-    ctx.fillStyle = input.p1LeftGas ? '#fbbf24' : 'rgba(245, 158, 11, 0.35)';
-    roundRect(ctx, -CAR_LENGTH * 0.38, -CAR_WIDTH / 2 + 3, CAR_LENGTH * 0.72, 9, 4);
-    ctx.fill();
-
-    // Right Side (P2 Cyan)
-    ctx.fillStyle = input.p2RightGas ? '#22d3ee' : 'rgba(6, 182, 212, 0.35)';
-    roundRect(ctx, -CAR_LENGTH * 0.38, CAR_WIDTH / 2 - 12, CAR_LENGTH * 0.72, 9, 4);
-    ctx.fill();
-
-    // Windshield & Forward Nose Arrow
-    ctx.fillStyle = '#0f172a';
-    roundRect(ctx, 4, -CAR_WIDTH * 0.3, 14, CAR_WIDTH * 0.6, 4);
-    ctx.fill();
-
-    // Nose Chevron pointing Forward
-    ctx.fillStyle = palette.accent;
-    ctx.beginPath();
-    ctx.moveTo(CAR_LENGTH / 2 - 4, 0);
-    ctx.lineTo(CAR_LENGTH / 2 - 14, -7);
-    ctx.lineTo(CAR_LENGTH / 2 - 14, 7);
-    ctx.closePath();
-    ctx.fill();
 
     ctx.restore();
   }
