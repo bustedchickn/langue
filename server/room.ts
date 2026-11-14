@@ -14,7 +14,10 @@ import { assessmentLevel } from '../shared/minigames/timing'
 import { recordGameScore } from './leaderboard'
 
 const disconnectGrace = 30
-const waitingTime = 30 * 60 * 1000
+const waitingTime = Number(process.env.ROOM_IDLE_TIMEOUT_MS ?? 30 * 60 * 1000)
+if (!Number.isSafeInteger(waitingTime) || waitingTime < 1 || waitingTime > 2_147_483_647) {
+  throw new Error('ROOM_IDLE_TIMEOUT_MS must be a positive timer interval.')
+}
 type Member = { profile: UserProfile; client: Client; connected: boolean; lastChat: number; voice: boolean; photoURL?: string }
 export const rooms = new Map<string, DuoRoom>()
 
@@ -40,7 +43,7 @@ export class DuoRoom extends Room {
     void this.setPrivate(true)
     rooms.set(this.roomId, this)
     this.log('room-created')
-    this.waiting = setTimeout(() => this.end('The room expired while waiting for a partner.'), waitingTime)
+    this.startLobbyTimer()
     this.onMessage('sync', client => {
       const seat = this.seat(client)
       if (!seat) return
@@ -264,6 +267,7 @@ export class DuoRoom extends Room {
         member.client = await this.allowReconnection(client, disconnectGrace)
         if (this.closing) return
         member.connected = true
+        if (!this.automatic && !this.guest && !this.waiting) this.startLobbyTimer()
         this.log('player-reconnected', { seat: this.seat(client) })
         this.broadcastSnapshot()
         return
@@ -307,6 +311,15 @@ export class DuoRoom extends Room {
     this.closing = true
     this.broadcast('ended', reason)
     void this.disconnect()
+  }
+
+  private startLobbyTimer() {
+    this.waiting = setTimeout(() => {
+      this.waiting = undefined
+      // The reconnection timer owns an offline host. A successful reconnect
+      // gets a fresh lobby deadline if this one elapsed during the grace period.
+      if (!this.guest && this.host?.connected !== false) this.end('The room expired while waiting for a partner.')
+    }, waitingTime)
   }
 
   private member(client: Client) {

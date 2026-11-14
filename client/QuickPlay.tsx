@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { Client, Room } from 'colyseus.js'
-import type { UserProfile } from '../shared/types'
+import { languageNames, type UserProfile } from '../shared/types'
 import { api, errorText, multiplayer } from './backend'
 import { stopSearchMusic } from './sounds'
+import { useInterface } from './locales/interface'
 
 type Seat = Parameters<Client['consumeSeatReservation']>[0]
 type SearchStatus = { status: 'searching'; waitedMs?: number } | { status: 'matched'; seat: Seat } | { status: 'idle' }
@@ -10,6 +11,7 @@ type SearchStatus = { status: 'searching'; waitedMs?: number } | { status: 'matc
 export function QuickPlay({ profile, joined, done }: {
   profile: UserProfile; joined: (room: Room) => void; done: (message?: string) => void
 }) {
+  const { text } = useInterface()
   const [seconds, setSeconds] = useState(0)
   const [cancel, setCancel] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -41,7 +43,7 @@ export function QuickPlay({ profile, joined, done }: {
         const started = performance.now() - initial.waitedMs
         let failures = 0
         while (active && !canceled) {
-          if (performance.now() - started >= 120000) throw new Error('No partner found this time. Select Play to search again.')
+          if (performance.now() - started >= 120000) throw new Error(text.noPartner)
           let result: SearchStatus
           try {
             result = await api<SearchStatus>('/matchmaking')
@@ -61,7 +63,7 @@ export function QuickPlay({ profile, joined, done }: {
             else await room.leave()
             return
           }
-          if (result.status === 'idle') throw new Error('The search ended. Select Play to try again.')
+          if (result.status === 'idle') throw new Error(text.searchEnded)
           setSeconds(Math.floor((performance.now() - started) / 1000))
           await pause()
         }
@@ -98,9 +100,9 @@ export function QuickPlay({ profile, joined, done }: {
 
   return <section className="panel stack stage-card matchmaking-card">
     <div className="search-pulse" aria-hidden="true"><i /><i /><i /></div>
-    <h1 role="status">{connecting ? 'Joining your partner…' : 'Finding your partner…'}</h1>
-    <p className="language-chip">Learning {profile.learningLanguage}</p>
-    <p className="muted">Searching for {seconds}s</p>
-    <button className="secondary" disabled={cancel || connecting} onClick={() => cancelSearch.current()}>Cancel</button>
+    <h1 role="status">{connecting ? text.joining : text.finding}</h1>
+    <p className="language-chip">{text.learning} {languageNames[profile.learningLanguage]}</p>
+    <p className="muted">{text.searchTime(seconds)}</p>
+    <button className="secondary" disabled={cancel || connecting} onClick={() => cancelSearch.current()}>{text.cancel}</button>
   </section>
 }

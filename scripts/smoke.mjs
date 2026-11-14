@@ -77,6 +77,53 @@ async function player(name) {
 
 try {
   const [alice, bob, carol] = await Promise.all(['alice', 'bob', 'carol'].map(player))
+  if (process.env.IDLE_TEST_ROOM_EXPIRY === 'true') {
+    const idleMs = Number(process.env.ROOM_IDLE_TIMEOUT_MS)
+    const inviteMs = Number(process.env.INVITE_SECONDS) * 1000
+    assert.ok(inviteMs > 0 && idleMs > inviteMs && idleMs < 20000)
+    assert.equal((await alice.request('/friends', 'POST', { uid: bob.uid })).status, 200)
+    const requests = query(collection(bob.firestore, 'friendships'), where('members', 'array-contains', bob.uid))
+    const request = await documents(requests, doc => doc.data().from === alice.uid)
+    assert.equal((await bob.request('/friends/' + request.id, 'PATCH', { action: 'accept' })).status, 200)
+    const idle = await alice.client.create('duo')
+    rooms.push(idle)
+    const ended = message(idle, 'ended', value => value, idleMs + 3000)
+    const invitation = await alice.request('/invites', 'POST', { to: bob.uid, roomId: idle.roomId })
+    assert.equal(invitation.status, 200)
+    const join = '/invites/' + invitation.data.id + '/join'
+    await pause(inviteMs + 100)
+    assert.match((await bob.request(join, 'POST')).data.error, /expired/)
+    assert.equal((await alice.request('/voice?roomId=' + idle.roomId)).status, 200)
+    assert.match(await ended, /expired/)
+    const next = await alice.client.create('duo', { gameId: 'codenames' })
+    rooms.push(next)
+    const fresh = await alice.request('/invites', 'POST', { to: bob.uid, roomId: next.roomId })
+    assert.equal(fresh.status, 200)
+    const seat = await bob.request('/invites/' + fresh.data.id + '/join', 'POST')
+    assert.equal(seat.status, 200)
+    const guest = await bob.client.consumeSeatReservation(seat.data)
+    rooms.push(guest)
+    await bothReady(next, guest, 'confirmation', 'introduction')
+    await bothReady(next, guest, 'introduction', 'game')
+    const disconnected = message(next, 'session', value => value.guest?.connected === false && value)
+    const token = guest.reconnectionToken
+    await guest.leave(false)
+    await disconnected
+    await pause(idleMs)
+    const returned = await bob.client.reconnect(token)
+    rooms.push(returned)
+    const active = message(returned, 'session', value => value.phase === 'game' && value)
+    returned.send('sync')
+    assert.equal((await active).gameId, 'codenames')
+    console.log('Passed automatic invitation and idle room expiry, fresh invitation, and active game reconnection beyond the lobby deadline.')
+  } else {
+  assert.equal((await alice.request('/profile')).data.interfaceLanguage, 'English')
+  const localized = await alice.request('/profile', 'PUT', { ...alice.profile, interfaceLanguage: 'Spanish' })
+  assert.equal(localized.status, 200)
+  assert.equal(localized.data.interfaceLanguage, 'Spanish')
+  assert.equal(localized.data.learningLanguage, 'French')
+  assert.equal((await alice.request('/profile', 'PUT', alice.profile)).data.interfaceLanguage, 'Spanish')
+  assert.equal((await alice.request('/profile', 'PUT', { ...alice.profile, interfaceLanguage: 'Japanese' })).status, 400)
   const unauthenticatedVoice = await fetch(endpoint + '/api/voice?roomId=unknown')
   assert.equal(unauthenticatedVoice.status, 401)
   assert.equal(unauthenticatedVoice.headers.get('cache-control'), 'no-store')
@@ -88,6 +135,17 @@ try {
   await assert.rejects(setDoc(doc(carol.firestore, 'usernames', alice.profile.username), { uid: carol.uid }))
 
   assert.equal((await alice.request('/friends', 'POST', { uid: alice.uid })).status, 400)
+  const crossed = await Promise.all([
+    alice.request('/friends', 'POST', { uid: carol.uid }),
+    carol.request('/friends', 'POST', { uid: alice.uid }),
+  ])
+  assert.deepEqual(crossed.map(response => response.status).sort(), [200, 409])
+  const sender = crossed[0].status === 200 ? alice : carol
+  const recipient = sender === alice ? carol : alice
+  const crossedFriends = query(collection(recipient.firestore, 'friendships'), where('members', 'array-contains', recipient.uid))
+  const crossedRequest = await documents(crossedFriends, doc => doc.data().from === sender.uid && doc.data().to === recipient.uid)
+  assert.equal((await recipient.request('/friends/' + crossedRequest.id, 'PATCH', { action: 'accept' })).status, 200)
+
   assert.equal((await alice.request('/friends', 'POST', { uid: bob.uid })).status, 200)
   assert.equal((await bob.request('/friends', 'POST', { uid: alice.uid })).status, 409)
   const friends = query(collection(bob.firestore, 'friendships'), where('members', 'array-contains', bob.uid))
@@ -99,6 +157,35 @@ try {
   await documents(friends, doc => doc.data().status === 'accepted')
   assert.notEqual(alice.profile.learningLanguage, bob.profile.learningLanguage)
   assert.notEqual(alice.profile.fluentLanguage, bob.profile.learningLanguage)
+
+  const [aliceLobby, carolLobby] = await Promise.all([alice.client.create('duo'), carol.client.create('duo')])
+  rooms.push(aliceLobby, carolLobby)
+  const [toCarol, toAlice] = await Promise.all([
+    alice.request('/invites', 'POST', { to: carol.uid, roomId: aliceLobby.roomId }),
+    carol.request('/invites', 'POST', { to: alice.uid, roomId: carolLobby.roomId }),
+  ])
+  assert.equal(toCarol.status, 200)
+  assert.equal(toAlice.status, 200)
+  const toAlicePath = '/invites/' + toAlice.data.id + '/join'
+  const toCarolPath = '/invites/' + toCarol.data.id + '/join'
+  const crossedJoins = await Promise.all([alice.request(toAlicePath, 'POST'), carol.request(toCarolPath, 'POST')])
+  for (const response of crossedJoins) {
+    assert.equal(response.status, 409)
+    assert.match(response.data.error, /Leave your current room/)
+  }
+  await aliceLobby.leave()
+  assert.equal((await carol.request(toCarolPath, 'POST')).status, 409)
+  const recovered = await alice.request(toAlicePath, 'POST')
+  assert.equal(recovered.status, 200)
+  const recoveredRoom = await alice.client.consumeSeatReservation(recovered.data)
+  rooms.push(recoveredRoom)
+  const recoveredSession = message(recoveredRoom, 'session', value => value.phase === 'confirmation' && value)
+  recoveredRoom.send('sync')
+  await recoveredSession
+  const releasedLobby = message(carolLobby, 'ended')
+  await recoveredRoom.leave()
+  await releasedLobby
+  console.log('Passed crossed friend requests, simultaneous invitations, and recovery after abandoning one lobby.')
 
   const host = await alice.client.create('duo', { gameId: 'icon-communication' })
   rooms.push(host)
@@ -456,6 +543,7 @@ try {
   assert.match(await canceled, /canceled/)
   console.log('Passed: matchmaking deduplication, cancellation, concurrency, language validation, active-room exclusion and protected reciprocal seats.')
   console.log('Passed: accounts, profiles, Firestore rules, friendships, invitations, capacity, chat, signaling, game transitions, and reconnection.')
+  }
 } finally {
   unsubscribes.forEach(stop => stop())
   await Promise.allSettled(rooms.filter(room => room.connection.isOpen).map(room => room.leave()))

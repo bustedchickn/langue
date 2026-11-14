@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
 import './confetti.css'
-import type { Language } from '../../shared/types'
 import { codenamesCopy } from './codenames/copy'
+import { useInterface } from '../locales/interface'
+import { sessionText } from '../locales/session'
 
-export function ActiveGame({ progress, view, ready, send, fluentLanguage }: {
-  progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void; fluentLanguage?: Language
+export function ActiveGame({ progress, view, ready, send }: {
+  progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void
 }) {
+  const { language } = useInterface()
   // Anchor each server timestamp to the local monotonic clock so wall-clock skew cannot shift the countdown.
   const [anchor, setAnchor] = useState(() => ({ timestamp: progress.serverNow, local: performance.now() }))
   const [now, setNow] = useState(anchor.local)
@@ -20,26 +22,29 @@ export function ActiveGame({ progress, view, ready, send, fluentLanguage }: {
   const counting = serverNow < progress.startsAt
   const seconds = Math.max(0, Math.ceil(((counting ? progress.startsAt : progress.endsAt) - serverNow) / 1000))
   const game = minigames.get(progress.gameId)
-  const words = progress.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'] : undefined
+  const words = progress.gameId === 'codenames' ? codenamesCopy(language) : undefined
   const current = view?.gameId === progress.gameId && view.matchId === progress.matchId &&
     (view.round === progress.round || game?.continuousView)
-  if (!game) return <p>Game unavailable.</p>
+  if (!game) return <p>{sessionText(language, 'Game unavailable.')}</p>
   return <>
     <div className="game-progress">
-      <strong>{words?.round ?? 'Round'} {progress.round}{progress.rounds !== undefined && ' of ' + progress.rounds}</strong>
-      {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? (words?.start ?? 'Starts in') + ' ' : 'Time left '}<time>{seconds}s</time></span>}
+      <strong>{words?.round ?? sessionText(language, 'Round')} {progress.round}{progress.rounds !== undefined && (language === 'English' ? ' of ' : ' / ') + progress.rounds}</strong>
+      {(!progress.untimed || counting) && (!counting || !progress.hidePreparationTimer) && <span>{counting ? words?.start ?? sessionText(language, 'Starts in') : sessionText(language, 'Time left')}{' '}<time>{seconds}s</time></span>}
     </div>
-    <p role="status">{words ? words.found + ' ' + progress.completed + ' · ' + words.score + ' ' + progress.score : progress.completed + ' solved · ' + progress.score + ' points'}</p>
-    {!progress.untimed && (progress.timeMultiplier ?? 1) > 1 && <p className="practice-time">Extra practice time · {Math.round(((progress.timeMultiplier ?? 1) - 1) * 100)}% more time for your team’s language levels</p>}
-    {!ready && <p role="status">{words?.waitingPartner ?? 'Waiting for both players. The timer is still running.'}</p>}
+    <p role="status">{words ? words.found + ' ' + progress.completed + ' · ' + words.score + ' ' + progress.score
+      : sessionText(language, '{count} solved · {score} points').replace('{count}', String(progress.completed)).replace('{score}', String(progress.score))}</p>
+    {!progress.untimed && (progress.timeMultiplier ?? 1) > 1 && <p className="practice-time">{sessionText(language, 'Extra practice time · {percent}% more time for your team’s language levels')
+      .replace('{percent}', String(Math.round(((progress.timeMultiplier ?? 1) - 1) * 100)))}</p>}
+    {!ready && <p role="status">{words?.waitingPartner ?? sessionText(language, 'Waiting for both players. The timer is still running.')}</p>}
     {current ? <game.View key={progress.matchId} data={view.data} progress={progress} disabled={!ready || counting || seconds === 0 || view.round !== progress.round}
-      send={action => send({ matchId: progress.matchId, action })} /> : <p>{words?.loading ?? 'Loading your role…'}</p>}
+      send={action => send({ matchId: progress.matchId, action })} /> : <p>{words?.loading ?? sessionText(language, 'Loading your role…')}</p>}
   </>
 }
 
-export function Results({ result, seat, fluentLanguage }: { result: GameResults; seat: Seat; fluentLanguage?: Language }) {
+export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
+  const { language } = useInterface()
   const CustomResults = minigames.get(result.gameId)?.Results
-  const words = result.gameId === 'codenames' ? codenamesCopy[fluentLanguage ?? 'English'] : undefined
+  const words = result.gameId === 'codenames' ? codenamesCopy(language) : undefined
   return <>
     {result.outcome === 'victory' && <div className="results-confetti" aria-hidden="true">
       {Array.from({ length: 32 }, (_, index) => <i key={index} style={{
@@ -56,13 +61,13 @@ export function Results({ result, seat, fluentLanguage }: { result: GameResults;
         <div><dt>{words.score}</dt><dd>{result.score}</dd></div>
       </dl>
     </> : CustomResults ? <CustomResults result={result} seat={seat} /> : <>
-    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
+    <h3 className="game-outcome">{sessionText(language, result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Victory' : 'Defeat')}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
-      <div><dt>Puzzles completed</dt><dd>{result.completed}</dd></div>
-      <div><dt>Puzzles attempted</dt><dd>{result.attempted}</dd></div>
-      <div><dt>Time elapsed</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
-      <div><dt>Final score</dt><dd>{result.score}</dd></div>
+      <div><dt>{sessionText(language, 'Puzzles completed')}</dt><dd>{result.completed}</dd></div>
+      <div><dt>{sessionText(language, 'Puzzles attempted')}</dt><dd>{result.attempted}</dd></div>
+      <div><dt>{sessionText(language, 'Time elapsed')}</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
+      <div><dt>{sessionText(language, 'Final score')}</dt><dd>{result.score}</dd></div>
     </dl>
     </>}
   </>

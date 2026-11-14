@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Room } from 'colyseus.js'
+import { useInterface } from '../locales/interface'
+import { sessionText, type SessionText } from '../locales/session'
 import './game-exit.css'
 
 export function GameExitControls({ room, matchId }: { room?: Room; matchId?: string }) {
   const [confirming, setConfirming] = useState(false)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<SessionText | ''>('')
+  const { language } = useInterface()
+  const t = (key: SessionText) => sessionText(language, key)
   const dialog = useRef<HTMLDialogElement>(null)
   const available = !!room?.connection.isOpen && !!matchId
 
@@ -36,19 +40,19 @@ export function GameExitControls({ room, matchId }: { room?: Room; matchId?: str
     catch { setPending(false); setError('Could not end the game. Please try again.') }
   }
 
-  return <footer className="game-exit-controls" aria-label="Game options">
-    <p>End early to see your current results.</p>
+  return <footer className="game-exit-controls" aria-label={t('Game options')}>
+    <p>{t('End early to see your current results.')}</p>
     <div className="actions">
-      <button className="secondary" disabled={!available || pending} onClick={() => setConfirming(true)}>{pending ? 'Ending game…' : 'End early'}</button>
+      <button className="secondary" disabled={!available || pending} onClick={() => setConfirming(true)}>{t(pending ? 'Ending game…' : 'End early')}</button>
     </div>
-    {error && <p className="error" role="alert">{error}</p>}
+    {error && <p className="error" role="alert">{t(error)}</p>}
     <dialog ref={dialog} className="panel game-end-dialog" aria-labelledby="end-game-title" onClose={() => setConfirming(false)}>
       <div className="stack">
-        <h2 id="end-game-title">End this game early?</h2>
-        <p>This ends the current game for both players. You will see your current results and can play again together. Voice and text chat stay open.</p>
+        <h2 id="end-game-title">{t('End this game early?')}</h2>
+        <p>{t('This ends the current game for both players. You will see your current results and can play again together. Voice and text chat stay open.')}</p>
         <div className="actions">
-          <button autoFocus onClick={() => setConfirming(false)}>Keep playing</button>
-          <button className="secondary" disabled={!available || pending} onClick={endEarly}>End game</button>
+          <button autoFocus onClick={() => setConfirming(false)}>{t('Keep playing')}</button>
+          <button className="secondary" disabled={!available || pending} onClick={endEarly}>{t('End game')}</button>
         </div>
       </div>
     </dialog>

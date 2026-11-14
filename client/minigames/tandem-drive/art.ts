@@ -17,7 +17,7 @@ const ROAD_TILE_Y = 375
 const ROAD_TILE_HEIGHT = 740
 
 // Canvas artwork adapted from the supplied Tandem Drive prototype.
-export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
+export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView, text: (label: string) => string) {
   const palette = view.map
   const ROAD_HALF_WIDTH = 240
   const FINISH_Y = -stages * gateDistance
@@ -39,7 +39,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.fillStyle = '#6ee7b7'
     ctx.font = 'bold 12px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('CLEARED', 0, clearedY + 4)
+    ctx.fillText(text('CLEARED'), 0, clearedY + 4)
   }
   drawStaticObstacles()
   if (view.stage === stages - 1) {
@@ -54,7 +54,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.fillStyle = '#34d399'
     ctx.font = '800 18px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('▲ NORTH FINISH // EXTRACTION ZONE ▲', 0, FINISH_Y - 100)
+    ctx.fillText(text('▲ NORTH FINISH // EXTRACTION ZONE ▲'), 0, FINISH_Y - 100)
   }
   if (view.gateKind === 'lane') drawLinguisticGates(view.role === 'navigation')
   else {
@@ -68,7 +68,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.fillStyle = '#3a2231'
     ctx.font = 'bold 13px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('CYCLING SHUTTER', 0, y + 4)
+    ctx.fillText(text('CYCLING SHUTTER'), 0, y + 4)
   }
   const gateY = -(view.stage + 1) * gateDistance
   if (view.unlockedUntil > view.serverNow) {
@@ -101,7 +101,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.fillStyle = '#ddd6fe'
     ctx.font = 'bold 12px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText('⇄ SIDE SWITCH', 0, y + 4)
+    ctx.fillText(text('⇄ SIDE SWITCH'), 0, y + 4)
   }
   drawCar()
   if ((view.left || view.right) && !view.blocked) {
@@ -185,6 +185,14 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
       ctx.strokeStyle = obs.vis === 'P1_ONLY' ? '#fbbf24' : obs.vis === 'P2_ONLY' ? '#8b5cf6' : palette.hazard;
       ctx.lineWidth = 2.5;
       ctx.stroke();
+
+      if (obs.label) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '700 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text(obs.label), obs.x, obs.y);
+      }
       ctx.restore();
     }
   }

@@ -4,11 +4,19 @@ import { codenamesConfig } from '../../shared/minigames/codenames'
 import './instructions.css'
 import { InstructionIllustration } from './InstructionIllustration'
 import { durationLabel, practiceDuration } from '../../shared/minigames/timing'
+import { lostInstructions } from '../../shared/minigames/lost-instructions'
+import { mapNavigatorConfig } from '../../shared/minigames/map-navigator'
+import { spotDifferenceConfig } from '../../shared/minigames/spot-difference'
+import { tandemDrive } from '../../shared/minigames/tandem-drive'
+import { languageTags, type Language } from '../../shared/types'
+import { germanGuides } from '../locales/game-guides-de'
+import { localizedGuides } from '../locales/game-guides'
+import { useInterface } from '../locales/interface'
 
 type RoleGuide = { id: string; name: string; steps: readonly string[] }
 type GameGuide = { goal: string; roles: Record<Seat, RoleGuide>; rules: readonly string[] | ((multiplier: number) => readonly string[]) }
 
-const guides: Record<string, GameGuide> = {
+const guides = {
   'lost-instructions': {
     goal: 'Arrange three pieces to match your partner’s clue. Solve three puzzles.',
     roles: {
@@ -112,26 +120,130 @@ const guides: Record<string, GameGuide> = {
     rules: [`No time limit. Six clue turns to find six team words. Correct guesses earn ${codenamesConfig.scoring.pointsPerWord}; wrong guesses cost ${codenamesConfig.scoring.incorrectPenalty}.`,
       'After six turns, any wrong guess ends the game.'],
   },
+} satisfies Record<keyof typeof germanGuides, GameGuide>
+
+const guideValues = {
+  'lost-instructions': { time: lostInstructions.durationMs, points: lostInstructions.scoring.pointsPerPuzzle },
+  'icon-communication': {
+    time: iconCommunicationConfig.firstRoundDurationMs, later: iconCommunicationConfig.roundDurationMs,
+    penalty: iconCommunicationConfig.incorrectGuessPenaltyMs / 1000,
+  },
+  'map-navigator': { time: mapNavigatorConfig.durationMs, points: mapNavigatorConfig.scoring.pointsPerRoute, penalty: mapNavigatorConfig.scoring.wrongTurnPenalty },
+  'tandem-drive': { time: tandemDrive.durationMs },
+  'spot-difference': { time: spotDifferenceConfig.durationMs, points: spotDifferenceConfig.scoring.pointsPerDifference, penalty: spotDifferenceConfig.scoring.wrongGuessPenalty },
+  codenames: { points: codenamesConfig.scoring.pointsPerWord, penalty: codenamesConfig.scoring.incorrectPenalty, hint: codenamesConfig.scoring.hintPenalty },
+} satisfies Record<keyof typeof guides, { time?: number; later?: number; points?: number; penalty?: number; hint?: number }>
+
+function localizedDuration(ms: number, scale: number, locale: string) {
+  const seconds = Math.ceil(practiceDuration(ms, scale) / 1000)
+  const format = (value: number, unit: 'minute' | 'second') =>
+    new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' }).format(value)
+  if (seconds < 60) return format(seconds, 'second')
+  const minutes = format(Math.floor(seconds / 60), 'minute')
+  return seconds % 60 ? minutes + ' ' + format(seconds % 60, 'second') : minutes
+}
+
+export function getGameGuide(gameId: string, language: Language, scale: number): GameGuide | undefined {
+  if (!Object.hasOwn(guides, gameId)) return
+  const id = gameId as keyof typeof guides
+  const english = guides[id]
+  if (language === 'English') return english
+  const translated = localizedGuides[language][id]
+  const [host, ...hostSteps] = translated.host
+  const values: { time?: number; later?: number; points?: number; penalty?: number; hint?: number } = guideValues[id]
+  const locale = languageTags[language]
+  const ruleValues = {
+    time: values.time === undefined ? '' : localizedDuration(values.time, scale, locale),
+    later: values.later === undefined ? '' : localizedDuration(values.later, scale, locale),
+    points: values.points ?? 0,
+    penalty: values.penalty ?? 0,
+    hint: values.hint ?? 0,
+  }
+  const [guest, ...guestSteps] = typeof translated.guest === 'function' ? translated.guest(ruleValues) : translated.guest
+  return {
+    goal: translated.goal,
+    roles: {
+      host: { id: english.roles.host.id, name: host, steps: hostSteps },
+      guest: { id: english.roles.guest.id, name: guest, steps: guestSteps },
+    },
+    rules: translated.rules(ruleValues),
+  }
+}
+
+const englishGuideLabels = {
+  help: 'How to play', goal: 'Goal:', role: 'Your role:', rules: 'Timing and rules',
+  extra: (n: number) => `Your team gets ${n}% extra practice time. When levels differ, both players share the longer allowance.`,
+  ready: 'Use room voice or text chat to work together. Both players must be ready before play starts.',
+}
+
+const guideLabels: Partial<Record<Language, typeof englishGuideLabels>> = {
+  German: {
+    help: 'So wird gespielt', goal: 'Ziel:', role: 'Deine Rolle:', rules: 'Zeit und Regeln',
+    extra: n => `Ihr habt ${n} % mehr Übungszeit. Bei unterschiedlichen Sprachniveaus gilt für beide die längere Zeit.`,
+    ready: 'Sprecht euch im Sprach- oder Textchat ab. Das Spiel beginnt, sobald ihr beide bereit seid.',
+  },
+  French: {
+    help: 'Comment jouer', goal: 'Objectif :', role: 'Votre rôle :', rules: 'Temps et règles',
+    extra: n => `Votre équipe bénéficie de ${n} % de temps supplémentaire. Si vos niveaux diffèrent, vous partagez le temps le plus long.`,
+    ready: 'Communiquez par écrit ou à l’oral. La partie commence lorsque vous êtes tous les deux prêts.',
+  },
+  Spanish: {
+    help: 'Cómo jugar', goal: 'Objetivo:', role: 'Tu papel:', rules: 'Tiempo y reglas',
+    extra: n => `El equipo tiene un ${n} % más de tiempo. Si los niveles son distintos, ambos disponen del plazo más largo.`,
+    ready: 'Colaboren por voz o por chat. La partida empieza cuando ambos estén listos.',
+  },
+  Italian: {
+    help: 'Come si gioca', goal: 'Obiettivo:', role: 'Il tuo ruolo:', rules: 'Tempi e regole',
+    extra: n => `Avete il ${n}% di tempo in più. Se i livelli sono diversi, entrambi avete a disposizione il tempo maggiore.`,
+    ready: 'Collaborate a voce o in chat. La partita comincia quando entrambi sono pronti.',
+  },
+  Portuguese: {
+    help: 'Como jogar', goal: 'Objetivo:', role: 'Sua função:', rules: 'Tempo e regras',
+    extra: n => `Sua dupla tem ${n}% a mais de tempo. Se os níveis forem diferentes, vale o prazo mais longo para os dois.`,
+    ready: 'Colaborem por voz ou pelo chat de texto. A partida começa quando os dois estiverem prontos.',
+  },
+  Japanese: {
+    help: '遊び方', goal: '目標：', role: 'あなたの役割：', rules: '制限時間とルール',
+    extra: n => `練習時間が${n}%増えます。レベルが違う場合、二人とも長い方の制限時間で遊びます。`,
+    ready: '音声やチャットで協力しましょう。二人の準備ができたらゲームが始まります。',
+  },
+  Korean: {
+    help: '게임 방법', goal: '목표:', role: '내 역할:', rules: '시간과 규칙',
+    extra: n => `팀의 연습 시간이 ${n}% 늘어나요. 수준이 다르면 두 사람 모두 더 긴 시간을 이용해요.`,
+    ready: '음성이나 채팅으로 협력하세요. 두 사람이 모두 준비되면 게임이 시작돼요.',
+  },
+  Chinese: {
+    help: '玩法说明', goal: '目标：', role: '你的角色：', rules: '时间与规则',
+    extra: n => `队伍多出 ${n}% 的练习时间。水平不同时，两人都按较长的时间计算。`,
+    ready: '通过语音或文字聊天合作。两人都准备好后，游戏才会开始。',
+  },
+  Russian: {
+    help: 'Как играть', goal: 'Цель:', role: 'Твоя роль:', rules: 'Время и правила',
+    extra: n => `У вашей команды на ${n}% больше времени. При разных уровнях оба игрока получают большее из двух времён.`,
+    ready: 'Общайтесь голосом или в текстовом чате. Игра начнётся, когда вы оба будете готовы.',
+  },
 }
 
 export function GameInstructions({ gameId, seat, role, compact = false, timeMultiplier = 1 }: {
   gameId: string; seat: Seat; role?: string; compact?: boolean; timeMultiplier?: number
 }) {
-  const guide = guides[gameId]
+  const { language } = useInterface()
+  const guide = getGameGuide(gameId, language, timeMultiplier)
   if (!guide) return null
+  const labels = guideLabels[language] ?? englishGuideLabels
   const assigned = Object.values(guide.roles).find(value => value.id === role) ?? guide.roles[seat]
   const rules = typeof guide.rules === 'function' ? guide.rules(timeMultiplier) : guide.rules
   return <details className="game-instructions" open={!compact}>
-    <summary>How to play</summary>
+    <summary>{labels.help}</summary>
     <div className="game-instructions-content">
       <InstructionIllustration gameId={gameId} />
-      <p><strong>Goal:</strong> {guide.goal}</p>
-      <p className="game-instructions-role">Your role: <strong>{assigned.name}</strong></p>
+      <p><strong>{labels.goal}</strong> {guide.goal}</p>
+      <p className="game-instructions-role">{labels.role} <strong>{assigned.name}</strong></p>
       <ol>{assigned.steps.map(step => <li key={step}>{step}</li>)}</ol>
-      <p className="game-instructions-rules-title"><strong>Timing and rules</strong></p>
+      <p className="game-instructions-rules-title"><strong>{labels.rules}</strong></p>
       <ul>{rules.map(rule => <li key={rule}>{rule}</li>)}</ul>
-      {gameId !== 'codenames' && timeMultiplier > 1 && <p className="practice-time">Your team gets {Math.round((timeMultiplier - 1) * 100)}% extra practice time. When levels differ, both players share the longer allowance.</p>}
-      <p className="muted">Use voice or chat to work together.</p>
+      {gameId !== 'codenames' && timeMultiplier > 1 && <p className="practice-time">{labels.extra(Math.round((timeMultiplier - 1) * 100))}</p>}
+      <p className="muted">{labels.ready}</p>
     </div>
   </details>
 }

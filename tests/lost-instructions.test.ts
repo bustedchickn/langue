@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { lostInstructions, pieceName, shapeColors, type Color, type LostView, type Piece, type Shape } from '../shared/minigames/lost-instructions'
 import { startLostInstructions, translate } from '../server/minigames/lost-instructions/game'
 import { arrangementInstructions, generatePuzzle, generatePuzzles } from '../server/minigames/lost-instructions/puzzles'
+import { registeredLanguages } from '../shared/types'
 
 const start = 10_000
 const gameplay = start + lostInstructions.countdownMs
@@ -30,7 +31,7 @@ test('generated puzzles have unique pairs, unsolved arrangements, and a clue mat
     assert.notDeepEqual(puzzle.initial, puzzle.solution)
     starts.add(puzzle.initial.join(','))
     for (const piece of puzzle.objects) seen.add(piece.shape + ':' + piece.color)
-    for (const language of lostInstructions.supportedLanguages) {
+    for (const language of registeredLanguages) {
       const clue = puzzle.instructions[language]!
       const positions = puzzle.solution.map(id => clue.indexOf(pieceName(puzzle.objects.find(piece => piece.id === id)!, language)))
       assert.ok(positions.every(position => position >= 0))
@@ -67,7 +68,7 @@ test('every shape and color has a prompt in every position, with gender-correct 
         const order = [...others]
         order.splice(index, 0, target)
         const prompt = arrangementInstructions(order)
-        for (const language of lostInstructions.supportedLanguages) assert.ok(prompt[language].includes(pieceName(target, language)))
+        for (const language of registeredLanguages) assert.ok(prompt[language].includes(pieceName(target, language)))
       }
     }
   }

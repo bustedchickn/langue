@@ -3,7 +3,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import type { WriteBatch } from 'firebase-admin/firestore'
 import { createHash } from 'node:crypto'
-import { communicationLevels, languages, type Language, type LanguageAssessment, type ProfileFields, type UserProfile } from '../shared/types'
+import { communicationLevels, isEnabledLanguage, languages, type Language, type LanguageAssessment, type ProfileFields, type UserProfile } from '../shared/types'
 
 export const projectId = process.env.FIREBASE_PROJECT_ID || 'demo-idle'
 initializeApp({ projectId })
@@ -80,7 +80,10 @@ export function usernameKey(value: unknown) {
 
 export async function saveProfile(uid: string, input: Partial<ProfileFields>) {
   const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : ''
-  const { fluentLanguage, learningLanguage } = input
+  const { fluentLanguage, learningLanguage, interfaceLanguage } = input
+  if (interfaceLanguage !== undefined && !isEnabledLanguage(interfaceLanguage)) {
+    throw new RequestError(400, 'Choose a valid interface language.')
+  }
   if (!displayName || displayName.length > 40 || !fluentLanguage || !learningLanguage ||
       !languages.includes(fluentLanguage) || !languages.includes(learningLanguage)) {
     throw new RequestError(400, 'Enter a display name of up to 40 characters and select both languages.')
@@ -97,6 +100,7 @@ export async function saveProfile(uid: string, input: Partial<ProfileFields>) {
     const now = Date.now()
     const profile: UserProfile = {
       uid, username, displayName, fluentLanguage, learningLanguage,
+      interfaceLanguage: interfaceLanguage ?? existing?.interfaceLanguage ?? 'English',
       ...(existing?.assessments ? { assessments: existing.assessments } : {}),
       ...(existing?.scores ? { scores: existing.scores } : {}),
       createdAt: existing?.createdAt ?? now, lastSeenAt: now,

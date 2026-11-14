@@ -75,3 +75,16 @@ test('a penalty consuming the last seconds ends the game immediately and replay 
   assert.equal(start().progress(0).score, 0)
   assert.equal(start().progress(0).endsAt - start().progress(0).startsAt, 20000)
 })
+
+test('a second-round tap arriving at expiry cannot change the result', () => {
+  const game = start()
+  assert.equal(game.act('host', { type: 'guess', icon: 'cat', round: 1, revision: 0 }, 1000), true)
+  game.tick(2000)
+  assert.equal(game.act('host', { type: 'guess', icon: 'cat', round: 2, revision: 1 }, 2100), true)
+  const deadline = game.progress(2100).endsAt
+  assert.equal(game.act('host', { type: 'guess', icon: 'cat', round: 2, revision: 2 }, deadline), false)
+  const result = game.results() as IconResults
+  assert.equal(result.completed, 1)
+  assert.equal(result.incorrectGuesses, 1)
+  assert.equal(result.elapsedMs, deadline)
+})

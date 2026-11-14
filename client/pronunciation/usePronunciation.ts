@@ -58,7 +58,7 @@ export function usePronunciation(language: Language, text: string) {
     }
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.voice = voice
-    utterance.lang = locale
+    utterance.lang = voice.lang
     utterance.rate = pronunciationRate
     utterance.onend = () => finish()
     utterance.onerror = () => finish('Could not play pronunciation. Try again.')

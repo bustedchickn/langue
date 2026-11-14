@@ -3,10 +3,13 @@ import {
   GoogleAuthProvider, EmailAuthProvider, createUserWithEmailAndPassword, linkWithCredential, linkWithPopup,
   signInAnonymously, signInWithEmailAndPassword, signInWithPopup, type User,
 } from 'firebase/auth'
-import { languages, type UserProfile, type Language } from '../shared/types'
+import { languageNames, languages, type UserProfile, type Language } from '../shared/types'
 import { api, auth, errorText } from './backend'
+import { useInterface } from './locales/interface'
+import { translateSessionMessage } from './locales/session'
 
 export function Account({ guest, onLinked }: { guest?: User; onLinked?: () => void }) {
+  const { language } = useInterface()
   const [creating, setCreating] = useState(!!guest)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -53,47 +56,50 @@ export function Account({ guest, onLinked }: { guest?: User; onLinked?: () => vo
       </button>
       <button className="secondary" disabled={busy} onClick={() => void run(() => signInAnonymously(auth))}>Play as guest</button>
     </div>}
-    {error && <p className="error" role="alert">{error}</p>}
+    {error && <p className="error" role="alert">{translateSessionMessage(language, error)}</p>}
   </section>
 }
 
 export function Profile({ profile, user, onSave }: {
   profile?: UserProfile; user: User; onSave: (profile: UserProfile) => void
 }) {
-  const [message, setMessage] = useState('')
+  const { text, language } = useInterface()
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    setMessage('')
+    setSaved(false)
     setError('')
     setBusy(true)
     try {
       const saved = await api<UserProfile>('/profile', 'PUT', Object.fromEntries(form))
       onSave(saved)
-      setMessage('Profile saved.')
+      setSaved(true)
     } catch (failure) { setError(errorText(failure)) }
     finally { setBusy(false) }
   }
 
   const select = (name: string, label: string, initial: Language) => <label>{label}
-    <select name={name} defaultValue={initial}>{languages.map(language => <option key={language}>{language}</option>)}</select>
+    <select name={name} defaultValue={initial}>{languages.map(language =>
+      <option key={language} value={language}>{languageNames[language]}</option>)}</select>
   </label>
 
   return <section className="panel stack">
-    <h2>{profile ? 'Your profile' : 'Set up your profile'}</h2>
+    <h2>{profile ? text.profile : text.setupProfile}</h2>
     <form className="stack" onSubmit={submit}>
-      <label>Username<input name="username" defaultValue={profile?.username} readOnly={!!profile}
+      <label>{text.userName}<input name="username" defaultValue={profile?.username} readOnly={!!profile}
         pattern="[A-Za-z0-9_]{3,24}" title="3–24 letters, numbers, or underscores" autoCapitalize="none" required /></label>
-      <label>Display name<input name="displayName" defaultValue={profile?.displayName ?? user.displayName ?? ''}
+      <label>{text.displayName}<input name="displayName" defaultValue={profile?.displayName ?? user.displayName ?? ''}
         maxLength={40} required /></label>
-      {select('fluentLanguage', 'Fluent language', profile?.fluentLanguage ?? 'English')}
-      {select('learningLanguage', 'Learning language', profile?.learningLanguage ?? 'French')}
-      <button disabled={busy}>Save profile</button>
+      {select('fluentLanguage', text.fluentLanguage, profile?.fluentLanguage ?? 'English')}
+      {select('learningLanguage', text.learningLanguage, profile?.learningLanguage ?? 'French')}
+      {select('interfaceLanguage', text.interfaceLanguage, profile?.interfaceLanguage ?? 'English')}
+      <button disabled={busy}>{text.save}</button>
     </form>
-    {message && <p role="status">{message}</p>}
-    {error && <p className="error" role="alert">{error}</p>}
+    {saved && <p role="status">{text.saved}</p>}
+    {error && <p className="error" role="alert">{translateSessionMessage(language, error)}</p>}
   </section>
 }

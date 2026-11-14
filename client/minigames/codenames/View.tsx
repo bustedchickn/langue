@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
-import { codenamesTeamWords, wordCards, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
-import { languageTags } from '../../../shared/types'
+import { codenamesTeamWords, isBoardWord, normalizeClue, wordCards, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
+import { languageNames, languageTags } from '../../../shared/types'
+import { useInterface } from '../../locales/interface'
 import { codenamesCopy } from './copy'
 import { playEffect } from '../../sounds'
 import './codenames.css'
@@ -11,10 +12,14 @@ export function CodenamesView({ data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
 }) {
   const view = data as CodenamesView
-  const text = codenamesCopy[view.fluentLanguage]
+  const { language } = useInterface()
+  const text = codenamesCopy(language)
+  const cardLocale = view.language
+  const definitionLocale = view.fluentLanguage
   const [word, setWord] = useState('')
   const [count, setCount] = useState(1)
   const [selectedCard, setSelectedCard] = useState<string>()
+  const [showDefinition, setShowDefinition] = useState<string>()
   const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
   useEffect(() => {
     for (const card of view.cards) {
@@ -28,24 +33,24 @@ export function CodenamesView({ data, disabled, send }: {
   const selected = view.cards.find(card => card.id === selectedCard)
   const selectedWord = selected && cards.get(selected.id)
   const canConfirm = view.role === 'guesser' && (view.remaining > 0 || view.suddenDeath) && !selected?.revealed
-  const invalid = !/^[\p{L}\p{M}]+$/u.test(word.trim()) ||
-    view.cards.some(card => cards.get(card.id)?.words[view.language].toLocaleLowerCase() === word.trim().toLocaleLowerCase())
+  const clue = normalizeClue(word)
+  const invalid = !clue || isBoardWord(clue, view.cards.map(card => cards.get(card.id)!.words[cardLocale]), cardLocale)
   function giveClue(event: FormEvent) {
     event.preventDefault()
-    if (disabled || invalid || view.remaining) return
-    send({ type: 'clue', word: word.trim(), count, revision: view.revision })
+    if (disabled || !clue || invalid || view.remaining) return
+    send({ type: 'clue', word: clue, count, revision: view.revision })
     setWord('')
   }
 
-  return <section className="codenames stack" lang={languageTags[view.fluentLanguage]}>
-    <p><strong>{view.role === 'clue-giver' ? text.clueGiver : text.guesser}</strong> · {text.practice} {text.languages[view.language]}</p>
+  return <section className="codenames stack" lang={languageTags[language]}>
+    <p><strong>{view.role === 'clue-giver' ? text.clueGiver : text.guesser}</strong> · {text.practice} <span lang={languageTags[view.language]}>{languageNames[view.language]}</span></p>
     <p>{view.role === 'clue-giver' ? text.giverHelp : text.guesserHelp}</p>
     <p role="status">{view.suddenDeath ? text.sudden : text.turns(view.turnsLeft)}</p>
     {view.role === 'clue-giver' && <p className="codenames-legend">{text.legend}</p>}
     {view.suddenDeath ? null : view.clue ? <p className="codenames-clue" role="status">{text.clue} <strong>{view.clue}</strong> · {text.guesses(view.remaining)}</p>
       : <p role="status">{text.waiting}</p>}
     {view.role === 'clue-giver' && !view.remaining && !view.suddenDeath && <form className="clue-form" onSubmit={giveClue}>
-      <label>{text.clueLabel}<input value={word} maxLength={30} onChange={event => setWord(event.target.value)} /></label>
+      <label>{text.clueLabel}<input value={word} lang={languageTags[cardLocale]} onChange={event => setWord(event.target.value)} /></label>
       <label>{text.number}<input type="number" min={1} max={codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}
         value={count} onChange={event => setCount(Number(event.target.value))} /></label>
       <button disabled={disabled || invalid || count < 1 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>{text.give}</button>
@@ -54,8 +59,9 @@ export function CodenamesView({ data, disabled, send }: {
     <div className="codenames-grid">
       {view.cards.map(card => {
         const item = cards.get(card.id)!
-        const word = item.words[view.language]
+        const word = item.words[cardLocale]
         const kind = card.revealed ?? card.kind
+        const hintOpen = showDefinition === card.id
         return <div className="word-card-wrap" key={card.id}>
           <button className="word-card" data-id={card.id} data-kind={kind} data-revealed={!!card.revealed}
             disabled={disabled} aria-pressed={selectedCard === card.id}
@@ -65,6 +71,15 @@ export function CodenamesView({ data, disabled, send }: {
               {card.revealed === 'team' ? '✓' : card.revealed === 'assassin' ? '✕' : '–'}
             </span>}
           </button>
+          <button type="button" className="word-info" disabled={disabled}
+            aria-label={view.hintsUnlocked.includes(card.id) ? text.definition(word) : text.definition(word) + ', ' + text.hintCost}
+            aria-expanded={hintOpen}
+            onClick={() => {
+              setShowDefinition(hintOpen ? undefined : card.id)
+              if (!view.hintsUnlocked.includes(card.id)) send({ type: 'hint', id: card.id, revision: view.revision })
+            }}>{text.hint}</button>
+          {hintOpen && <span className="word-definition is-open"
+            lang={languageTags[definitionLocale]} role="tooltip">{item.definitions[definitionLocale]}</span>}
         </div>
       })}
     </div>

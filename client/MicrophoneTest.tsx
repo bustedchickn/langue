@@ -1,7 +1,10 @@
+import { sessionText } from './locales/session'
+import { useInterface } from './locales/interface'
 import { useEffect, useRef, useState } from 'react'
 import { errorText } from './backend'
 
 export function MicrophoneTest() {
+  const { language } = useInterface()
   const [testing, setTesting] = useState(false)
   const [opening, setOpening] = useState(false)
   const [level, setLevel] = useState(0)
@@ -60,7 +63,7 @@ export function MicrophoneTest() {
   }
 
   return <section className="mic-test stack">
-    <h2>Test your microphone</h2>
+    <h2>{sessionText(language, 'Test your microphone')}</h2>
     <p className="muted">This test stays on your device. Use Join Voice to talk to your partner.</p>
     {testing && <>
       <meter aria-label="Microphone level" min={0} max={1} value={level} />

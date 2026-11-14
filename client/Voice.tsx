@@ -1,3 +1,5 @@
+import { sessionText, translateSessionMessage, type SessionText } from './locales/session'
+import { useInterface } from './locales/interface'
 import { useEffect, useRef, useState } from 'react'
 import type { Room } from 'colyseus.js'
 import type { VoiceConfiguration, VoiceSignal } from '../shared/types'
@@ -5,6 +7,8 @@ import { api, errorText } from './backend'
 import { VoiceConnection } from './voice/connection'
 
 export function Voice({ room, host }: { room?: Room; host: boolean }) {
+  const { language } = useInterface()
+  const t = (label: SessionText) => sessionText(language, label)
   const [stream, setStream] = useState<MediaStream>()
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -180,26 +184,26 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
     }
   }, [room, stream, host])
 
-  return <section className="panel" aria-label="Voice chat">
-    <h2>Voice</h2>
+  return <section className="panel" aria-label={t('Voice chat')}>
+    <h2>{t('Voice')}</h2>
     {stream ? <>
-      <p role="status">{status}</p>
-      <p className="muted">{muted ? 'Microphone muted.' : speaking[0] ? 'You are speaking.' : 'Microphone on.'}
-        {speaking[1] && ' Your partner is speaking.'}</p>
+      <p role="status">{translateSessionMessage(language, status)}</p>
+      <p className="muted">{t(muted ? 'Microphone muted.' : speaking[0] ? 'You are speaking.' : 'Microphone on.')}
+        {speaking[1] && ' ' + t('Your partner is speaking.')}</p>
       <div className="actions">
         <button className="secondary" aria-pressed={muted} onClick={() => {
           stream.getAudioTracks().forEach(track => { track.enabled = muted })
           setMuted(!muted)
-        }}>{muted ? 'Unmute' : 'Mute'}</button>
-        {status === 'Voice could not connect' && <button className="secondary" disabled={!room} onClick={() => controller.current?.retry()}>Retry Voice</button>}
-        <button className="secondary" onClick={leave}>Leave Voice</button>
+        }}>{muted ? t('Unmute') : t('Mute')}</button>
+        {status === 'Voice could not connect' && <button className="secondary" disabled={!room} onClick={() => controller.current?.retry()}>{t('Retry Voice')}</button>}
+        <button className="secondary" onClick={leave}>{t('Leave Voice')}</button>
       </div>
       {playbackBlocked && <button className="secondary" onClick={() => {
         void audio.current?.play().then(() => setPlaybackBlocked(false))
           .catch(() => setError('Audio playback is blocked by your browser. Check its site permissions.'))
-      }}>Play partner audio</button>}
+      }}>{t('Play partner audio')}</button>}
       <audio ref={audio} autoPlay playsInline onPlaying={() => setPlaybackBlocked(false)} />
-    </> : <button onClick={() => void join()} disabled={!room || busy}>{busy ? 'Opening microphone…' : 'Join Voice'}</button>}
-    {error && <p className="error" role="alert">{error}</p>}
+    </> : <button onClick={() => void join()} disabled={!room || busy}>{t(busy ? 'Opening microphone…' : 'Join Voice')}</button>}
+    {error && <p className="error" role="alert">{translateSessionMessage(language, error)}</p>}
   </section>
 }

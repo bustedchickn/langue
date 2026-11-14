@@ -1,8 +1,9 @@
+import { sessionText, translateSessionMessage, type SessionText } from './locales/session'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
-import { type Language, type UserProfile } from '../shared/types'
+import { languageNames, languageTags, type Language, type UserProfile } from '../shared/types'
 import { api, auth, devGuest, errorText, multiplayer } from './backend'
 import { Account, Profile } from './Account'
 import { Friends, PlayerName, useInvitations } from './Friends'
@@ -16,6 +17,7 @@ import { Leaderboard } from './Leaderboard'
 import { LeaderboardIcon } from './LeaderboardIcon'
 import { VocabularyHub } from './vocabulary/Vocabulary'
 import { playEffect, setSoundsEnabled, soundsEnabled, startSearchMusic } from './sounds'
+import { InterfaceLanguage, interfaceCopy } from './locales/interface'
 import './style.css'
 
 type Page = 'home' | 'friends' | 'profile' | 'leaderboard' | 'vocabulary'
@@ -223,14 +225,17 @@ function App() {
   }
 
   const currentProfile = profile?.uid === uid ? profile : undefined
+  const interfaceLanguage = currentProfile?.interfaceLanguage ?? 'English'
+  const t = (label: SessionText) => sessionText(interfaceLanguage, label)
+  const text = interfaceCopy[interfaceLanguage]
   const screenKey = inRoom
     ? 'room:' + (session.session?.phase ?? 'connecting') + ':' + (session.session?.phase === 'game' ? session.session.progress?.round ?? 1 : '')
     : searching ? 'searching' : assessing ? 'assessment' : page
   return (
-    <>
+    <InterfaceLanguage.Provider value={interfaceLanguage}>
     <div className="screen-background" key={screenKey} aria-hidden="true" />
-    <main className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'} onClickCapture={playInterfaceSound}>
-      {notice && <p className="notice" role="status">{notice}</p>}
+    <main lang={languageTags[interfaceLanguage]} className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'} onClickCapture={playInterfaceSound}>
+      {notice && <p className="notice" role="status">{translateSessionMessage(interfaceLanguage, notice)}</p>}
       {user === undefined && <p>Loading…</p>}
       {user === null && <>
         <section className="sign-in-intro"><Logo /><p>A two-player language practice game.</p></section>
@@ -242,23 +247,23 @@ function App() {
         <Account />
       </>}
       {user && profileError && <section className="panel stack">
-        <p className="error" role="alert">{profileError}</p>
+        <p className="error" role="alert">{translateSessionMessage(interfaceLanguage, profileError)}</p>
         <button onClick={() => setProfileAttempt(value => value + 1)}>Retry profile</button>
-        <button className="secondary" onClick={() => void signOut(auth)}>Sign out</button>
+        <button className="secondary" onClick={() => void signOut(auth)}>{text.signOut}</button>
       </section>}
       {user && !profileError && profile === undefined && <p>Loading profile…</p>}
       {user && profile === null && <Profile key={uid} user={user} onSave={setProfile} />}
       {user && currentProfile && <>
         {!inRoom && !searching && page !== 'home' && <button className="secondary contextual-back" disabled={joining}
-          onClick={() => navigate('home')}>← Back to home</button>}
+          onClick={() => navigate('home')}>← {text.back}</button>}
         {!inRoom && !searching && page === 'friends' && invitations.length > 0 && <section className="panel stack">
-          <h2>Game invitations</h2>
+          <h2>{t('Game invitations')}</h2>
           {invitations.map(invitation => <div className="card" key={invitation.id}>
             <PlayerName uid={invitation.from} />
             <div className="actions">
               <button disabled={joining} onClick={() => void enter(async () =>
                 multiplayer.consumeSeatReservation(await api('/invites/' + invitation.id + '/join', 'POST'))
-              )}>Join game</button>
+              )}>{t('Join game')}</button>
               <button className="secondary" disabled={joining} onClick={() => {
                 void api('/invites/' + invitation.id + '/decline', 'POST').catch(error => setNotice(errorText(error)))
               }}>Decline</button>
@@ -276,7 +281,7 @@ function App() {
             setProfile(saved)
             setAssessing(false)
           }} />}
-          {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>Back to home</button>}
+          {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>{text.back}</button>}
           {page === 'home' && !assessing && <section className="home-screen">
             <div className="home-top-actions">
               <button className="vocabulary-access" aria-label="Open Vocabulary" title="Vocabulary" onClick={() => navigate('vocabulary')}>
@@ -287,7 +292,7 @@ function App() {
               </button>
               <div className="home-top-menu">
               <button className="leaderboard-access" aria-label="Open leaderboard" title="Leaderboard" onClick={() => navigate('leaderboard')}><LeaderboardIcon /></button>
-              <button className="profile-access" aria-label="Open profile and settings" disabled={savingLanguage || joining}
+              <button className="profile-access" aria-label={text.openProfile} disabled={savingLanguage || joining}
                 onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
               </div>
             </div>
@@ -296,7 +301,8 @@ function App() {
               <LanguagePicker value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
                 onChange={language => void saveLanguage(language)} />
               <div className="home-actions">
-                <button className="image-action image-action-play" aria-label="Play" disabled={joining || savingLanguage} onClick={() => {
+                <button className={interfaceLanguage === 'English' ? 'image-action image-action-play' : 'localized-action'}
+                  aria-label={text.play} disabled={joining || savingLanguage} onClick={() => {
                   setNotice('')
                   if (!currentProfile.assessments?.[currentProfile.learningLanguage]) setAssessing(true)
                   else {
@@ -304,15 +310,19 @@ function App() {
                     setSearching(true)
                   }
                 }}>
-                  <img className="image-action-default" src="/play-button-1.png" alt="" />
-                  <img className="image-action-hover" src="/play-button-2.png" alt="" />
-                  <span aria-hidden="true">▶</span> Play
+                  {interfaceLanguage === 'English' ? <>
+                    <img className="image-action-default" src="/play-button-1.png" alt="" />
+                    <img className="image-action-hover" src="/play-button-2.png" alt="" />
+                  </> : text.play}
                 </button>
-                <button className="image-action image-action-friends" aria-label={invitations.length ? 'Play With Friends, ' + invitations.length + ' pending' : 'Play With Friends'}
+                <button className={interfaceLanguage === 'English' ? 'image-action image-action-friends' : 'localized-action'}
+                  aria-label={invitations.length ? text.friends + ' (' + invitations.length + ')' : text.friends}
                   disabled={joining || savingLanguage} onClick={() => navigate('friends')}>
-                  <img className="image-action-default" src="/play-friends-button-1.png" alt="" />
-                  <img className="image-action-hover" src="/play-friends-button-2.png" alt="" />
-                  {invitations.length > 0 && <span className="invite-count" aria-label={invitations.length + ' invitations'}>{invitations.length}</span>}
+                  {interfaceLanguage === 'English' ? <>
+                    <img className="image-action-default" src="/play-friends-button-1.png" alt="" />
+                    <img className="image-action-hover" src="/play-friends-button-2.png" alt="" />
+                  </> : text.friends}
+                  {invitations.length > 0 && <span className="invite-count" aria-hidden="true">{invitations.length}</span>}
                 </button>
               </div>
             </div>
@@ -323,7 +333,7 @@ function App() {
           {page === 'profile' && <div className="stack">
             <section className="panel profile-identity">
               <Avatar name={currentProfile.displayName} photo={user.photoURL} />
-              <div><h1>{currentProfile.displayName}</h1><p>@{currentProfile.username} · Learning {currentProfile.learningLanguage}</p></div>
+              <div><h1>{currentProfile.displayName}</h1><p>@{currentProfile.username} · {text.learning} {languageNames[currentProfile.learningLanguage]}</p></div>
             </section>
             <section className="panel stack"><h2>Your scores</h2>
               <p>{currentProfile.scores?.total ?? 0} points across {currentProfile.scores?.gamesPlayed ?? 0} games</p>
@@ -335,14 +345,14 @@ function App() {
               setAnonymous(false)
               setNotice('Your account is linked.')
             }} />}
-            <section className="panel stack"><h2>Settings</h2>
+            <section className="panel stack"><h2>{text.settings}</h2>
               <button className="secondary" data-sound="none" aria-pressed={soundOn} onClick={() => {
                 setSoundsEnabled(!soundOn)
                 setSoundOn(!soundOn)
-              }}>Game sounds {soundOn ? 'on' : 'off'}</button>
+              }}>{text.sound} {soundOn ? text.on : text.off}</button>
               <button className="secondary" onClick={() => {
               void signOut(auth).then(() => navigate('home')).catch(error => setNotice(errorText(error)))
-            }}>Sign out</button>
+            }}>{text.signOut}</button>
               <button className="secondary delete-account-button" onClick={() => {
                 setDeleteError('')
                 setConfirmingDelete(true)
@@ -368,7 +378,7 @@ function App() {
         {invitePicker && inRoom && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}
       </>}
     </main>
-    </>
+    </InterfaceLanguage.Provider>
   )
 }
 

@@ -3,17 +3,21 @@ import type { GameProgress, GameResults, Seat } from '../../../shared/minigames/
 import { gameIcons } from '../../../shared/minigames/icons'
 import { iconCommunicationConfig as config, type IconResults, type IconView } from '../../../shared/minigames/icon-communication'
 import './icons.css'
+import { useInterface } from '../../locales/interface'
+import { sessionText } from '../../locales/session'
 
 export function IconCommunicationView({ progress, data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
 }) {
   const view = data as IconView
+  const { language } = useInterface()
   const [selected, setSelected] = useState<{ icon: string; round: number }>()
   const last = useRef({ matchId: '', revision: -1, time: 0 })
-  const feedback = view.feedback === 'correct' ? 'Correct! Get ready for the next round.'
-    : view.feedback === 'incorrect' ? 'Incorrect. −' + config.incorrectGuessPenaltyMs / 1000 + ' seconds.' : ''
+  const feedback = view.feedback === 'correct' ? sessionText(language, 'Correct! Get ready for the next round.')
+    : view.feedback === 'incorrect' ? sessionText(language, 'Incorrect. −{seconds} seconds.')
+      .replace('{seconds}', String(config.incorrectGuessPenaltyMs / 1000)) : ''
   return <>
-    <p><strong>{view.role === 'selector' ? 'Selector' : 'Describer'}</strong> · Practice {view.language}</p>
+    <p><strong>{sessionText(language, view.role === 'selector' ? 'Selector' : 'Describer')}</strong> · Practice {view.language}</p>
     <p className="muted">{progress.round === 1 ? 'First round: ' : 'This round: '}{Math.round((progress.round === 1 ? config.firstRoundDurationMs : config.roundDurationMs) * (progress.timeMultiplier ?? 1) / 1000)} seconds after the icon appears. A wrong choice removes 2 seconds.</p>
     <p role="status">{feedback}</p>
     {view.role === 'selector' ? <>
@@ -37,21 +41,22 @@ export function IconCommunicationView({ progress, data, disabled, send }: {
     </> : view.target ? <>
       <p>Describe this icon in {view.language} using voice or chat. Explain its appearance or use so your partner can pick it from nine icons.</p>
       <img className="icon-target" src={gameIcons.get(view.target)?.assetPath} alt={gameIcons.get(view.target)?.name} />
-    </> : <p className="icon-wait">Get ready! Your next icon is coming…</p>}
+    </> : <p className="icon-wait">{sessionText(language, 'Get ready! Your next icon is coming…')}</p>}
   </>
 }
 
 export function IconCommunicationResults({ result }: { result: GameResults; seat: Seat }) {
   const icons = result as IconResults
+  const { language } = useInterface()
   return <>
-    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'All ten icons found!' : 'Time’s up'}</h3>
+    <h3 className="game-outcome">{sessionText(language, result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'All ten icons found!' : 'Time’s up')}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
-      <div><dt>Icons identified</dt><dd>{result.completed}</dd></div>
-      <div><dt>Incorrect guesses</dt><dd>{icons.incorrectGuesses}</dd></div>
-      <div><dt>Rounds completed</dt><dd>{result.completed}</dd></div>
-      <div><dt>Total time played</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
-      <div><dt>Final score</dt><dd>{result.score}</dd></div>
+      <div><dt>{sessionText(language, 'Icons identified')}</dt><dd>{result.completed}</dd></div>
+      <div><dt>{sessionText(language, 'Incorrect guesses')}</dt><dd>{icons.incorrectGuesses}</dd></div>
+      <div><dt>{sessionText(language, 'Rounds completed')}</dt><dd>{result.completed}</dd></div>
+      <div><dt>{sessionText(language, 'Total time played')}</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
+      <div><dt>{sessionText(language, 'Final score')}</dt><dd>{result.score}</dd></div>
     </dl>
   </>
 }

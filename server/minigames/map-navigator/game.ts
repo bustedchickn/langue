@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto'
 import { gameTimeMultiplier, practiceDuration } from '../../../shared/minigames/timing'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
-import { mapNavigatorConfig as config, mapNavigatorGrid, mapNavigatorLanguage, mapNavigatorLandmarks, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction, type Point } from '../../../shared/minigames/map-navigator'
+import { mapNavigatorConfig as config, mapNavigatorGrid, mapNavigatorLanguage, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction, type Point } from '../../../shared/minigames/map-navigator'
 
 function same(a: Point, b: Point) { return a.row === b.row && a.column === b.column }
 function clone(point: Point): Point { return { ...point } }
@@ -81,7 +81,7 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
     view(seat): MapNavigatorView {
       return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position), direction,
         ...(seat === 'host' ? { goal: clone(layout.goal), route: route.map(clone), waypoints: waypoints.map(clone) } : {}),
-        moves, wrongTurns, checkpoints, feedback, landmarks: mapNavigatorLandmarks, ...translated }
+        moves, wrongTurns, checkpoints, feedback, ...translated }
     },
     act(seat: Seat, payload: unknown, time: number) {
       tick(time)

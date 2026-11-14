@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto'
 import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
-import { codenamesBoardSize, codenamesTeamWords, codenamesConfig as config, wordCards, type CardKind, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
+import { codenamesBoardSize, codenamesTeamWords, codenamesConfig as config, isBoardWord, normalizeClue, wordCards, type CardKind, type CodenamesResults, type CodenamesView } from '../../../shared/minigames/codenames'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 
 export function startCodenames(matchId: string, players: GamePlayers, now: number, pick = randomInt): ActiveMinigame {
@@ -13,6 +13,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
     ;[kinds[index], kinds[next]] = [kinds[next], kinds[index]]
   }
   const revealed = new Set<string>()
+  const hintsUnlocked = new Set<string>()
   const startsAt = now + 3000
   const endsAt = Number.MAX_SAFE_INTEGER
   let clue: string | undefined
@@ -20,13 +21,14 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
   let completed = 0
   let wrongGuesses = 0
   let revision = 0
-  let turnsLeft = codenamesTeamWords
+  let turnsLeft = 9
   let suddenDeath = false
   let result: CodenamesResults | undefined
-  const score = () => completed * config.scoring.pointsPerWord - wrongGuesses * config.scoring.incorrectPenalty
+  const score = () => completed * config.scoring.pointsPerWord -
+    hintsUnlocked.size * config.scoring.hintPenalty - wrongGuesses * config.scoring.incorrectPenalty
   function finish(outcome: CodenamesResults['outcome'], time: number, lossReason?: CodenamesResults['lossReason'], endedEarly = false) {
     result = { gameId: config.id, outcome, completed, attempted: revealed.size,
-      elapsedMs: Math.max(0, time - startsAt), score: score(), wrongGuesses,
+      elapsedMs: Math.max(0, time - startsAt), score: score(), hintsUsed: hintsUnlocked.size, wrongGuesses,
       players: [players.host.name, players.guest.name],
       ...(lossReason ? { lossReason } : {}) }
     if (endedEarly) result.endedEarly = true
@@ -48,7 +50,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
           id: card.id, ...(revealed.has(card.id) ? { revealed: kinds[index] } : {}),
           ...(seat === 'host' ? { kind: kinds[index] } : {}),
         })),
-        ...(clue ? { clue } : {}), remaining, revision, turnsLeft, suddenDeath,
+        ...(clue ? { clue } : {}), remaining, revision, turnsLeft, suddenDeath, hintsUnlocked: [...hintsUnlocked],
       }
     },
     tick() {},
@@ -58,12 +60,18 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
       if (result || time < startsAt || !input || typeof input !== 'object') return false
       const action = input as Record<string, unknown>
       if (action.revision !== revision) return false
+      if (action.type === 'hint' && typeof action.id === 'string' &&
+          cards.some(card => card.id === action.id) && !hintsUnlocked.has(action.id)) {
+        hintsUnlocked.add(action.id)
+        revision++
+        return true
+      }
       if (seat === 'host' && action.type === 'clue' && remaining === 0 && !suddenDeath &&
-          typeof action.word === 'string' && /^[\p{L}\p{M}]+$/u.test(action.word.trim()) &&
-          action.word.trim().length <= 30 && Number.isInteger(action.count) &&
+          typeof action.word === 'string' && Number.isInteger(action.count) &&
           Number(action.count) >= 1 && Number(action.count) <= codenamesTeamWords - completed) {
-        const word = action.word.trim()
-        if (cards.some(card => card.words[players.host.learningLanguage].toLocaleLowerCase() === word.toLocaleLowerCase())) return false
+        const word = normalizeClue(action.word)
+        const language = players.host.learningLanguage
+        if (!word || isBoardWord(word, cards.map(card => card.words[language]), language)) return false
         clue = word
         remaining = Number(action.count)
         revision++

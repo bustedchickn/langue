@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { languages, type Language } from '../shared/types'
+import { languageNames, languages, type Language } from '../shared/types'
 import { flags } from './PlayerIdentity'
+import { useInterface } from './locales/interface'
 
 export function LanguagePicker({ value, disabled, onChange }: {
   value: Language; disabled: boolean; onChange: (language: Language) => void
 }) {
+  const { text } = useInterface()
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(value)
   const picker = useRef<HTMLDivElement>(null)
@@ -56,7 +58,7 @@ export function LanguagePicker({ value, disabled, onChange }: {
 
   return <div className="learning-picker" ref={picker}>
     <span aria-hidden="true">{flags[value]}</span>
-    <span id="practice-language-label" className="learning-label">Learning</span>
+    <span id="practice-language-label" className="learning-label">{text.learning}</span>
     <div className="language-menu">
       <button ref={trigger} type="button" className="language-trigger" role="combobox"
         aria-labelledby="practice-language-label practice-language-value"
@@ -66,16 +68,16 @@ export function LanguagePicker({ value, disabled, onChange }: {
           setActive(value)
           setOpen(!open)
         }}>
-        <span id="practice-language-value">{value}</span>
+        <span id="practice-language-value">{languageNames[value]}</span>
         <span className="language-chevron" aria-hidden="true" />
       </button>
-      {open && <div className="language-options" id="practice-language-options" role="listbox" aria-label="Learning language">
+      {open && <div className="language-options" id="practice-language-options" role="listbox" aria-label={text.learningLanguage}>
         {languages.map(language => <div id={'practice-language-' + language} role="option" key={language}
           aria-selected={language === value} className="language-option" data-active={active === language}
           onPointerMove={() => setActive(language)}
           onClick={() => choose(language)}>
           <span className="language-option-flag" aria-hidden="true">{flags[language]}</span>
-          <span>{language}</span>
+          <span>{languageNames[language]}</span>
           {language === value && <span className="language-check" aria-hidden="true">✓</span>}
         </div>)}
       </div>}

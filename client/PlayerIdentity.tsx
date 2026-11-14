@@ -7,4 +7,7 @@ export function Avatar({ name, photo }: { name: string; photo?: string | null })
   </span>
 }
 
-export const flags: Record<Language, string> = { English: '🇬🇧', French: '🇫🇷', Spanish: '🇪🇸' }
+export const flags: Record<Language, string> = {
+  English: '🇬🇧', French: '🇫🇷', Spanish: '🇪🇸', German: '🇩🇪', Italian: '🇮🇹',
+  Portuguese: '🇧🇷', Japanese: '🇯🇵', Korean: '🇰🇷', Chinese: '🇨🇳', Russian: '🇷🇺',
+}

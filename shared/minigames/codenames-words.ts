@@ -1,6 +1,24 @@
 import type { WordCard } from './codenames'
+import { germanCards } from './codenames-german'
+import { italianCards } from './codenames-italian'
+import { portugueseCards } from './codenames-portuguese'
+import { japaneseCards } from './codenames-japanese'
+import { koreanCards } from './codenames-korean'
+import { chineseCards } from './codenames-chinese'
+import { russianCards } from './codenames-russian'
 
-export const wordCards: WordCard[] = [
+type BaseLanguage = 'English' | 'French' | 'Spanish'
+const decks = {
+  German: germanCards,
+  Italian: italianCards,
+  Portuguese: portugueseCards,
+  Japanese: japaneseCards,
+  Korean: koreanCards,
+  Chinese: chineseCards,
+  Russian: russianCards,
+} satisfies Record<Exclude<keyof WordCard['words'], BaseLanguage>, Record<keyof typeof germanCards, readonly [string, string]>>
+
+const baseCards = [
   {
     "id": "apple",
     "words": {
@@ -1301,4 +1319,21 @@ export const wordCards: WordCard[] = [
       "Spanish": "Un grupo de personas unidas por parentesco."
     }
   }
-]
+] satisfies (Omit<WordCard, 'id' | 'words' | 'definitions'> & {
+  id: keyof typeof germanCards
+  words: Pick<WordCard['words'], BaseLanguage>
+  definitions: Pick<WordCard['definitions'], BaseLanguage>
+})[]
+
+export const wordCards: WordCard[] = baseCards.map(card => {
+  const localized = (column: 0 | 1) => ({
+    German: decks.German[card.id][column],
+    Italian: decks.Italian[card.id][column],
+    Portuguese: decks.Portuguese[card.id][column],
+    Japanese: decks.Japanese[card.id][column],
+    Korean: decks.Korean[card.id][column],
+    Chinese: decks.Chinese[card.id][column],
+    Russian: decks.Russian[card.id][column],
+  })
+  return { ...card, words: { ...card.words, ...localized(0) }, definitions: { ...card.definitions, ...localized(1) } }
+})

@@ -1,14 +1,22 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
 import { beatMs, gateDistance, gateWordsFor, releaseRange, type DriveView } from '../../../shared/minigames/tandem-drive'
 import { driveStep } from '../../../shared/minigames/drive-physics'
 import { drawCourse } from './art'
+import { useInterface } from '../../locales/interface'
+import { driveText } from '../../locales/tandem-drive'
 import './drive.css'
+
+function useDriveText() {
+  const { language } = useInterface()
+  return useCallback((label: string, fallback = label) => driveText(language, label, fallback), [language])
+}
 
 export function TandemDriveView({ data, progress, disabled, send }: {
   data: unknown; progress: GameProgress; disabled: boolean; send: (action: unknown) => void
 }) {
   const view = data as DriveView
+  const t = useDriveText()
   const canvas = useRef<HTMLCanvasElement>(null)
   const frame = useRef({ view, received: performance.now() })
   const latestSend = useRef(send)
@@ -30,12 +38,12 @@ export function TandemDriveView({ data, progress, disabled, send }: {
       const pose = driveStep({ x: current.x, y: -current.distance, angle: current.angle }, current.left, current.right,
         current.blocked ? 0 : seconds)
       drawCourse(ctx!, { ...current, x: Math.max(-202, Math.min(202, pose.x)), distance: -pose.y,
-        angle: pose.angle, serverNow: current.serverNow + seconds * 1000 })
+        angle: pose.angle, serverNow: current.serverNow + seconds * 1000 }, t)
       id = requestAnimationFrame(render)
     }
     id = requestAnimationFrame(render)
     return () => cancelAnimationFrame(id)
-  }, [])
+  }, [t])
 
   function pedal(down: boolean) {
     if (pressed.current === down || (controls.current.disabled && down)) return
@@ -112,37 +120,39 @@ export function TandemDriveView({ data, progress, disabled, send }: {
   const released = view.unlockedUntil > progress.serverNow
   return <div className="drive">
     <div className="drive-telemetry">
-      <strong>{view.role === 'navigation' ? 'Optic · Navigation' : 'Radar · Cadence'}</strong>
-      <span className="drive-hull" data-low={view.hull < 35}>Hull {view.hull}% <meter min={0} max={100} value={view.hull} aria-label="Hull integrity" /></span>
+      <strong>{t(view.role === 'navigation' ? 'Optic · Navigation' : 'Radar · Cadence')}</strong>
+      <span className="drive-hull" data-low={view.hull < 35}>{t('Hull')} {view.hull}% <meter min={0} max={100} value={view.hull} aria-label={t('Hull integrity')} /></span>
     </div>
-    <p className="drive-map-brief"><strong>{view.map.name}</strong> · {view.map.subtitle} · Communication is required at every gate.</p>
+    <p className="drive-map-brief"><strong>{t(view.map.name)}</strong> · {t(view.map.subtitle)} · {t('Communication is required at every gate.')}</p>
     <div className="drive-gate-status" data-ready={released}>
-      <strong>{view.gateKind === 'cycle' ? 'CYCLING SHUTTER' : released ? 'GATE RELEASED · ' + ((view.unlockedUntil - progress.serverNow) / 1000).toFixed(1) + 's'
-        : 'GATE LOCKED'}</strong> <span>{remaining}px to gate</span>
+      <strong>{view.gateKind === 'cycle' ? t('CYCLING SHUTTER') : released ? t('GATE RELEASED') + ' · ' + ((view.unlockedUntil - progress.serverNow) / 1000).toFixed(1) + 's'
+        : t('GATE LOCKED')}</strong> <span>{remaining}{t('px to gate')}</span>
     </div>
-    <p className="drive-control-hint">Hold Space or press and hold the driving area to use your {view.side} thruster. Release to stop your side. You can type normally in chat.</p>
+    <p className="drive-control-hint">{t(view.side === 'left' ? 'Left control' : 'Right control',
+      `Hold Space or press and hold the driving area to use your ${view.side} thruster. Release to stop your side. You can type normally in chat.`)}</p>
     <div className="drive-viewport" data-side={view.side} role="button" tabIndex={disabled ? -1 : 0} aria-pressed={holding} aria-disabled={disabled}
-      aria-label={'Hold driving area for your ' + view.side + ' thruster'}
+      aria-label={t(view.side === 'left' ? 'Hold driving area for your left thruster' : 'Hold driving area for your right thruster')}
       onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}>
-      <canvas ref={canvas} width={500} height={378} aria-label="Pink car, gates and visible barriers" />
+      <canvas ref={canvas} width={500} height={378} aria-label={t('Pink car, gates and visible barriers')} />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}
-    {view.role === 'navigation' ? <p>{view.gate !== undefined ? <>Safe word <strong lang={view.language === 'French' ? 'fr' : view.language === 'Spanish' ? 'es' : 'en'}>{gateWordsFor(view.stage, view.language)[view.gate]}</strong> · Tell your partner which word to follow.</>
-      : 'Any lane works here. Listen for your partner’s timing.'}</p>
+    {view.role === 'navigation' ? <p>{view.gate !== undefined ? <>{t('Safe gate')} <strong>{gateWordsFor(view.stage, view.language)[view.gate]}</strong> · {t('Tell your partner.')}</>
+      : t('Any lane works here. Listen for your partner’s timing.')}</p>
       : <Cadence startsAt={view.beatStartsAt} openBeat={view.openBeat} serverNow={progress.serverNow}
           cycle={view.gateKind === 'cycle'}
           disabled={disabled || released || remaining > releaseRange - 36}
           release={() => send({ type: 'release-gate', swapped: view.swapped })} />}
-    <p role="status">{view.message || 'Hold both pedals to drive straight. Hold one to pivot. Release to stop.'}</p>
+    <p role="status">{t(view.message || 'Hold both pedals to drive straight. Hold one to pivot. Release to stop.')}</p>
     <button className="secondary drive-pedal" data-side={view.side} disabled={disabled} aria-pressed={holding}
       onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}
-      >{view.side === 'left' ? 'Left' : 'Right'} thruster</button>
+      >{t(view.side === 'left' ? 'Left thruster' : 'Right thruster')}</button>
   </div>
 }
 
 function Cadence({ startsAt, openBeat, serverNow, disabled, release, cycle }: {
   startsAt: number; openBeat: number; serverNow: number; disabled: boolean; release: () => void; cycle: boolean
 }) {
+  const t = useDriveText()
   const [beat, setBeat] = useState(0)
   useEffect(() => {
     const received = performance.now()
@@ -153,20 +163,21 @@ function Cadence({ startsAt, openBeat, serverNow, disabled, release, cycle }: {
   }, [startsAt, serverNow])
   const open = beat === openBeat || beat === (openBeat + 1) % 4
   return <div>
-    <p>{cycle ? 'The shutter opens automatically on green beats. Call “go.”' : 'Near the gate, release the latch on a green beat and call “go.”'}</p>
-    <div className="drive-beats" aria-label={'Current beat ' + (beat + 1)}>
+    <p>{t(cycle ? 'The shutter opens automatically on green beats. Call “go.”' : 'Near the gate, release the latch on a green beat and call “go.”')}</p>
+    <div className="drive-beats" aria-label={t('Current beat') + ' ' + (beat + 1)}>
       {[0, 1, 2, 3].map(i => <span key={i} data-current={i === beat} data-open={i === openBeat || i === (openBeat + 1) % 4}>{i + 1}</span>)}
-      <strong>{open ? 'GO' : 'WAIT'}</strong>
+      <strong>{t(open ? 'GO' : 'WAIT')}</strong>
     </div>
-    {!cycle && <button className="secondary drive-release" data-open={open} disabled={disabled} onClick={release}>Release gate</button>}
+    {!cycle && <button className="secondary drive-release" data-open={open} disabled={disabled} onClick={release}>{t('Release gate')}</button>}
   </div>
 }
 
 export function TandemDriveResults({ result }: { result: GameResults }) {
+  const t = useDriveText()
   return <>
-    <h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Extraction complete' : 'Run ended'}</h3>
+    <h3 className="game-outcome">{t(result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? 'Extraction complete' : 'Run ended')}</h3>
     <p>{result.players.join(' & ')}</p>
-    <p>Gates cleared · {result.completed}</p>
-    <p>Elapsed · {Math.ceil(result.elapsedMs / 1000)}s</p>
+    <p>{t('Gates cleared')} · {result.completed}</p>
+    <p>{t('Elapsed')} · {Math.ceil(result.elapsedMs / 1000)}s</p>
   </>
 }

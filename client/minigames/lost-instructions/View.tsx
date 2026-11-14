@@ -1,8 +1,10 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress } from '../../../shared/minigames/contracts'
-import { lostInstructions, shapeColors, type LostAction, type LostView, type Piece } from '../../../shared/minigames/lost-instructions'
+import { lostInstructions, pieceName, shapeColors, type LostAction, type LostView, type Piece } from '../../../shared/minigames/lost-instructions'
 import { languageTags } from '../../../shared/types'
 import { PronunciationButton } from '../../pronunciation/PronunciationButton'
+import { useInterface } from '../../locales/interface'
+import { sessionText } from '../../locales/session'
 import './board.css'
 
 const assets: Record<string, { className?: string; src?: string }> = {
@@ -15,6 +17,7 @@ const assets: Record<string, { className?: string; src?: string }> = {
   'shape-hexagon': { className: 'lost-hexagon' },
   'shape-oval': { className: 'lost-oval' },
 }
+const positions = ['Left', 'Middle', 'Right'] as const
 
 function Shape({ piece }: { piece: Piece }) {
   const asset = assets[lostInstructions.assets[piece.shape]]
@@ -26,6 +29,7 @@ function Shape({ piece }: { piece: Piece }) {
 function Operator({ view, send, disabled }: {
   view: Extract<LostView, { role: 'operator' }>; send: (action: LostAction) => void; disabled: boolean
 }) {
+  const { language } = useInterface()
   const [selected, setSelected] = useState<string>()
   const [dragging, setDragging] = useState<string>()
   const drag = useRef<{ pointer: number; piece: string; x: number; y: number; revision: number; moved: boolean }>(undefined)
@@ -74,14 +78,15 @@ function Operator({ view, send, disabled }: {
   }
 
   return <>
-    <p>Match both the color and shape your partner names. Drag a piece onto another to swap them, or tap one piece and then the piece to swap with it. Select Check arrangement when all three positions match the clue.</p>
-    <div className="lost-board" aria-label="Puzzle board" ref={board} style={{ gridTemplateColumns: 'repeat(' + pieces.length + ', minmax(0, 1fr))' }}>
+    <p>{sessionText(language, 'Match both the color and shape your partner names. Drag a piece onto another to swap them, or tap one piece and then the piece to swap with it. Select Check arrangement when all three positions match the clue.')}</p>
+    <div className="lost-board" aria-label={sessionText(language, 'Puzzle board')} ref={board} style={{ gridTemplateColumns: 'repeat(' + pieces.length + ', minmax(0, 1fr))' }}>
       {pieces.map((piece, slot) => {
-        const position = pieces.length === 3 ? ['Left', 'Middle', 'Right'][slot] : 'Slot ' + (slot + 1)
+        const position = pieces.length === 3 ? sessionText(language, positions[slot]) : String(slot + 1)
+        const label = pieceName(piece, language)
         return <button key={slot} type="button" className="lost-slot secondary" data-lost-slot={slot}
           data-piece={piece.id} data-shape={piece.shape} data-color={piece.color}
           data-dragging={dragging === piece.id || undefined}
-          aria-label={position + ': ' + piece.color + ' ' + piece.shape} aria-pressed={selected === piece.id}
+          aria-label={position + ': ' + label} aria-pressed={selected === piece.id}
           disabled={disabled} onPointerDown={event => pointerDown(event, piece.id)} onPointerMove={pointerMove}
           onPointerUp={pointerUp} onPointerCancel={() => { drag.current = undefined; setDragging(undefined) }}
           onLostPointerCapture={() => { drag.current = undefined; setDragging(undefined) }}
@@ -91,12 +96,12 @@ function Operator({ view, send, disabled }: {
           }}>
           <span key={piece.id + ':' + view.revision} className="lost-piece"><Shape piece={piece} /></span>
           <span>{position}</span>
-          <small className="lost-piece-label">{piece.color} {piece.shape}</small>
+          <small className="lost-piece-label">{label}</small>
         </button>
       })}
     </div>
-    <button disabled={disabled} onClick={() => { setSelected(undefined); send({ type: 'submit' }) }}>Check arrangement</button>
-    {view.feedback === 'incorrect' && <p className="error" role="status">That arrangement is incorrect. Try again.</p>}
+    <button disabled={disabled} onClick={() => { setSelected(undefined); send({ type: 'submit' }) }}>{sessionText(language, 'Check arrangement')}</button>
+    {view.feedback === 'incorrect' && <p className="error" role="status">{sessionText(language, 'That arrangement is incorrect. Try again.')}</p>}
   </>
 }
 
@@ -104,24 +109,25 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
   progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void
 }) {
   const view = data as LostView
+  const { language } = useInterface()
   if (view.role === 'instructor') return <>
     <p>Instructor · Only you can see the solution. Tell your partner the color, shape, and position of each piece, from left to right. Read the clue aloud or send it in chat.</p>
     {view.instruction ? <div key={progress.matchId + ':' + progress.round} className="card slot lost-instruction-card"
       data-prompt-color={progress.round % 4} aria-live="polite">
-      <strong>Your private instruction</strong>
+      <strong>{sessionText(language, 'Your private instruction')}</strong>
       <div className="lost-spoken-text">
         <p className="lost-instruction" lang={view.language && languageTags[view.language]}>{view.instruction}</p>
         {view.language && <PronunciationButton text={view.instruction} language={view.language} />}
       </div>
       {(view.targetArrangement || view.hint) && <details key={progress.matchId + ':' + progress.round}>
-        <summary>Hint: show the goal arrangement</summary>
-        {view.targetArrangement && <figure className="shape-target" aria-label="Your private target arrangement">
-          <figcaption>Your target arrangement <small>Describe this picture to your partner.</small></figcaption>
+        <summary>{sessionText(language, 'Hint: show the goal arrangement')}</summary>
+        {view.targetArrangement && <figure className="shape-target" aria-label={language === 'English' ? 'Your private target arrangement' : sessionText(language, 'Your target arrangement')}>
+          <figcaption>{sessionText(language, 'Your target arrangement')} <small>{sessionText(language, 'Describe this picture to your partner.')}</small></figcaption>
           <div className="shape-target-pieces">{view.targetArrangement.map((piece, index) => <div className="shape-target-piece" key={piece.id}
-            aria-label={['Left', 'Middle', 'Right'][index] + ': ' + piece.color + ' ' + piece.shape}>
+            aria-label={sessionText(language, positions[index]) + ': ' + pieceName(piece, language)}>
             <span className="lost-piece"><Shape piece={piece} /></span>
-            <strong>{['Left', 'Middle', 'Right'][index]}</strong>
-            <small>{piece.color} {piece.shape}</small>
+            <strong>{sessionText(language, positions[index])}</strong>
+            <small>{pieceName(piece, language)}</small>
           </div>)}</div>
         </figure>}
         {view.hint && <div className="lost-spoken-text">
@@ -130,7 +136,7 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
             label={'Pronounce hint in ' + view.hintLanguage} />}
         </div>}
       </details>}
-    </div> : <p>Get ready to give instructions.</p>}
+    </div> : <p>{sessionText(language, 'Get ready to give instructions.')}</p>}
   </>
   return <>
     <p>Operator · Only you can move the pieces. Ask your partner where each one belongs. Shapes and colors may repeat, so identify each piece by both its shape and color.</p>

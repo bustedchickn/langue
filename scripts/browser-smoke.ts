@@ -3,12 +3,16 @@ import { chromium, type Browser, type Page } from 'playwright'
 import { pieceName, type Piece } from '../shared/minigames/lost-instructions'
 import { codenamesConfig, wordCards } from '../shared/minigames/codenames'
 import { sceneObjectWord } from '../shared/minigames/spot-difference'
+import { languageTags, registeredLanguages, isEnabledLanguage } from '../shared/types'
+import { interfaceCopy } from '../client/locales/interface'
+import { gameName, sessionText } from '../client/locales/session'
 
 const url = process.env.IDLE_BROWSER_URL ?? 'http://localhost:5173'
 const tag = Date.now().toString(36)
 let playerSerial = 0
 const focusedGameTests = ['IDLE_TEST_GAME_UPDATES', 'IDLE_TEST_MAP', 'IDLE_TEST_VOICE', 'IDLE_TEST_CODENAMES',
-  'IDLE_TEST_SPOT', 'IDLE_TEST_TANDEM', 'IDLE_TEST_SOUND', 'IDLE_TEST_POLISH', 'IDLE_TEST_EXIT'].some(key => process.env[key] === 'true')
+  'IDLE_TEST_SPOT', 'IDLE_TEST_TANDEM', 'IDLE_TEST_SOUND', 'IDLE_TEST_POLISH', 'IDLE_TEST_EXIT',
+  'IDLE_TEST_LOCALIZATION'].some(key => process.env[key] === 'true')
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true })
 const slots = (page: Page) => page.locator('[data-lost-slot]')
 const positions = ['Left', 'Middle', 'Right']
@@ -145,10 +149,85 @@ async function player(browser: Browser, name: string, touch: boolean) {
     await button(page, 'Save language assessment').click()
     await picker.waitFor()
     await picker.click()
-    await page.getByRole('option', { name: 'French' }).click()
-    await page.getByRole('combobox', { name: 'Learning French' }).waitFor()
+    await page.getByRole('option', { name: 'Français' }).click()
+    await page.getByRole('combobox', { name: 'Learning Français' }).waitFor()
   }
   return page
+}
+
+async function checkLocalizedGames(browser: Browser) {
+  const host = await player(browser, 'LocaleHost', false)
+  const guest = await player(browser, 'LocaleGuest', true)
+  try {
+    await button(guest, 'Open profile and settings').click()
+    const username = await guest.getByLabel('Username', { exact: true }).inputValue()
+    await button(guest, '← Back to home').click()
+    await button(host, 'Play With Friends').click()
+    await button(host, 'Add Friend').click()
+    await host.getByLabel('Search by username').fill(username)
+    await button(host, 'Search').click()
+    await button(host, 'Send request').click()
+    await button(guest, 'Play With Friends').click()
+    await button(guest, 'Accept').click()
+    const games = ['lost-instructions', 'icon-communication', 'map-navigator', 'tandem-drive', 'spot-difference', 'codenames']
+    const gameViews = ['.lost-board', '.icon-target, .icon-grid', '.map-game', '.drive', '.spot-game', '.codenames']
+    for (const language of registeredLanguages.filter(language => language !== 'English')) {
+      const profileRoute = '**/api/profile'
+      await guest.unroute(profileRoute)
+      await guest.route(profileRoute, async route => {
+        const response = await route.fetch()
+        if (route.request().method() !== 'GET' || !response.ok()) return route.fulfill({ response })
+        await route.fulfill({ response, json: { ...await response.json(), interfaceLanguage: language } })
+      })
+      await guest.reload()
+      await guest.getByRole('combobox', { name: /Français/ }).waitFor()
+      await host.getByLabel('Minigame').selectOption(games[0])
+      await button(host, 'Invite to Play').click()
+      await button(guest, interfaceCopy[language].friends).click()
+      await button(guest, sessionText(language, 'Join game')).click()
+      await button(host, 'I’m ready!').click()
+      await button(guest, sessionText(language, 'I’m ready!')).click()
+      await button(host, 'I’m ready to play!').click()
+      await button(guest, sessionText(language, 'I’m ready to play!')).click()
+      for (const [index, game] of games.entries()) {
+        await guest.getByRole('heading', { name: gameName(language, game, game), exact: true, level: 1 }).waitFor()
+        await guest.locator('.game-progress').waitFor()
+        await guest.locator(gameViews[index]).waitFor()
+        assert.match(await guest.locator('.language-chip').innerText(), /French/)
+        const help = guest.locator('details.game-instructions')
+        await help.locator('summary').click()
+        await help.locator('ol li').first().waitFor()
+        for (const width of [320, 375]) {
+          await guest.setViewportSize({ width, height: 700 })
+          await guest.evaluate(() => document.fonts.ready)
+          assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), width, language + ' ' + game)
+          await button(guest, sessionText(language, 'End early')).click({ trial: true })
+        }
+        await button(guest, sessionText(language, 'End early')).click()
+        await button(guest, sessionText(language, 'End game')).click()
+        await guest.locator('.game-outcome').waitFor()
+        await host.locator('.game-outcome').waitFor()
+        for (const width of [320, 375]) {
+          await guest.setViewportSize({ width, height: 700 })
+          assert.equal(await guest.evaluate(() => document.documentElement.scrollWidth), width, language + ' ' + game + ' results')
+          await button(guest, sessionText(language, 'Play Again')).click({ trial: true })
+        }
+        assert.equal(await guest.locator('main').getAttribute('lang'), languageTags[language])
+        if (index + 1 < games.length) {
+          await host.getByLabel('Choose the next game').selectOption(games[index + 1])
+          await guest.waitForFunction(id => document.querySelector<HTMLSelectElement>('.results-transition select')?.value === id, games[index + 1])
+          await button(host, 'Play Again').click()
+          await button(guest, sessionText(language, 'Play Again')).click()
+        }
+      }
+      await button(host, 'Back to home').click()
+      await button(guest, interfaceCopy[language].play).waitFor()
+      await button(host, 'Play With Friends').click()
+      console.log('Passed all six games at 320px and 375px for ' + language)
+    }
+  } finally {
+    await Promise.all([host.context().close(), guest.context().close()])
+  }
 }
 
 async function assertVoice(page: Page) {
@@ -476,7 +555,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       for (const page of [host, guest]) {
         await page.getByRole('heading', { name: 'Your results', exact: true }).waitFor()
         await page.getByText('A player ended this game early.', { exact: false }).waitFor()
-        await page.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).waitFor()
+        await page.locator('.game-toolbar').getByRole('button', { name: 'Back to home', exact: true }).waitFor()
         assert.equal(await page.locator('.results-confetti').count(), 0)
         assert.equal(await page.locator('.game-exit-controls').count(), 0)
       }
@@ -492,7 +571,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       } else {
         await button(host, 'End early').click()
         await host.getByRole('dialog', { name: 'End this game early?' }).getByRole('button', { name: 'End game', exact: true }).click()
-        await host.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).click()
+        await host.locator('.game-toolbar').getByRole('button', { name: 'Back to home', exact: true }).click()
       }
       await Promise.all([host, guest].map(page => button(page, 'Play').waitFor()))
       return
@@ -703,14 +782,16 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       const next = (await target.getAttribute('src'))!.split('/').at(-1)!.replace('.svg', '')
       assert.notEqual(next, id)
       const miss = host.locator('.icon-tile:not([data-icon="' + next + '"])').first()
-      for (let count = 0; count < 5 && await miss.isVisible(); count++) {
-        if (touch) await miss.tap()
-        else await miss.click()
-        await host.waitForTimeout(400)
-      }
+      // Send one deliberate miss. Repeated taps can race the deadline because
+      // each accepted miss subtracts time and results replace the entire grid.
+      if (touch) await miss.tap()
+      else await miss.click()
+      await Promise.all([host, guest].map(page => page.getByText('Incorrect.', { exact: false }).waitFor()))
       for (const page of [host, guest]) {
         await page.getByRole('heading', { name: 'Time’s up' }).waitFor()
         assert.match(await page.locator('.game-results').innerText(), /Icons identified\s+1/)
+        assert.match(await page.locator('.game-results').innerText(), /Incorrect guesses\s+2/)
+        assert.equal(await page.locator('.icon-tile').count(), 0)
         assert.match(await page.locator('.game-results').innerText(), /Final score\s+1/)
         await assertVoice(page)
       }
@@ -797,7 +878,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
 
     for (const page of [host, guest]) {
       await page.getByRole('heading', { name: 'Victory' }).waitFor()
-      await page.locator('.results-play-options').getByRole('button', { name: 'Quit', exact: true }).waitFor()
+      await page.locator('.game-toolbar').getByRole('button', { name: 'Back to home', exact: true }).waitFor()
       const results = await page.locator('.game-results').innerText()
       assert.match(results, /Puzzles completed\s+3/)
       assert.match(results, /Puzzles attempted\s+3/)
@@ -827,12 +908,82 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
   }
 }
 
+async function checkMixedInterfaces(browser: Browser) {
+  const [host, guest] = await Promise.all([player(browser, 'Alice', false), player(browser, 'Lina', false)])
+  try {
+    await button(guest, 'Open profile and settings').click()
+    await guest.getByLabel('Interface language').selectOption('Spanish')
+    await guest.getByLabel('Display name').fill('練習パートナー 한국어 中文 Русский')
+    await button(guest, 'Save profile').click()
+    await guest.getByText('Perfil guardado.', { exact: true }).waitFor()
+    await button(guest, '← Volver al inicio').click()
+    await guest.reload()
+    await guest.getByRole('combobox', { name: /Français/ }).waitFor()
+    await Promise.all([button(host, 'Play').click(), button(guest, 'Jugar').click()])
+    await Promise.all([
+      host.getByText('Shared learning match', { exact: true }).waitFor(),
+      guest.getByText('Mismo idioma de práctica', { exact: true }).waitFor(),
+    ])
+    assert.equal(await host.locator('main').getAttribute('lang'), 'en')
+    assert.equal(await guest.locator('main').getAttribute('lang'), 'es')
+    await Promise.all([button(host, 'I’m ready!').click(), button(guest, '¡Estoy listo!').click()])
+    await Promise.all([host.getByText('Bonjour !', { exact: true }).waitFor(), guest.getByText('Bonjour !', { exact: true }).waitFor()])
+    await host.getByText('練習パートナー 한국어 中文 Русский', { exact: true }).waitFor()
+    for (const width of [320, 375]) {
+      for (const page of [host, guest]) {
+        await page.setViewportSize({ width, height: 700 })
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
+      }
+    }
+    console.log('Passed shared French practice with independently saved English and Spanish interfaces.')
+  } finally {
+    await Promise.all([host.context().close(), guest.context().close()])
+  }
+}
+
+async function checkGatedLayouts(browser: Browser) {
+  const page = await player(browser, 'Alice', false)
+  try {
+    for (const language of registeredLanguages.filter(language => language !== 'English')) {
+      const route = '**/api/profile'
+      await page.unroute(route)
+      // Override only the response seen by this test browser. The actual API
+      // still receives the language selected by the signed-in profile.
+      await page.route(route, async request => {
+        const response = await request.fetch()
+        if (request.request().method() !== 'GET' || !response.ok()) return request.fulfill({ response })
+        await request.fulfill({ response, json: { ...await response.json(), interfaceLanguage: language } })
+      })
+      for (const width of [320, 375]) {
+        await page.setViewportSize({ width, height: 700 })
+        await page.reload()
+        const text = interfaceCopy[language]
+        await button(page, text.play).waitFor()
+        await button(page, text.friends).waitFor()
+        assert.equal(await page.locator('main').getAttribute('lang'), languageTags[language])
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
+        await button(page, text.openProfile).click()
+        await page.getByRole('heading', { name: text.settings }).waitFor()
+        await button(page, text.save).click({ trial: true })
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
+      }
+      console.log('Passed home and profile layout at 320px and 375px for ' + language)
+    }
+  } finally {
+    await page.context().close()
+  }
+}
+
 const browser = await chromium.launch({
   executablePath: process.env.IDLE_CHROMIUM_PATH,
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  if (process.env.IDLE_TEST_EXIT === 'true') {
+  if (process.env.IDLE_TEST_LOCALIZATION === 'true') {
+    await checkMixedInterfaces(browser)
+    await checkGatedLayouts(browser)
+    await checkLocalizedGames(browser)
+  } else if (process.env.IDLE_TEST_EXIT === 'true') {
     for (const id of ['lost-instructions', 'icon-communication', 'map-navigator', 'tandem-drive', 'spot-difference', 'codenames']) {
       await run(browser, true, false, false, id)
       console.log('Passed End early, cancellation, shared results, voice/chat, replay, and Quit for ' + id + '.')

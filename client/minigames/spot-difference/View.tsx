@@ -3,6 +3,8 @@ import { useEffect, useId, useState } from 'react'
 import { languageTags } from '../../../shared/types'
 import { sceneObjectWord, type SpotDifferenceView, type SpotDifferenceResults, type SpotDifferenceAction } from '../../../shared/minigames/spot-difference'
 import './spot.css'
+import { useInterface } from '../../locales/interface'
+import { sessionText } from '../../locales/session'
 
 function Scene({ view, disabled, send }: { view: SpotDifferenceView; disabled: boolean; send: (action: SpotDifferenceAction) => void }) {
   const [word, setWord] = useState<string>()
@@ -54,4 +56,19 @@ export function SpotDifferenceView({ progress, data, disabled, send }: { progres
   return <section className="spot-game"><header className="spot-header"><div><p className="eyebrow">2-Player Language Challenge</p><h2>Spot the Difference</h2><p className="muted">Your partner sees a different scene. Compare object types, colors, and details using voice or chat. Find all {view.totalDifferences} differences together. Use an object’s i icon to see its word in {view.language} without making a guess.</p></div><div className="spot-badges"><span>🔎 {view.found.length} / {view.totalDifferences} found</span><span>⏱ {Math.floor(seconds / 60).toString().padStart(2, '0')}:{(seconds % 60).toString().padStart(2, '0')}</span></div></header><div className="spot-feedback" role="status"><strong>GUIDE</strong> {feedback}</div><div className="spot-scenes"><Scene view={view} disabled={disabled} send={send} /></div><div className="map-actions"><button disabled={disabled} onClick={() => send({ type: 'reset' })}>Reset finds</button></div></section>
 }
 
-export function SpotDifferenceResults({ result, seat }: { result: GameResults; seat: Seat }) { const data = result as SpotDifferenceResults; return <><h3 className="game-outcome">{result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? '🎉 Differences found!' : '⏱ Round finished'}</h3><p>{result.players.join(' & ')}</p><dl className="game-results"><div><dt>Differences found</dt><dd>{data.found}</dd></div><div><dt>Incorrect guesses</dt><dd>{data.incorrectGuesses}</dd></div><div><dt>Time played</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div><div><dt>Final score</dt><dd>{result.score}</dd></div></dl><p className="muted">{seat === 'host' ? 'Compare positions, colors, and shapes together.' : 'Keep practicing by describing what you see in the target language.'}</p></> }
+export function SpotDifferenceResults({ result, seat }: { result: GameResults; seat: Seat }) {
+  const data = result as SpotDifferenceResults
+  const { language } = useInterface()
+  return <>
+    <h3 className="game-outcome">{sessionText(language, result.endedEarly ? 'Game ended early' : result.outcome === 'victory' ? '🎉 Differences found!' : '⏱ Round finished')}</h3>
+    <p>{result.players.join(' & ')}</p>
+    <dl className="game-results">
+      <div><dt>{sessionText(language, 'Differences found')}</dt><dd>{data.found}</dd></div>
+      <div><dt>{sessionText(language, 'Incorrect guesses')}</dt><dd>{data.incorrectGuesses}</dd></div>
+      <div><dt>{sessionText(language, 'Time played')}</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
+      <div><dt>{sessionText(language, 'Final score')}</dt><dd>{result.score}</dd></div>
+    </dl>
+    <p className="muted">{sessionText(language, seat === 'host' ? 'Compare positions, colors, and shapes together.'
+      : 'Keep practicing by describing what you see in the target language.')}</p>
+  </>
+}
