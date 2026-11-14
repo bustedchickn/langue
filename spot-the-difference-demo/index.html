@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spot the Difference · Lost in Translation</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">Lost in Translation<span>.</span></div>
+        <div class="eyebrow">Communication Lab · Demo</div>
+      </header>
+
+      <section class="intro">
+        <div>
+          <p class="eyebrow">Spot the Difference</p>
+          <h1>Ask, describe,<br /><em>discover together.</em></h1>
+          <p class="lede">Each player sees a slightly different room. Talk in your learning language to find the five changes.</p>
+        </div>
+        <div class="round-card">
+          <span>ROUND</span>
+          <strong id="roundNumber">01</strong>
+          <small id="timer">02:00</small>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Demo controls">
+        <div class="player-switch" role="group" aria-label="Choose view">
+          <button class="switch active" data-view="a">Player A view</button>
+          <button class="switch" data-view="b">Player B view</button>
+        </div>
+        <div class="language-pill">Practice language: <strong>French</strong></div>
+        <button class="accent-button" id="newRound">New round</button>
+      </section>
+
+      <section class="game-layout">
+        <div class="scene-card">
+          <div class="scene-heading">
+            <div>
+              <p class="eyebrow" id="viewLabel">Player A</p>
+              <h2>Describe what you see</h2>
+            </div>
+            <span class="progress" id="progress">0 / 5 found</span>
+          </div>
+          <div class="scene" id="scene" aria-label="Illustrated room"></div>
+          <p class="helper" id="helper">Click a place where you notice a difference, then explain it to your partner.</p>
+        </div>
+
+        <aside class="conversation-card">
+          <div class="scene-heading">
+            <div>
+              <p class="eyebrow">Useful language</p>
+              <h2>Keep the conversation going</h2>
+            </div>
+            <span class="spark">✦</span>
+          </div>
+          <div class="phrase-list">
+            <button class="phrase">“What do you see above the desk?”</button>
+            <button class="phrase">“Is the plant on the left or right?”</button>
+            <button class="phrase">“I have a different color.”</button>
+            <button class="phrase">“Can you describe its shape?”</button>
+          </div>
+          <div class="found-box">
+            <div class="found-heading"><strong>Differences found</strong><span id="foundCount">0</span></div>
+            <ul id="foundList"><li class="empty">Your discoveries will appear here.</li></ul>
+          </div>
+          <button class="primary-button" id="finishButton">Finish round</button>
+        </aside>
+      </section>
+
+      <footer>Use voice or room chat to compare details. The goal is understanding, not perfect grammar.</footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
