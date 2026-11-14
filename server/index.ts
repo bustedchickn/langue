@@ -8,6 +8,8 @@ import { Server, matchMaker } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
 import type { Friendship, Invitation } from '../shared/types'
 import { DuoRoom, rooms } from './room'
+import { searchStatus, startSearch, stopSearch } from './matchmaking'
+import { activity } from './participation'
 import {
   db, friendshipRef, getProfile, profileRef, publicProfile,
   RequestError, requireProfile, saveProfile, usernameKey, verify,
@@ -36,6 +38,16 @@ api.get('/profile', async (_, res) => {
   res.json(profile ?? null)
 })
 api.put('/profile', async (req, res) => res.json(await saveProfile(res.locals.uid, req.body ?? {})))
+api.post('/matchmaking', async (_, res) => {
+  res.set('Cache-Control', 'no-store').json(startSearch(await requireProfile(res.locals.uid)))
+})
+api.get('/matchmaking', (_, res) => {
+  res.set('Cache-Control', 'no-store').json(searchStatus(res.locals.uid))
+})
+api.delete('/matchmaking', (_, res) => {
+  stopSearch(res.locals.uid)
+  res.json({ ok: true })
+})
 api.get('/search', async (req, res) => {
   const match = await db.collection('usernames').doc(usernameKey(req.query.username)).get()
   const profile = match.exists ? await getProfile(match.data()!.uid) : undefined
@@ -111,6 +123,7 @@ api.post('/invites', async (req, res) => {
 })
 
 api.post('/invites/:id/join', async (req, res) => {
+  if (activity(res.locals.uid)) throw new RequestError(409, 'Leave your current room or cancel Quick Play first.')
   const { id } = req.params
   if (!/^[a-zA-Z0-9]{20}$/.test(id)) throw new RequestError(404, 'Invitation not found.')
   const [record, destination] = await db.getAll(

@@ -28,6 +28,10 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Play as guest').click()
   await page.getByLabel('Username').fill(name + tag)
   await page.getByLabel('Display name').fill(name)
+  if (name === 'Bob' || name === 'Remy') {
+    await page.getByLabel('Fluent language').selectOption('French')
+    await page.getByLabel('Learning language').selectOption('English')
+  }
   await button(page, 'Save profile').click()
   await page.getByRole('navigation').waitFor()
   return page
@@ -71,11 +75,14 @@ async function run(browser: Browser, touch: boolean) {
   const [host, guest] = await Promise.all([player(browser, touch ? 'Lina' : 'Alice', false), player(browser, touch ? 'Remy' : 'Bob', touch)])
   try {
     await button(host, 'Play').first().click()
-    await button(host, 'Quick Create Room').click()
-    const code = await host.locator('.room-code code').textContent()
+    await Promise.all([
+      host.waitForResponse(response => response.url().endsWith('/api/matchmaking') && response.request().method() === 'POST' && response.ok()),
+      button(host, 'Quick Play').click(),
+    ])
+    await host.getByText('Finding your language partner…').waitFor()
     await button(guest, 'Play').first().click()
-    await guest.getByLabel('Room code', { exact: true }).fill(code!)
-    await button(guest, 'Join Room').click()
+    await button(guest, 'Quick Play').click()
+    await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
 
     await button(host, 'Join Voice').click()
     await button(guest, 'Join Voice').click()

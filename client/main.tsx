@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
@@ -8,6 +8,7 @@ import { Account, Profile } from './Account'
 import { Friends, PlayerName, useInvitations } from './Friends'
 import { RoomScreen } from './RoomScreen'
 import { useSession } from './session'
+import { QuickPlay } from './QuickPlay'
 import './style.css'
 
 type Page = 'welcome' | 'play' | 'friends' | 'profile' | 'settings'
@@ -19,8 +20,8 @@ function App() {
   const [profile, setProfile] = useState<UserProfile | null>()
   const [profileError, setProfileError] = useState('')
   const [profileAttempt, setProfileAttempt] = useState(0)
-  const [linkCode, setLinkCode] = useState(() => new URLSearchParams(location.search).get('room') ?? '')
-  const [page, setPage] = useState<Page>(linkCode ? 'play' : 'welcome')
+  const [page, setPage] = useState<Page>('welcome')
+  const [searching, setSearching] = useState(false)
   const [notice, setNotice] = useState('')
   const [joining, setJoining] = useState(false)
   const [invitePicker, setInvitePicker] = useState(false)
@@ -50,37 +51,28 @@ function App() {
     return () => { active = false }
   }, [uid, profileAttempt])
 
-  function clearLink() {
-    const url = new URL(location.href)
-    url.searchParams.delete('room')
-    history.replaceState(null, '', url)
-    setLinkCode('')
-  }
-
+  const { attach } = session
+  const joinedMatch = useCallback((room: Room) => {
+    setSearching(false)
+    attach(room)
+  }, [attach])
+  const doneSearching = useCallback((message?: string) => {
+    setSearching(false)
+    if (message) setNotice(message)
+  }, [])
   async function enter(action: () => Promise<Room>) {
-    if (joining || inRoom) return
+    if (joining || inRoom || searching) return
     setNotice('')
     setJoining(true)
     try {
       multiplayer.auth.token = await auth.currentUser?.getIdToken() ?? ''
       session.attach(await action())
-      clearLink()
     } catch (failure) {
       setNotice(errorText(failure))
     } finally { setJoining(false) }
   }
 
   function createRoom() { return multiplayer.create('duo') }
-
-  function joinRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const code = String(new FormData(event.currentTarget).get('code')).trim()
-    if (!/^[a-zA-Z0-9_-]{1,32}$/.test(code)) {
-      setNotice('Enter a valid room code.')
-      return
-    }
-    void enter(() => multiplayer.joinById(code))
-  }
 
   async function invite(to: string) {
     let target = session.room
@@ -112,7 +104,7 @@ function App() {
   return <>
     <header className="masthead">
       <div className="bar">
-        <button className="brand" disabled={inRoom || joining} onClick={() => navigate('welcome')}>Lost in Translation<span>.</span></button>
+        <button className="brand" disabled={inRoom || joining || searching} onClick={() => navigate('welcome')}>Lost in Translation<span>.</span></button>
         <span className="tagline">Language co-op</span>
         {currentProfile && <span className="identity">@{currentProfile.username}</span>}
       </div>
@@ -120,7 +112,7 @@ function App() {
     <main className="stack">
       {currentProfile && !inRoom && <nav aria-label="Main navigation">
         {pages.map(item => <button key={item} className="secondary" aria-current={page === item ? 'page' : undefined}
-          disabled={joining} onClick={() => navigate(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}
+          disabled={joining || searching} onClick={() => navigate(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}
       </nav>}
       {notice && <p className="notice" role="status">{notice}</p>}
       {user === undefined && <p>Loading…</p>}
@@ -146,7 +138,7 @@ function App() {
           {invitations.map(invitation => <div className="card" key={invitation.id}>
             <PlayerName uid={invitation.from} />
             <div className="actions">
-              <button disabled={inRoom || joining} onClick={() => void enter(async () =>
+              <button disabled={inRoom || joining || searching} onClick={() => void enter(async () =>
                 multiplayer.consumeSeatReservation(await api('/invites/' + invitation.id + '/join', 'POST'))
               )}>Join game</button>
               <button className="secondary" disabled={joining} onClick={() => {
@@ -160,7 +152,8 @@ function App() {
           navigate('play')
         }} invite={() => setInvitePicker(value => !value)} />}
         {invitePicker && <Friends uid={user.uid} invite={invite} inviteOnly />}
-        {!inRoom && !invitePicker && <>
+        {searching && <QuickPlay profile={currentProfile} joined={joinedMatch} done={doneSearching} />}
+        {!inRoom && !invitePicker && !searching && <>
           {page === 'welcome' && <section className="intro stack">
             <h1>Find your words together.</h1>
             <p>Practice English, French, or Spanish with a partner.</p>
@@ -169,13 +162,9 @@ function App() {
           {page === 'play' && <section className="panel stack">
             <h2>Play</h2>
             <div className="actions">
-              <button disabled={joining} onClick={() => void enter(createRoom)}>Quick Create Room</button>
-              <button className="secondary" disabled={joining} onClick={() => setInvitePicker(true)}>Invite Friend</button>
+              <button disabled={joining} onClick={() => { setNotice(''); setSearching(true) }}>Quick Play</button>
+              <button className="secondary" disabled={joining} onClick={() => setInvitePicker(true)}>Play With Friends</button>
             </div>
-            <form className="stack" onSubmit={joinRoom}>
-              <label>Room code<input name="code" maxLength={32} autoCapitalize="none" defaultValue={linkCode} required /></label>
-              <button disabled={joining}>Join Room</button>
-            </form>
           </section>}
           {page === 'friends' && <Friends key={uid} uid={user.uid} invite={invite} />}
           {page === 'profile' && <Profile key={uid} profile={currentProfile} user={user} onSave={setProfile} />}
