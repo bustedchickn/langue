@@ -27,7 +27,7 @@
   --color-border: #B7B1F2;
   --accent: #FBF3B9;
   --border: #B7B1F2;
-  --muted: #F26A8D;
+  --muted: #66505d;
 }
 
 * { box-sizing: border-box; }
@@ -37,7 +37,7 @@ button, input, select { font: inherit; min-height: 44px; border: 1px solid var(-
 button { cursor: pointer; font-weight: 700; background: var(--accent); color: black; border-color: transparent; }
 button.secondary { background: white; color: black; border-color: var(--border); }
 button:disabled { opacity: .55; cursor: default; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #6946a5; outline-offset: 3px; }
 input, select { width: 100%; min-width: 0; background: white; color: black; }
 label { display: grid; gap: .35rem; }
 h1, h2, h3, p { margin-top: 0; }
@@ -46,8 +46,8 @@ h2 { font-size: 1.35rem; font-weight: 700; }
 code { letter-spacing: .11em; color: var(--color-orange); font-size: 1.25rem; }
 
 .masthead { border-bottom: 1px solid var(--border); background: var(--color-surface-raised); }
-.bar { max-width: 1056px; min-height: 68px; margin: auto; padding: 0 1rem; display: flex; gap: 1rem; align-items: center; }
-.bar .brand { font-size: 1.55rem; background: transparent; color: black; border: 0; padding: 0; letter-spacing: -.05em; }
+.bar { max-width: 1056px; min-height: 68px; margin: auto; padding: .5rem 1rem; display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; }
+.bar .brand { font-size: clamp(1.15rem, 5vw, 1.55rem); background: transparent; color: black; border: 0; padding: 0; letter-spacing: -.05em; }
 .brand span, nav [aria-current] { color: var(--color-orange); }
 .tagline, .identity, .muted { color: var(--muted); }
 .identity { margin-left: auto; overflow-wrap: anywhere; }
@@ -104,3 +104,12 @@ audio[controls] { display: block; max-width: 100%; margin-top: .6rem; }
 @media (max-width: 420px) { .bar .tagline { display: none; } }
 @media (max-width: 640px) { .action-card { min-height: 175px; } }
 @media (min-width: 750px) { main { padding-top: 1.5rem; } .room-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .panel { padding: 1.3rem; } }
+
+.room-grid .icon-grid button.icon-tile, .icon-target, .icon-vocabulary img {
+  background: #473a4d;
+  border-radius: .65rem;
+}
+.room-grid .icon-grid button.icon-tile:is([data-selected], :active) {
+  background: #674b78;
+  border-color: var(--color-accent);
+}
