@@ -44,10 +44,17 @@ function Chat({ room, messages }: { room?: Room; messages: Session['chat'] }) {
   const [text, setText] = useState('')
   const [cooldown, setCooldown] = useState(false)
   const list = useRef<HTMLDivElement>(null)
+  const shownMessages = useRef(new Set<string>())
 
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight
   }, [messages.length, messages.at(-1)?.timestamp])
+
+  useEffect(() => {
+    const keys = messages.map(message => message.timestamp + ':' + message.sender + ':' + message.text)
+    for (const key of keys) if (!shownMessages.current.has(key)) playEffect('message')
+    shownMessages.current = new Set(keys)
+  }, [messages])
 
   useEffect(() => {
     if (cooldown) {

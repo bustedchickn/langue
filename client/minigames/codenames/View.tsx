@@ -21,14 +21,22 @@ export function CodenamesView({ data, disabled, send }: {
   const [selectedCard, setSelectedCard] = useState<string>()
   const [showDefinition, setShowDefinition] = useState<string>()
   const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
+  const revealedHints = useRef(new Set(view.hintsUnlocked))
   useEffect(() => {
     for (const card of view.cards) {
       if (card.revealed && !revealed.current.has(card.id)) {
         revealed.current.add(card.id)
-        playEffect(card.revealed === 'team' ? 'pop' : 'hit')
+        playEffect(card.revealed === 'team' ? 'nicknameCorrect' : 'hit')
       }
     }
   }, [view.cards])
+  useEffect(() => {
+    for (const id of view.hintsUnlocked) {
+      if (revealedHints.current.has(id)) continue
+      revealedHints.current.add(id)
+      playEffect('nicknameHint')
+    }
+  }, [view.hintsUnlocked])
   const cards = new Map(wordCards.map(card => [card.id, card]))
   const selected = view.cards.find(card => card.id === selectedCard)
   const selectedWord = selected && cards.get(selected.id)

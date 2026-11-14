@@ -1,7 +1,14 @@
 import selectUrl from '../sfx/select Edit 1 Export 1.mp3'
+import select2Url from '../sfx/select Edit 1 Export 2.mp3'
+import select3Url from '../sfx/select Edit 1 Export 3.mp3'
+import select4Url from '../sfx/select Edit 1 Export 4.mp3'
+import select5Url from '../sfx/select Edit 1 Export 5.mp3'
 import popUrl from '../sfx/pop-2.mp3'
 import openUrl from '../sfx/open1.mp3'
 import hitUrl from '../sfx/hit.mp3'
+import messageUrl from '../sfx/message.mp3'
+import nicknameHintUrl from '../sfx/recievenicknamehint.mp3'
+import nicknameCorrectUrl from '../sfx/correct guess nicknames.mp3'
 import gongUrl from '../sfx/Gong Sound Effect.mp3'
 import connectingUrl from '../sfx/connecting1.mp3'
 import connectedUrl from '../sfx/connected2.mp3'
@@ -10,7 +17,10 @@ import back2Url from '../sfx/back2.mp3'
 import back3Url from '../sfx/back3.mp3'
 
 const urls = {
-  select: selectUrl, pop: popUrl, open: openUrl, hit: hitUrl, gong: gongUrl,
+  // These are pre-pitch-shifted variants of the same selection sound.
+  select: [selectUrl, select2Url, select3Url, select4Url, select5Url],
+  pop: popUrl, open: openUrl, hit: hitUrl, message: messageUrl,
+  nicknameHint: nicknameHintUrl, nicknameCorrect: nicknameCorrectUrl, gong: gongUrl,
   connected: connectedUrl, back: back1Url, cancel: back2Url, close: back3Url,
 } as const
 export type Effect = keyof typeof urls
@@ -44,7 +54,8 @@ export function setSoundsEnabled(value: boolean) {
 
 export function playEffect(effect: Effect) {
   if (!enabled) return
-  const audio = new Audio(urls[effect])
+  const source = urls[effect]
+  const audio = new Audio(Array.isArray(source) ? source[Math.floor(Math.random() * source.length)] : source)
   audio.volume = effect === 'gong' ? 0.3 : 0.45
   playing.add(audio)
   audio.addEventListener('ended', () => playing.delete(audio), { once: true })
