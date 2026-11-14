@@ -71,7 +71,7 @@ test('codenames keeps the key private and validates turns, guesses and duplicate
   assert.equal(guest().remaining, 0)
 })
 
-test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cost 50', () => {
+test('hints are free, correct guesses add 50, and wrong guesses cost 50', () => {
   const players = {
     host: { name: 'A', learningLanguage: 'English' as const },
     guest: { name: 'B', learningLanguage: 'French' as const },
@@ -81,15 +81,15 @@ test('hints cost 10 once per card, correct guesses add 50, and wrong guesses cos
   const team = host().cards.find(card => card.kind === 'team')!
   const neutral = host().cards.find(card => card.kind === 'neutral')!
   assert.equal(game.act('host', { type: 'hint', id: team.id, revision: 0 }, 3000), true)
-  assert.equal(game.progress(3000).score, -10)
+  assert.equal(game.progress(3000).score, 0)
   assert.deepEqual(host().hintsUnlocked, [team.id])
   assert.equal(game.act('guest', { type: 'hint', id: team.id, revision: 1 }, 3000), false)
-  assert.equal(game.progress(3000).score, -10)
+  assert.equal(game.progress(3000).score, 0)
   assert.equal(game.act('host', { type: 'clue', word: 'example', count: 2, revision: 1 }, 3000), true)
   assert.equal(game.act('guest', { type: 'guess', id: team.id, revision: 2 }, 3000), true)
-  assert.equal(game.progress(3000).score, 40)
+  assert.equal(game.progress(3000).score, 50)
   assert.equal(game.act('guest', { type: 'guess', id: neutral.id, revision: 3 }, 3000), true)
-  assert.equal(game.progress(3000).score, -10)
+  assert.equal(game.progress(3000).score, 0)
 })
 
 test('the clue count grants one optional bonus guess and passing returns control to the giver', () => {

@@ -112,7 +112,7 @@ const guides = {
         'Wait for your partner to guess or pass before the next clue.',
       ] },
       guest: { id: 'guesser', name: 'Guesser', steps: [
-        'Use the clue to select a square. Its pop-out lets you request a definition for 10 points or confirm your guess.',
+        'Use the clue to select a square. Its pop-out lets you request a definition or confirm your guess.',
         'Confirm in the square’s pop-out to guess; close it to keep looking. You get the clue number plus one extra guess.',
         'Find purple team cards. Avoid the black assassin; pass if unsure.',
       ] },
@@ -131,8 +131,8 @@ const guideValues = {
   'map-navigator': { time: mapNavigatorConfig.durationMs, points: mapNavigatorConfig.scoring.pointsPerRoute, penalty: mapNavigatorConfig.scoring.wrongTurnPenalty },
   'tandem-drive': { time: tandemDrive.durationMs },
   'spot-difference': { time: spotDifferenceConfig.durationMs, points: spotDifferenceConfig.scoring.pointsPerDifference, penalty: spotDifferenceConfig.scoring.wrongGuessPenalty },
-  codenames: { points: codenamesConfig.scoring.pointsPerWord, penalty: codenamesConfig.scoring.incorrectPenalty, hint: codenamesConfig.scoring.hintPenalty },
-} satisfies Record<keyof typeof guides, { time?: number; later?: number; points?: number; penalty?: number; hint?: number }>
+  codenames: { points: codenamesConfig.scoring.pointsPerWord, penalty: codenamesConfig.scoring.incorrectPenalty },
+} satisfies Record<keyof typeof guides, { time?: number; later?: number; points?: number; penalty?: number }>
 
 function localizedDuration(ms: number, scale: number, locale: string) {
   const seconds = Math.ceil(practiceDuration(ms, scale) / 1000)
@@ -150,14 +150,14 @@ export function getGameGuide(gameId: string, language: Language, scale: number):
   if (language === 'English') return english
   const translated = localizedGuides[language][id]
   const [host, ...hostSteps] = translated.host
-  const values: { time?: number; later?: number; points?: number; penalty?: number; hint?: number } = guideValues[id]
+  const values: { time?: number; later?: number; points?: number; penalty?: number } = guideValues[id]
   const locale = languageTags[language]
   const ruleValues = {
     time: values.time === undefined ? '' : localizedDuration(values.time, scale, locale),
     later: values.later === undefined ? '' : localizedDuration(values.later, scale, locale),
     points: values.points ?? 0,
     penalty: values.penalty ?? 0,
-    hint: values.hint ?? 0,
+    hint: 0,
   }
   const [guest, ...guestSteps] = typeof translated.guest === 'function' ? translated.guest(ruleValues) : translated.guest
   return {

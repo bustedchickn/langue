@@ -20,7 +20,7 @@ export function CodenamesView({ data, disabled, send }: {
   const [count, setCount] = useState(1)
   const [selectedCard, setSelectedCard] = useState<string>()
   const revealed = useRef(new Set(view.cards.filter(card => card.revealed).map(card => card.id)))
-  const revealedHints = useRef(new Set(view.hintsUnlocked))
+  const givenClues = useRef(new Set(view.clue ? [view.revision + ':' + view.clue] : []))
   useEffect(() => {
     for (const card of view.cards) {
       if (card.revealed && !revealed.current.has(card.id)) {
@@ -30,12 +30,12 @@ export function CodenamesView({ data, disabled, send }: {
     }
   }, [view.cards])
   useEffect(() => {
-    for (const id of view.hintsUnlocked) {
-      if (revealedHints.current.has(id)) continue
-      revealedHints.current.add(id)
+    const key = view.clue && view.revision + ':' + view.clue
+    if (key && !givenClues.current.has(key)) {
+      givenClues.current.add(key)
       playEffect('nicknameHint')
     }
-  }, [view.hintsUnlocked])
+  }, [view.clue, view.revision])
   const cards = new Map(wordCards.map(card => [card.id, card]))
   const selected = view.cards.find(card => card.id === selectedCard)
   const selectedWord = selected && cards.get(selected.id)
@@ -89,7 +89,7 @@ export function CodenamesView({ data, disabled, send }: {
           {selectedCard === card.id && selected && selectedWord && <section id={'word-preview-' + card.id} className="word-preview" role="dialog" aria-label={text.definition(word)}>
             <h3 lang={languageTags[view.language]}>{selectedWord.words[view.language]}</h3>
             {view.hintsUnlocked.includes(card.id) ? <p lang={languageTags[definitionLocale]}>{selectedWord.definitions[definitionLocale]}</p>
-              : <button type="button" className="secondary word-hint-action" disabled={disabled} onClick={() => send({ type: 'hint', id: card.id, revision: view.revision })}>{text.hint} · {text.hintCost}</button>}
+            : <button type="button" className="secondary word-hint-action" disabled={disabled} onClick={() => send({ type: 'hint', id: card.id, revision: view.revision })}>{text.hint}</button>}
             <div className="actions">
               <button type="button" className="secondary" autoFocus onClick={() => setSelectedCard(undefined)}>{text.close}</button>
               {canConfirm && <button type="button" disabled={disabled} onClick={() => {

@@ -25,8 +25,7 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
   let turnsLeft = 9
   let suddenDeath = false
   let result: CodenamesResults | undefined
-  const score = () => completed * config.scoring.pointsPerWord -
-    hintsUnlocked.size * config.scoring.hintPenalty - wrongGuesses * config.scoring.incorrectPenalty
+  const score = () => completed * config.scoring.pointsPerWord - wrongGuesses * config.scoring.incorrectPenalty
   function finish(outcome: CodenamesResults['outcome'], time: number, lossReason?: CodenamesResults['lossReason'], endedEarly = false) {
     result = { gameId: config.id, outcome, completed, attempted: revealed.size,
       elapsedMs: Math.max(0, time - startsAt), score: score(), hintsUsed: hintsUnlocked.size, wrongGuesses,
