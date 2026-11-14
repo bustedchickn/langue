@@ -12,6 +12,29 @@ const label = (slot: number, piece: Piece) => positions[slot] + ': ' + piece.col
 
 async function player(browser: Browser, name: string, touch: boolean) {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: touch })
+  await context.addInitScript({ content: `
+    (() => {
+      const calls = []
+      const synth = new EventTarget()
+      let voices = []
+      let end
+      Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: Object.assign(synth, {
+        getVoices: () => voices,
+        cancel: () => clearTimeout(end),
+        speak: utterance => {
+          calls.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate })
+          end = setTimeout(() => utterance.onend?.(new Event('end')), 800)
+        },
+      }) })
+      Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: function (text) {
+        return { text }
+      } })
+      Object.assign(window, { pronunciationCalls: calls, loadPronunciationVoices: () => {
+        voices = ['en-US', 'fr-FR', 'es-ES'].map(lang => ({ lang, localService: true }))
+        synth.dispatchEvent(new Event('voiceschanged'))
+      } })
+    })()
+  ` })
   await context.addInitScript(() => {
     const Original = window.RTCPeerConnection
     const peers: RTCPeerConnection[] = []
@@ -72,7 +95,7 @@ async function drag(page: Page, from: number, to: number, touch: boolean) {
 }
 
 async function run(browser: Browser, touch: boolean) {
-  const [host, guest] = await Promise.all([player(browser, touch ? 'Lina' : 'Alice', false), player(browser, touch ? 'Remy' : 'Bob', touch)])
+  const [host, guest] = await Promise.all([player(browser, touch ? 'Lina' : 'Alice', touch), player(browser, touch ? 'Remy' : 'Bob', touch)])
   try {
     await button(host, 'Play').first().click()
     await Promise.all([
@@ -93,6 +116,22 @@ async function run(browser: Browser, touch: boolean) {
     await host.getByText('Your private instruction').waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
     assert.equal(await guest.getByText('Your private instruction').count(), 0)
+    const speaker = button(host, 'Pronounce in French')
+    await host.getByText('Pronunciation is unavailable for French on this device.').waitFor()
+    await speaker.click()
+    const calls = (page: Page) => page.evaluate(() =>
+      (window as unknown as { pronunciationCalls: { text: string; lang: string; rate: number }[] }).pronunciationCalls)
+    assert.deepEqual(await calls(host), [])
+    await host.evaluate(() => (window as unknown as { loadPronunciationVoices: () => void }).loadPronunciationVoices())
+    const spoken = await host.locator('.lost-instruction').textContent()
+    if (touch) await speaker.tap()
+    else await speaker.press('Enter')
+    await host.getByText('Playing…', { exact: true }).waitFor()
+    await speaker.click()
+    assert.deepEqual(await calls(host), Array(2).fill({ text: spoken, lang: 'fr-FR', rate: 0.85 }))
+    assert.deepEqual(await calls(guest), [])
+    await host.getByText('Playing…', { exact: true }).waitFor({ state: 'hidden' })
+    await Promise.all([assertVoice(host), assertVoice(guest)])
     for (const page of [host, guest]) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
     }
@@ -142,9 +181,12 @@ async function run(browser: Browser, touch: boolean) {
       await assertVoice(page)
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
+    await host.evaluate(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined }))
     await button(host, 'Play Again').click()
     await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    await host.getByText('This browser does not support pronunciation.').waitFor()
+    assert.equal(await button(host, 'Pronounce in French').isDisabled(), true)
   } finally {
     await Promise.all([host.context().close(), guest.context().close()])
   }
@@ -162,4 +204,3 @@ try {
 } finally {
   await browser.close()
 }
-

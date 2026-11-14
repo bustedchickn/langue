@@ -10,3 +10,5 @@
 .lost-circle { border-radius: 50%; }
 .lost-triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .lost-instruction { font-size: 1.2rem; overflow-wrap: anywhere; }
+.lost-spoken-text { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.lost-spoken-text > p { flex: 1 1 12rem; min-width: 0; }
