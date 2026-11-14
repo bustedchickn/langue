@@ -204,8 +204,8 @@ function App() {
     if (button.getAttribute('data-navigation') === 'back') playEffect('back')
     else if (label.includes('cancel')) playEffect('cancel')
     else if (label.includes('close')) playEffect('close')
-    else if (button.getAttribute('role') === 'combobox' || label.includes('friends') || label.includes('profile')) playEffect('open')
-    else playEffect('select')
+    else if (button.getAttribute('data-effect') === 'select') playEffect('select')
+    else playEffect('open')
   }
 
   async function saveLanguage(learningLanguage: Language) {
@@ -292,7 +292,7 @@ function App() {
               </button>
               <div className="home-top-menu">
               <button className="leaderboard-access" aria-label="Open leaderboard" title="Leaderboard" onClick={() => navigate('leaderboard')}><LeaderboardIcon /></button>
-              <button className="profile-access" aria-label={text.openProfile} disabled={savingLanguage || joining}
+              <button className="profile-access" data-effect="select" aria-label={text.openProfile} disabled={savingLanguage || joining}
                 onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
               </div>
             </div>

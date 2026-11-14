@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Room } from 'colyseus.js'
 import type { VoiceConfiguration, VoiceSignal } from '../shared/types'
 import { api, errorText } from './backend'
+import { playEffect } from './sounds'
 import { VoiceConnection } from './voice/connection'
 
 export function Voice({ room, host }: { room?: Room; host: boolean }) {
@@ -21,10 +22,13 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
   const controller = useRef<VoiceConnection | undefined>(undefined)
   const mounted = useRef(false)
   const joining = useRef(false)
+  const voiceConnected = useRef(false)
 
   useEffect(() => {
     mounted.current = true
     return () => {
+      if (voiceConnected.current) playEffect('voiceDisconnect')
+      voiceConnected.current = false
       mounted.current = false
       controller.current?.stop()
       local.current?.getTracks().forEach(track => track.stop())
@@ -60,6 +64,8 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
   }
 
   function leave() {
+    if (voiceConnected.current) playEffect('voiceDisconnect')
+    voiceConnected.current = false
     controller.current?.stop()
     controller.current = undefined
     local.current?.getTracks().forEach(track => track.stop())
@@ -115,7 +121,13 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
         }
       },
       status: (next, message = '') => {
-        if (active) { setStatus(next); setError(message) }
+        if (!active) return
+        const connected = next === 'Voice connected'
+        if (connected && !voiceConnected.current) playEffect('voiceConnect')
+        else if (!connected && voiceConnected.current) playEffect('voiceDisconnect')
+        voiceConnected.current = connected
+        setStatus(next)
+        setError(message)
       },
       remote: remote => {
         remoteSource?.disconnect()

@@ -9,6 +9,8 @@ import hitUrl from '../sfx/hit.mp3'
 import messageUrl from '../sfx/message.mp3'
 import nicknameHintUrl from '../sfx/recievenicknamehint.mp3'
 import nicknameCorrectUrl from '../sfx/correct guess nicknames.mp3'
+import voiceConnectUrl from '../sfx/voice connect.mp3'
+import voiceDisconnectUrl from '../sfx/voice disconnect.mp3'
 import gongUrl from '../sfx/Gong Sound Effect.mp3'
 import connectingUrl from '../sfx/connecting1.mp3'
 import connectedUrl from '../sfx/connected2.mp3'
@@ -21,6 +23,7 @@ const urls = {
   select: [selectUrl, select2Url, select3Url, select4Url, select5Url],
   pop: popUrl, open: openUrl, hit: hitUrl, message: messageUrl,
   nicknameHint: nicknameHintUrl, nicknameCorrect: nicknameCorrectUrl, gong: gongUrl,
+  voiceConnect: voiceConnectUrl, voiceDisconnect: voiceDisconnectUrl,
   connected: connectedUrl, back: [back1Url, back2Url, back3Url], cancel: back2Url, close: back3Url,
 } as const
 export type Effect = keyof typeof urls
