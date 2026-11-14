@@ -58,7 +58,7 @@ try {
   await first.getByRole('button', { name: '☆ Star' }).click()
   await first.getByRole('button', { name: 'I know this' }).click()
   await first.keyboard.press('ArrowRight')
-  await first.getByText('3 of 3').waitFor()
+  await first.getByText('3 of 3', { exact: true }).waitFor()
   await first.getByRole('button', { name: /Flashcard 3:/ }).click()
   await first.getByRole('button', { name: /Flashcard 3: s’il vous plaît/ }).waitFor()
   await first.getByRole('navigation', { name: 'Study modes' }).getByRole('button', { name: 'Write' }).click()
