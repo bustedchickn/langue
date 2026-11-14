@@ -12,6 +12,29 @@ const label = (slot: number, piece: Piece) => positions[slot] + ': ' + piece.col
 
 async function player(browser: Browser, name: string, touch: boolean) {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: touch })
+  await context.addInitScript({ content: `
+    (() => {
+      const calls = []
+      const synth = new EventTarget()
+      let voices = []
+      let end
+      Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: Object.assign(synth, {
+        getVoices: () => voices,
+        cancel: () => clearTimeout(end),
+        speak: utterance => {
+          calls.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate })
+          end = setTimeout(() => utterance.onend?.(new Event('end')), 800)
+        },
+      }) })
+      Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: function (text) {
+        return { text }
+      } })
+      Object.assign(window, { pronunciationCalls: calls, loadPronunciationVoices: () => {
+        voices = ['en-US', 'fr-FR', 'es-ES'].map(lang => ({ lang, localService: true }))
+        synth.dispatchEvent(new Event('voiceschanged'))
+      } })
+    })()
+  ` })
   await context.addInitScript(() => {
     const Original = window.RTCPeerConnection
     const peers: RTCPeerConnection[] = []
@@ -28,6 +51,10 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Play as guest').click()
   await page.getByLabel('Username').fill(name + tag)
   await page.getByLabel('Display name').fill(name)
+  if (name === 'Bob' || name === 'Remy' || name === 'IconGuest' || name === 'TapGuest') {
+    await page.getByLabel('Fluent language').selectOption('French')
+    await page.getByLabel('Learning language').selectOption('English')
+  }
   await button(page, 'Save profile').click()
   await page.getByRole('navigation').waitFor()
   return page
@@ -67,25 +94,101 @@ async function drag(page: Page, from: number, to: number, touch: boolean) {
   }
 }
 
-async function run(browser: Browser, touch: boolean) {
-  const [host, guest] = await Promise.all([player(browser, touch ? 'Lina' : 'Alice', false), player(browser, touch ? 'Remy' : 'Bob', touch)])
+async function run(browser: Browser, touch: boolean, icons = false) {
+  const [host, guest] = await Promise.all([
+    player(browser, icons ? (touch ? 'TapHost' : 'IconHost') : touch ? 'Lina' : 'Alice', touch),
+    player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
+  ])
   try {
     await button(host, 'Play').first().click()
-    await button(host, 'Quick Create Room').click()
-    const code = await host.locator('.room-code code').textContent()
+    await Promise.all([
+      host.waitForResponse(response => response.url().endsWith('/api/matchmaking') && response.request().method() === 'POST' && response.ok()),
+      button(host, 'Quick Play').click(),
+    ])
+    await host.getByText('Finding your language partner…').waitFor()
     await button(guest, 'Play').first().click()
-    await guest.getByLabel('Room code', { exact: true }).fill(code!)
-    await button(guest, 'Join Room').click()
+    await button(guest, 'Quick Play').click()
+    await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
 
     await button(host, 'Join Voice').click()
     await button(guest, 'Join Voice').click()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    if (icons) {
+      await host.getByLabel('Minigame').selectOption('icon-communication')
+      await guest.getByRole('heading', { name: 'Icon Communication' }).waitFor()
+      await button(host, 'Start Game').click()
+      await guest.getByText('Get ready! Your next icon is coming…').waitFor()
+      const grid = host.locator('.icon-tile')
+      assert.equal(await grid.count(), 9)
+      assert.equal(await grid.first().isDisabled(), true)
+      assert.equal(await host.locator('time').count(), 0)
+      const target = guest.locator('.icon-target')
+      await target.waitFor()
+      const id = (await target.getAttribute('src'))!.split('/').at(-1)!.replace('.svg', '')
+      assert.equal(await guest.locator('.icon-tile').count(), 0)
+      assert.equal(await host.locator('.icon-target').count(), 0)
+      await host.getByText(/Time left/).waitFor()
+      await guest.getByText(/Time left/).waitFor()
+      const bounds = await grid.first().boundingBox()
+      assert.ok(bounds && bounds.width >= 44 && bounds.height >= 44)
+      assert.equal(await host.evaluate(() => document.documentElement.scrollWidth), 320)
+      await guest.getByLabel('Message', { exact: true }).fill('Here is my description')
+      await button(guest, 'Send').click()
+      await host.getByText('Here is my description', { exact: true }).waitFor()
+      const wrong = host.locator('.icon-tile:not([data-icon="' + id + '"])').first()
+      if (touch) await wrong.tap()
+      else await wrong.click()
+      await Promise.all([host, guest].map(page => page.getByText('Incorrect.', { exact: false }).waitFor()))
+      const correct = host.locator('.icon-tile[data-icon="' + id + '"]')
+      // The selector suppresses rapid double taps after an acknowledged guess.
+      await host.waitForTimeout(320)
+      if (touch) await correct.tap()
+      else await correct.click()
+      await guest.getByText('Correct! Get ready for the next round.').waitFor()
+      await target.waitFor()
+      const next = (await target.getAttribute('src'))!.split('/').at(-1)!.replace('.svg', '')
+      assert.notEqual(next, id)
+      const miss = host.locator('.icon-tile:not([data-icon="' + next + '"])').first()
+      for (let count = 0; count < 5 && await miss.isVisible(); count++) {
+        if (touch) await miss.tap()
+        else await miss.click()
+        await host.waitForTimeout(400)
+      }
+      for (const page of [host, guest]) {
+        await page.getByRole('heading', { name: 'Time’s up' }).waitFor()
+        assert.match(await page.locator('.game-results').innerText(), /Icons identified\s+1/)
+        assert.match(await page.locator('.game-results').innerText(), /Final score\s+1/)
+        await page.getByRole('button', { name: /^Pronounce / }).first().waitFor()
+        await assertVoice(page)
+      }
+      assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
+      await button(host, 'Play Again').click()
+      await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
+      await Promise.all([assertVoice(host), assertVoice(guest)])
+      return
+    }
     await button(host, 'Start Game').click()
     await host.getByText(/Starts in/).waitFor()
     assert.equal(await host.getByText('Your private instruction').count(), 0)
     await host.getByText('Your private instruction').waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
     assert.equal(await guest.getByText('Your private instruction').count(), 0)
+    const speaker = button(host, 'Pronounce in French')
+    await host.getByText('Pronunciation is unavailable for French on this device.').waitFor()
+    await speaker.click()
+    const calls = (page: Page) => page.evaluate(() =>
+      (window as unknown as { pronunciationCalls: { text: string; lang: string; rate: number }[] }).pronunciationCalls)
+    assert.deepEqual(await calls(host), [])
+    await host.evaluate(() => (window as unknown as { loadPronunciationVoices: () => void }).loadPronunciationVoices())
+    const spoken = await host.locator('.lost-instruction').textContent()
+    if (touch) await speaker.tap()
+    else await speaker.press('Enter')
+    await host.getByText('Playing…', { exact: true }).waitFor()
+    await speaker.click()
+    assert.deepEqual(await calls(host), Array(2).fill({ text: spoken, lang: 'fr-FR', rate: 0.85 }))
+    assert.deepEqual(await calls(guest), [])
+    await host.getByText('Playing…', { exact: true }).waitFor({ state: 'hidden' })
+    await Promise.all([assertVoice(host), assertVoice(guest)])
     for (const page of [host, guest]) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320)
     }
@@ -135,9 +238,12 @@ async function run(browser: Browser, touch: boolean) {
       await assertVoice(page)
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
+    await host.evaluate(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined }))
     await button(host, 'Play Again').click()
     await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    await host.locator('.lost-spoken-text').first().getByText('This browser does not support pronunciation.').waitFor()
+    assert.equal(await button(host, 'Pronounce in French').isDisabled(), true)
   } finally {
     await Promise.all([host.context().close(), guest.context().close()])
   }
@@ -152,7 +258,9 @@ try {
   console.log('Passed Chromium mouse drag, click placement, game chat, scoring, replay, and persistent audio at 320px.')
   await run(browser, true)
   console.log('Passed Chromium touch drag, tap placement, mobile layout, and persistent audio at 320px.')
+  await run(browser, false, true)
+  await run(browser, true, true)
+  console.log('Passed Icon Communication mouse and touch at 320px, private views, chat, results, replay, and persistent audio.')
 } finally {
   await browser.close()
 }
-

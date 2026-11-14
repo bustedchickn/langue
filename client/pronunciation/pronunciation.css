@@ -1,0 +1,5 @@
+.pronunciation { display: inline-flex; gap: .5rem; align-items: center; flex-wrap: wrap; min-width: 0; }
+.pronunciation .pronunciation-button { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; }
+.pronunciation .pronunciation-button[data-playing] { color: var(--accent); border-color: var(--accent); }
+.pronunciation-status { font-size: .875rem; color: var(--muted); }
+.pronunciation-status:empty { display: none; }

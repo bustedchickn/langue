@@ -2,6 +2,7 @@ import { useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress } from '../../../shared/minigames/contracts'
 import { lostInstructions, type LostAction, type LostView, type Piece } from '../../../shared/minigames/lost-instructions'
 import { languageTags } from '../../../shared/types'
+import { PronunciationButton } from '../../pronunciation/PronunciationButton'
 import './board.css'
 
 const assets: Record<string, { className?: string; src?: string }> = {
@@ -100,8 +101,15 @@ export function LostInstructionsView({ progress, data, disabled, send }: {
     <p>Instructor · Relay the clue to your partner by voice or chat.</p>
     {view.instruction ? <div className="card slot">
       <strong>Your private instruction</strong>
-      <p className="lost-instruction" lang={view.language && languageTags[view.language]}>{view.instruction}</p>
-      {view.hint && <details><summary>Hint</summary><p lang={view.hintLanguage && languageTags[view.hintLanguage]}>{view.hint}</p></details>}
+      <div className="lost-spoken-text">
+        <p className="lost-instruction" lang={view.language && languageTags[view.language]}>{view.instruction}</p>
+        {view.language && <PronunciationButton text={view.instruction} language={view.language} />}
+      </div>
+      {view.hint && <details><summary>Hint</summary><div className="lost-spoken-text">
+        <p lang={view.hintLanguage && languageTags[view.hintLanguage]}>{view.hint}</p>
+        {view.hintLanguage && <PronunciationButton text={view.hint} language={view.hintLanguage}
+          label={'Pronounce hint in ' + view.hintLanguage} />}
+      </div></details>}
     </div> : <p>Get ready to give instructions.</p>}
   </>
   return <>

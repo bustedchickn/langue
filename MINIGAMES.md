@@ -16,8 +16,18 @@
 
 ## Room interface and ownership
 
+For instructions, hints, or a vocabulary entry with a known language, render `<PronunciationButton text={entry.text} language={entry.language} />` from `client/pronunciation/PronunciationButton.tsx`. Pass the language of the displayed text, including any translation fallback. Give individual vocabulary buttons a distinct `label`, such as `Pronounce cercle in French`. The component uses installed, local browser voices and starts only when activated. The player can replay it during room voice chat.
+
 The room owns authentication, membership, phase transitions, scheduling the countdown and deadline, and reconnection. It broadcasts only `GameProgress` and `GameResults` in the room snapshot. It sends `game-view` directly to each connection using that seat's server projection, including after the client's reconnect sync. Only the server imports puzzle definitions. Browser-side imports must stay on the public side of the shared contracts.
 
 A `game-action` carries a match ID and an opaque action payload. The room checks membership, connectivity, and match ID before forwarding it. Lost Instructions checks the Operator role, round, revision, and action parameters. Update the revision on every processed move or submission so delayed copies cannot mutate the next state. Chat and voice are mounted at room scope. Results and replay stay in the same room.
 
 The gameplay developer can own game-specific files under `server/minigames/lost-instructions/`, `client/minigames/lost-instructions/`, and the matching public config and tests. The platform developer can own `server/room.ts`, `client/session.ts`, `client/RoomScreen.tsx`, Firebase, voice, and deployment. Coordinate changes to the shared contract and registry entries when adding a game.
+
+## Customize Icon Communication
+
+Choose **Icon Communication** from the host’s **Minigame** menu, then select **Start Game**. The host is the Selector and their learning language is the suggested language for descriptions. Both players review vocabulary in their own learning languages after the game.
+
+The shared configuration in `shared/minigames/icon-communication.ts` controls the grid size, reveal delay, timer, penalty, scoring, and repeat guesses. Change vocabulary or an asset reference in `shared/minigames/icons.ts`. Replace an SVG in `public/icons/` while keeping its path, or change `assetPath` to use a different file. Keep at least as many unique icons as grid cells.
+
+The server keeps the existing round and deadline during a temporary disconnect. The timer keeps running, guesses resume when both players are back, and a player returning after the deadline sees results. The waiting period has no visible countdown. Total time includes the preparation periods.

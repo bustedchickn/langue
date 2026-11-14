@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Room } from 'colyseus.js'
 import type { Player, Session } from '../shared/types'
-import { errorText } from './backend'
 import { Voice } from './Voice'
 import type { PrivateGameView } from '../shared/minigames/contracts'
 import { ActiveGame, Results } from './minigames/GameScreen'
@@ -62,12 +61,9 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
   room?: Room; session?: Session; host: boolean; view?: PrivateGameView; reconnecting: boolean;
   leave: () => void; invite: () => void
 }) {
-  const [copyStatus, setCopyStatus] = useState('')
   const ready = !!room && !!session?.host?.connected && !!session.guest?.connected
   const phase = session?.phase ?? 'lobby'
   const game = session && minigames.get(session.gameId)?.config
-  const url = new URL(location.pathname, location.origin)
-  if (room) url.searchParams.set('room', room.roomId)
   const phaseAction = (action: string) => room?.send('phase', action)
 
   return <div className="room-grid">
@@ -79,29 +75,26 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
         </div>
         {reconnecting && <p role="status">Reconnecting to the room…</p>}
         {phase === 'lobby' && <>
-          {room && <div className="room-code">
-            <span>Room code</span>
-            <code>{room.roomId}</code>
-            <button className="secondary" onClick={() => {
-              void (navigator.clipboard?.writeText(url.href) ?? Promise.reject(new Error('Copy the link from the field below.')))
-                .then(() => setCopyStatus('Link copied.'))
-                .catch(error => setCopyStatus(errorText(error)))
-            }}>Copy invitation link</button>
-            {copyStatus && <span role="status">{copyStatus}</span>}
-            <input aria-label="Invitation link" readOnly value={url.href} onFocus={event => event.target.select()} />
-          </div>}
+          {session?.matchType && <p role="status">
+            {session.matchType === 'reciprocal' ? 'Reciprocal' : 'Shared Learning'} match
+          </p>}
           <Slot label="Host" player={session?.host ?? null} />
           <Slot label="Partner" player={session?.guest ?? null} />
           {game && <div><h3>{game.name}</h3><p className="muted">{game.description}</p></div>}
+          {host && session && <label>Minigame
+            <select value={session.gameId} disabled={!room} onChange={event => room?.send('phase', { gameId: event.target.value })}>
+              {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
+            </select>
+          </label>}
           {host && <div className="actions">
             <button disabled={!ready} onClick={() => phaseAction('game')}>Start Game</button>
-            {!session?.guest && <button className="secondary" disabled={!room} onClick={invite}>Invite Friend</button>}
+            {!session?.matchType && !session?.guest && <button className="secondary" disabled={!room} onClick={invite}>Invite Friend</button>}
           </div>}
         </>}
         {session?.progress && <ActiveGame progress={session.progress} view={view} ready={ready}
           send={payload => room?.send('game-action', payload)} />}
         {phase === 'results' && <>
-          {session?.results && <Results result={session.results} />}
+          {session?.results && <Results result={session.results} seat={host ? 'host' : 'guest'} />}
           <div className="actions">
             {host && <button disabled={!ready} onClick={() => phaseAction('game')}>Play Again</button>}
             <button className="secondary" disabled={!room} onClick={() => phaseAction('lobby')}>Return to Lobby</button>

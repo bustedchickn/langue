@@ -5,6 +5,9 @@ import { defaultMinigame, minigames } from './minigames/registry'
 import type { ActiveMinigame } from './minigames/contracts'
 import type { Seat } from '../shared/minigames/contracts'
 import { randomUUID } from 'node:crypto'
+import type { MatchType } from '../shared/matchmaking'
+import { matchmakingConfig } from './matchmaking-rules'
+import { activity, claimRoom, release } from './participation'
 
 const disconnectGrace = 30
 const waitingTime = 30 * 60 * 1000
@@ -12,7 +15,7 @@ type Member = { profile: UserProfile; client: Client; connected: boolean; lastCh
 export const rooms = new Map<string, DuoRoom>()
 
 export class DuoRoom extends Room {
-  maxClients = 2
+  maxClients = matchmakingConfig.maxPlayersPerRoom
   private host?: Member
   private guest?: Member
   private phase: Session['phase'] = 'lobby'
@@ -21,6 +24,8 @@ export class DuoRoom extends Room {
   private waiting?: ReturnType<typeof setTimeout>
   private game?: ActiveMinigame
   private gameTimer?: ReturnType<typeof setTimeout>
+  private gameId = defaultMinigame
+  private automatic?: { host: string; guest: string; type: MatchType; secret: string }
 
   onCreate() {
     void this.setPrivate(true)
@@ -39,7 +44,11 @@ export class DuoRoom extends Room {
     this.onMessage('phase', (client, action) => {
       const seat = this.seat(client)
       if (!seat || this.closing) return
-      if (action === 'lobby' && this.phase === 'results') {
+      if (this.phase === 'lobby' && seat === 'host' && typeof action === 'object' && action &&
+          typeof action.gameId === 'string' && minigames.has(action.gameId)) {
+        this.gameId = action.gameId
+        this.broadcastSnapshot()
+      } else if (action === 'lobby' && this.phase === 'results') {
         this.phase = 'lobby'
         this.game = undefined
         this.broadcastSnapshot()
@@ -56,7 +65,10 @@ export class DuoRoom extends Room {
       if (matchId !== game.progress(now).matchId) return
       if (this.updateGame(now)) return
       if (!this.host?.connected || !this.guest?.connected) return
-      if (game.act(seat, action, now) && !this.updateGame(now)) this.publishGame()
+      if (game.act(seat, action, now) && !this.updateGame(now)) {
+        this.publishGame()
+        this.scheduleGame()
+      }
     })
     this.onMessage('chat', (client, input: unknown) => {
       const member = this.member(client)
@@ -108,37 +120,58 @@ export class DuoRoom extends Room {
     }
   }
 
-  async onJoin(client: Client, options: { invitation?: unknown }, profile: UserProfile) {
-    if (!profile || this.closing || this.guest || this.host?.profile.uid === profile.uid || (this.host && !this.host.connected)) {
+  configureMatch(host: string, guest: string, type: MatchType, secret: string) {
+    this.automatic = { host, guest, type, secret }
+    this.setSeatReservationTime(matchmakingConfig.seatTimeoutMs / 1000)
+    clearTimeout(this.waiting)
+    this.waiting = setTimeout(() => this.end('The other player could not join. Try Quick Play again.'), matchmakingConfig.seatTimeoutMs)
+  }
+
+  async onJoin(client: Client, options: { invitation?: unknown; secret?: string }, profile: UserProfile) {
+    if (!profile || this.closing) {
       throw new ServerError(4215, 'This room cannot accept another player.')
     }
     const member: Member = { profile, client, connected: true, lastChat: 0, voice: false }
-    if (options.invitation !== undefined) {
+    if (this.automatic) {
+      const { host, guest, secret } = this.automatic
+      const seat = profile.uid === host ? 'host' : profile.uid === guest ? 'guest' : undefined
+      const state = activity(profile.uid)
+      if (!seat || this[seat] || options.secret !== secret || !state || !('room' in state) || state.room !== this.roomId) {
+        throw new ServerError(4215, 'This room cannot accept another player.')
+      }
+      this[seat] = member
+      if (this.host && this.guest) clearTimeout(this.waiting)
+    } else if (this.host) {
       const host = this.host
       const id = options.invitation
-      if (!host || typeof id !== 'string' || !/^[a-zA-Z0-9]{20}$/.test(id)) {
-        throw new ServerError(4215, 'Invalid invitation.')
+      if (this.guest || !host.connected || typeof id !== 'string' || !/^[a-zA-Z0-9]{20}$/.test(id) ||
+          !claimRoom(profile.uid, this.roomId)) {
+        throw new ServerError(4215, 'A valid invitation and an available player are required.')
       }
-      await db.runTransaction(async tx => {
-        const ref = db.collection('invitations').doc(id)
-        const friendship = friendshipRef(profile.uid, host.profile.uid).ref
-        const [record, destination, relation] = await tx.getAll(ref, db.collection('inviteRooms').doc(id), friendship)
-        const invite = record.data()
-        if (!invite || invite.to !== profile.uid || invite.from !== host.profile.uid ||
-            destination.data()?.roomId !== this.roomId || invite.status !== 'pending' || invite.expiresAt <= Date.now() ||
-            relation.data()?.status !== 'accepted' || !this.canInvite(host.profile.uid)) {
-          throw new ServerError(4215, 'This invitation is unavailable or expired.')
-        }
-        tx.update(ref, { status: 'accepted' })
-      })
-      if (!this.canInvite(host.profile.uid)) {
-        throw new ServerError(4215, 'This room is no longer available.')
+      try {
+        await db.runTransaction(async tx => {
+          const ref = db.collection('invitations').doc(id)
+          const friendship = friendshipRef(profile.uid, host.profile.uid).ref
+          const [record, destination, relation] = await tx.getAll(ref, db.collection('inviteRooms').doc(id), friendship)
+          const invite = record.data()
+          if (!invite || invite.to !== profile.uid || invite.from !== host.profile.uid ||
+              destination.data()?.roomId !== this.roomId || invite.status !== 'pending' || invite.expiresAt <= Date.now() ||
+              relation.data()?.status !== 'accepted' || !this.canInvite(host.profile.uid)) {
+            throw new ServerError(4215, 'This invitation is unavailable or expired.')
+          }
+          tx.update(ref, { status: 'accepted' })
+        })
+        if (!this.canInvite(host.profile.uid)) throw new ServerError(4215, 'This room is no longer available.')
+        this.guest = member
+        clearTimeout(this.waiting)
+      } catch (error) {
+        release(profile.uid, this.roomId)
+        throw error
       }
-    }
-    if (this.host) {
-      this.guest = member
-      clearTimeout(this.waiting)
     } else {
+      if (options.invitation !== undefined || !claimRoom(profile.uid, this.roomId)) {
+        throw new ServerError(4215, 'You already have a room or are searching for a partner.')
+      }
       this.host = member
     }
     this.log('player-joined', { seat: this.seat(client) })
@@ -173,10 +206,23 @@ export class DuoRoom extends Room {
     clearTimeout(this.waiting)
     clearTimeout(this.gameTimer)
     rooms.delete(this.roomId)
+    for (const uid of [this.automatic?.host ?? this.host?.profile.uid, this.automatic?.guest ?? this.guest?.profile.uid]) {
+      if (uid) release(uid, this.roomId)
+    }
   }
 
   canInvite(uid: string) {
-    return !this.closing && !this.guest && this.host?.connected && this.host.profile.uid === uid
+    return !this.automatic && !this.closing && !this.guest && this.host?.connected && this.host.profile.uid === uid
+  }
+
+  hasJoined(uid: string) {
+    return this.host?.profile.uid === uid || this.guest?.profile.uid === uid
+  }
+
+  cancelPendingMatch() {
+    if (!this.automatic || (this.host && this.guest) || this.closing) return false
+    this.end('The match was canceled. Try Quick Play again.')
+    return true
   }
 
   private end(reason: string) {
@@ -206,7 +252,8 @@ export class DuoRoom extends Room {
       learningLanguage: member.profile.learningLanguage, connected: member.connected,
     } : null
     return {
-      host: player(this.host), guest: player(this.guest), gameId: defaultMinigame, phase: this.phase, chat: this.chat,
+      host: player(this.host), guest: player(this.guest), gameId: this.gameId, phase: this.phase, chat: this.chat,
+      matchType: this.automatic?.type,
       ...(this.phase === 'game' && this.game ? { progress: this.game.progress(Date.now()) } : {}),
       ...(this.phase === 'results' && this.game ? { results: this.game.results() } : {}),
     }
@@ -222,7 +269,7 @@ export class DuoRoom extends Room {
 
   private startGame() {
     if (!this.host?.connected || !this.guest?.connected) return
-    const game = minigames.get(defaultMinigame)!
+    const game = minigames.get(this.gameId)!
     const seats = [this.host, this.guest]
     if (seats.length < game.config.minPlayers || seats.length > game.config.maxPlayers) return
     const { displayName: hostName, learningLanguage: hostLanguage } = this.host.profile

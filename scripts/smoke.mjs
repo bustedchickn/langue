@@ -35,8 +35,8 @@ function observe(start, select, timeout = 8000) {
   })
 }
 
-const message = (room, type, select = value => value) =>
-  observe(next => room.onMessage(type, next), select)
+const message = (room, type, select = value => value, timeout) =>
+  observe(next => room.onMessage(type, next), select, timeout)
 const documents = (request, select) =>
   observe((next, fail) => onSnapshot(request, next, fail), snap => snap.docs.find(select))
 
@@ -84,6 +84,8 @@ try {
   assert.equal((await alice.request(path, 'PATCH', { action: 'accept' })).status, 403)
   assert.equal((await bob.request(path, 'PATCH', { action: 'accept' })).status, 200)
   await documents(friends, doc => doc.data().status === 'accepted')
+  assert.notEqual(alice.profile.learningLanguage, bob.profile.learningLanguage)
+  assert.notEqual(alice.profile.fluentLanguage, bob.profile.learningLanguage)
 
   const host = await alice.client.create('duo')
   rooms.push(host)
@@ -99,6 +101,7 @@ try {
   assert.equal(invite.data().roomId, undefined)
   const join = '/invites/' + invite.id + '/join'
   assert.equal((await carol.request(join, 'POST')).status, 409)
+  await assert.rejects(carol.client.joinById(host.roomId))
   await assert.rejects(setDoc(doc(bob.firestore, 'invitations', invite.id), { status: 'accepted' }))
   const seat = await bob.request(join, 'POST')
   assert.equal(seat.status, 200)
@@ -231,13 +234,105 @@ try {
   const ended = message(host, 'ended')
   await rejoined.leave()
   assert.match(await ended, /left/)
-  const codeRoom = await alice.client.create('duo')
-  rooms.push(codeRoom)
-  const codeGuest = await carol.client.joinById(codeRoom.roomId)
-  rooms.push(codeGuest)
-  const synced = message(codeGuest, 'session', state => state.host?.connected && state.guest?.connected && state)
-  codeGuest.send('sync')
-  await synced
+  const queue = '/matchmaking'
+  async function findSeat(player) {
+    const deadline = Date.now() + 12000
+    while (Date.now() < deadline) {
+      const { data } = await player.request(queue)
+      if (data.status === 'matched') return data.seat
+      await pause(250)
+    }
+    throw new Error('No matchmaking seat received.')
+  }
+  assert.equal((await alice.request(queue, 'POST')).status, 200)
+  assert.equal((await alice.request(queue, 'POST')).status, 200)
+  assert.equal((await bob.request(queue, 'POST')).status, 200)
+  assert.equal((await bob.request(queue)).data.status, 'searching')
+  assert.equal((await bob.request(queue, 'DELETE')).status, 200)
+  assert.equal((await bob.request(queue)).data.status, 'idle')
+  await assert.rejects(alice.client.create('duo'))
+  assert.equal((await alice.request(queue, 'DELETE')).status, 200)
+  assert.equal((await bob.request('/profile', 'PUT', { ...bob.profile, learningLanguage: 'invalid' })).status, 400)
+  assert.equal((await bob.request('/profile', 'PUT', { ...bob.profile, fluentLanguage: 'French', learningLanguage: 'English' })).status, 200)
+  const started = await Promise.all([alice, bob, alice].map(player => player.request(queue, 'POST')))
+  assert.equal(started[0].status, 200)
+  assert.equal(started[1].status, 200)
+  assert.ok([200, 409].includes(started[2].status))
+  const [aliceSeat, bobSeat] = await Promise.all([findSeat(alice), findSeat(bob)])
+  assert.equal(aliceSeat.room.roomId, bobSeat.room.roomId)
+  await assert.rejects(carol.client.joinById(aliceSeat.room.roomId))
+  const [matchedAlice, matchedBob] = await Promise.all([
+    alice.client.consumeSeatReservation(aliceSeat), bob.client.consumeSeatReservation(bobSeat),
+  ])
+  rooms.push(matchedAlice, matchedBob)
+  const state = message(matchedAlice, 'session', state => state.host?.connected && state.guest?.connected && state)
+  matchedAlice.send('sync')
+  assert.equal((await state).matchType, 'reciprocal')
+  assert.equal((await alice.request(queue, 'POST')).status, 409)
+  const iconViews = []
+  unsubscribes.push(matchedAlice.onMessage('game-view', event => iconViews.push(event)))
+  unsubscribes.push(matchedAlice.onMessage('*', (type, data) => {
+    if (type === 'target') iconViews.push({ data })
+  }))
+  const picked = message(matchedAlice, 'session', value => value.gameId === 'icon-communication' && value)
+  matchedAlice.send('phase', { gameId: 'icon-communication' })
+  await picked
+  const reveal = message(matchedBob, 'game-view', event => event.data.target && event, 13000)
+  const selectorReveal = message(matchedAlice, 'game-view', event => event.data.revealed && event, 13000)
+  matchedAlice.send('phase', 'game')
+  const [icon, selector] = await Promise.all([reveal, selectorReveal])
+  assert.equal(selector.data.grid.length, 9)
+  assert.ok(iconViews.every(event => !Object.hasOwn(event.data, 'target')))
+  assert.equal(Object.hasOwn(icon.data, 'grid'), false)
+  const droppedIcon = message(matchedAlice, 'session', value => value.guest && !value.guest.connected && value)
+  const reconnectToken = matchedBob.reconnectionToken
+  await matchedBob.leave(false)
+  await droppedIcon
+  const iconPartner = await bob.client.reconnect(reconnectToken)
+  rooms.push(iconPartner)
+  const restoredIcon = message(iconPartner, 'game-view', event => event.data.target && event)
+  iconPartner.send('sync')
+  assert.deepEqual(await restoredIcon, icon)
+  const checkClock = message(iconPartner, 'session', value => value.progress && value)
+  iconPartner.send('sync')
+  const beforePenalty = (await checkClock).progress.endsAt
+  const wrong = selector.data.grid.find(id => id !== icon.data.target)
+  const payload = { matchId: icon.matchId, action: { type: 'guess', icon: wrong, round: icon.round, revision: 0 } }
+  iconPartner.send('game-action', { ...payload, action: { ...payload.action, icon: icon.data.target } })
+  const hostPenalty = message(matchedAlice, 'session', value => value.progress?.endsAt === beforePenalty - 2000 && value)
+  const guestPenalty = message(iconPartner, 'session', value => value.progress?.endsAt === beforePenalty - 2000 && value)
+  matchedAlice.send('game-action', payload)
+  const [firstClock, secondClock] = await Promise.all([hostPenalty, guestPenalty])
+  assert.deepEqual(firstClock.progress, secondClock.progress)
+  assert.equal(firstClock.progress.completed, 0)
+  const results = message(iconPartner, 'session', value => value.results && value.results, 12000)
+  assert.equal((await results).incorrectGuesses, 1)
+  const iconReplay = message(iconPartner, 'session', value => value.progress && value)
+  matchedAlice.send('phase', 'game')
+  const replayedIcon = await iconReplay
+  assert.equal(replayedIcon.progress.round, 1)
+  assert.equal(replayedIcon.progress.score, 0)
+  assert.notEqual(replayedIcon.progress.matchId, icon.matchId)
+  const matchEnded = message(iconPartner, 'ended')
+  await matchedAlice.leave()
+  await matchEnded
+  assert.equal((await bob.request('/profile', 'PUT', { ...bob.profile, fluentLanguage: 'Spanish', learningLanguage: 'French' })).status, 200)
+  assert.equal((await alice.request(queue, 'POST')).status, 200)
+  const sharedStarted = Date.now()
+  assert.equal((await bob.request(queue, 'POST')).status, 200)
+  assert.equal((await bob.request(queue)).data.status, 'searching')
+  const [sharedAlice, sharedBob] = await Promise.all([findSeat(alice), findSeat(bob)])
+  assert.ok(Date.now() - sharedStarted >= 10000)
+  assert.equal(sharedAlice.room.roomId, sharedBob.room.roomId)
+  const sharedRoom = await alice.client.consumeSeatReservation(sharedAlice)
+  rooms.push(sharedRoom)
+  const sharedState = message(sharedRoom, 'session')
+  sharedRoom.send('sync')
+  assert.equal((await sharedState).matchType, 'shared-learning')
+  const canceled = message(sharedRoom, 'ended')
+  assert.equal((await bob.request(queue, 'DELETE')).status, 200)
+  assert.match(await canceled, /canceled/)
+  console.log('Passed: matchmaking deduplication, cancellation, concurrency, language validation, active-room exclusion and protected reciprocal seats.')
   console.log('Passed: accounts, profiles, Firestore rules, friendships, invitations, capacity, chat, signaling, game transitions, and reconnection.')
 } finally {
   unsubscribes.forEach(stop => stop())
@@ -245,4 +340,3 @@ try {
   await Promise.allSettled(apps.map(deleteApp))
   await pause(50)
 }
-
