@@ -10,6 +10,7 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(false)
+  const [playbackBlocked, setPlaybackBlocked] = useState(false)
   const [speaking, setSpeaking] = useState([false, false])
   const audio = useRef<HTMLAudioElement>(null)
   const local = useRef<MediaStream | undefined>(undefined)
@@ -54,6 +55,7 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
     local.current = undefined
     setStream(undefined)
     setMuted(false)
+    setPlaybackBlocked(false)
     setSpeaking([false, false])
     setError('')
   }
@@ -70,6 +72,7 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
     let pending: RTCIceCandidateInit[] = []
     let work = Promise.resolve()
     let renegotiate: ReturnType<typeof setTimeout> | undefined
+    let connectionTimeout: ReturnType<typeof setTimeout> | undefined
     let audioContext: AudioContext | undefined
     let remoteSource: MediaStreamAudioSourceNode | undefined
     let meters: (AnalyserNode | undefined)[] = []
@@ -100,6 +103,8 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
 
     function closePeer() {
       clearTimeout(renegotiate)
+      clearTimeout(connectionTimeout)
+      setPlaybackBlocked(false)
       if (peer) {
         peer.onconnectionstatechange = null
         peer.onicecandidate = null
@@ -117,6 +122,13 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
     function createPeer() {
       const connection = new RTCPeerConnection({ iceServers })
       peer = connection
+      connectionTimeout = setTimeout(() => {
+        if (!active || peer !== connection || connection.connectionState === 'connected') return
+        setStatus('Voice could not connect')
+        setError(iceServers.some(server => [server.urls].flat().some(url => /^turns?:/i.test(url)))
+          ? 'The voice connection timed out. Leave voice and join again.'
+          : 'A direct voice connection could not be established. This server has no TURN relay for restricted networks.')
+      }, 15000)
       stream!.getTracks().forEach(track => connection.addTrack(track, stream!))
       connection.onicecandidate = event => {
         if (event.candidate) send({ kind: 'candidate', candidate: event.candidate.toJSON() })
@@ -125,7 +137,9 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
         const remote = event.streams[0] ?? new MediaStream([event.track])
         if (element) {
           element.srcObject = remote
-          void element.play().catch(() => setStatus('Tap Play on the audio control to hear your partner.'))
+          void element.play().catch(() => {
+            if (active && peer === connection) setPlaybackBlocked(true)
+          })
         }
         if (audioContext && audioContext.state !== 'closed') {
           remoteSource?.disconnect()
@@ -137,6 +151,7 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
       connection.onconnectionstatechange = () => {
         clearTimeout(renegotiate)
         if (connection.connectionState === 'connected') {
+          clearTimeout(connectionTimeout)
           setStatus('Voice connected')
           setError('')
         }
@@ -216,7 +231,11 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
         }}>{muted ? 'Unmute' : 'Mute'}</button>
         <button className="secondary" onClick={leave}>Leave Voice</button>
       </div>
-      <audio ref={audio} autoPlay controls={status.startsWith('Tap Play')} />
+      {playbackBlocked && <button className="secondary" onClick={() => {
+        void audio.current?.play().then(() => setPlaybackBlocked(false))
+          .catch(() => setError('Audio playback is blocked by your browser. Check its site permissions.'))
+      }}>Play partner audio</button>}
+      <audio ref={audio} onPlaying={() => setPlaybackBlocked(false)} />
     </> : <button onClick={() => void join()} disabled={!room || busy}>{busy ? 'Opening microphone…' : 'Join Voice'}</button>}
     {error && <p className="error" role="alert">{error}</p>}
   </section>

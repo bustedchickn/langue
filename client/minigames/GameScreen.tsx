@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { GameProgress, GameResults, PrivateGameView, Seat } from '../../shared/minigames/contracts'
 import { minigames } from './registry'
+import './confetti.css'
 
 export function ActiveGame({ progress, view, ready, send }: {
   progress: GameProgress; view?: PrivateGameView; ready: boolean; send: (action: unknown) => void
@@ -17,7 +18,8 @@ export function ActiveGame({ progress, view, ready, send }: {
   const counting = serverNow < progress.startsAt
   const seconds = Math.max(0, Math.ceil(((counting ? progress.startsAt : progress.endsAt) - serverNow) / 1000))
   const game = minigames.get(progress.gameId)
-  const current = view?.gameId === progress.gameId && view.matchId === progress.matchId && view.round === progress.round
+  const current = view?.gameId === progress.gameId && view.matchId === progress.matchId &&
+    (view.round === progress.round || game?.continuousView)
   if (!game) return <p>Game unavailable.</p>
   return <>
     <div className="game-progress">
@@ -26,15 +28,21 @@ export function ActiveGame({ progress, view, ready, send }: {
     </div>
     <p role="status">{progress.completed} solved · {progress.score} points</p>
     {!ready && <p role="status">Waiting for both players. The timer is still running.</p>}
-    {current ? <game.View data={view.data} progress={progress} disabled={!ready || counting || seconds === 0}
+    {current ? <game.View key={progress.matchId} data={view.data} progress={progress} disabled={!ready || counting || seconds === 0 || view.round !== progress.round}
       send={action => send({ matchId: progress.matchId, action })} /> : <p>Loading your role…</p>}
   </>
 }
 
 export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
   const CustomResults = minigames.get(result.gameId)?.Results
-  if (CustomResults) return <CustomResults result={result} seat={seat} />
   return <>
+    <div className="results-confetti" aria-hidden="true">
+      {Array.from({ length: 32 }, (_, index) => <i key={index} style={{
+        left: (index * 37 % 98) + '%', background: ['#f59e0b', '#22d3ee', '#f26a8d', '#a78bfa', '#34d399'][index % 5],
+        animationDelay: (index % 8) * .07 + 's', animationDuration: (1.3 + index % 6 * .15) + 's',
+      }} />)}
+    </div>
+    {CustomResults ? <CustomResults result={result} seat={seat} /> : <>
     <h3 className="game-outcome">{result.outcome === 'victory' ? 'Victory' : 'Defeat'}</h3>
     <p>{result.players.join(' & ')}</p>
     <dl className="game-results">
@@ -43,5 +51,6 @@ export function Results({ result, seat }: { result: GameResults; seat: Seat }) {
       <div><dt>Time elapsed</dt><dd>{Math.ceil(result.elapsedMs / 1000)}s</dd></div>
       <div><dt>Final score</dt><dd>{result.score}</dd></div>
     </dl>
+    </>}
   </>
 }

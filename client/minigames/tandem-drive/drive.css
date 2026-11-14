@@ -1,0 +1,24 @@
+.drive { display: grid; gap: .65rem; padding: .75rem; background: #0f172a; color: #e2e8f0; border-radius: .75rem; font-family: monospace; }
+.drive-telemetry, .drive-beats { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
+.drive-viewport { position: relative; }
+.drive-viewport canvas { display: block; width: 100%; height: auto; }
+.drive-viewport::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, #0004 2px 4px); }
+.drive-beats span { padding: .25rem .5rem; border: 1px solid #475569; border-radius: .25rem; }
+.drive-beats span[data-open=true] { color: #6ee7b7; }
+.drive-beats span[data-current=true] { outline: 2px solid #22d3ee; }
+.drive button.drive-pedal { width: 100%; min-height: 48px; touch-action: none; user-select: none; background: #172033; color: #fbbf24; border-color: #f59e0b; }
+.drive button.drive-pedal[data-side=right] { color: #67e8f9; border-color: #22d3ee; }
+.drive button.drive-pedal[aria-pressed=true] { background: #334155; }
+
+
+.drive { position: relative; overflow: hidden; }
+.drive-hull { display: flex; align-items: center; gap: .45rem; color: #6ee7b7; }
+.drive-hull[data-low=true] { color: #fda4af; }
+.drive-hull meter { width: 3.5rem; }
+.drive-gate-status { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .3rem; color: #fda4af; }
+.drive-gate-status[data-ready=true] { color: #6ee7b7; text-shadow: 0 0 10px #34d39988; }
+.drive button.drive-release { width: 100%; margin-top: .4rem; background: #172033; color: #67e8f9; border-color: #22d3ee; }
+.drive button.drive-release[data-open=true]:enabled { background: #064e3b; color: #a7f3d0; box-shadow: 0 0 12px #34d39966; }
+.drive-impact { position: absolute; inset: 0; border: 4px solid #fb7185; pointer-events: none; opacity: 0; animation: drive-impact .38s ease-out; }
+@keyframes drive-impact { from { opacity: .9; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .drive-impact { animation: none; } }

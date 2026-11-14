@@ -46,6 +46,19 @@ async function player(browser: Browser, name: string, touch: boolean) {
       }
     }
   })
+  if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
+    await context.addInitScript(() => {
+      const play = HTMLMediaElement.prototype.play
+      let blocked = false
+      HTMLMediaElement.prototype.play = function () {
+        if (!blocked && this instanceof HTMLAudioElement) {
+          blocked = true
+          return Promise.reject(new DOMException('Autoplay blocked for smoke test', 'NotAllowedError'))
+        }
+        return play.call(this)
+      }
+    })
+  }
   const page = await context.newPage()
   await page.goto(url)
   await button(page, 'Play as guest').click()
@@ -94,7 +107,7 @@ async function drag(page: Page, from: number, to: number, touch: boolean) {
   }
 }
 
-async function run(browser: Browser, touch: boolean, icons = false) {
+async function run(browser: Browser, touch: boolean, icons = false, tandem = false) {
   const [host, guest] = await Promise.all([
     player(browser, icons ? (touch ? 'TapHost' : 'IconHost') : touch ? 'Lina' : 'Alice', touch),
     player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
@@ -113,6 +126,39 @@ async function run(browser: Browser, touch: boolean, icons = false) {
     await button(host, 'Join Voice').click()
     await button(guest, 'Join Voice').click()
     await Promise.all([assertVoice(host), assertVoice(guest)])
+    if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
+      for (const page of [host, guest]) {
+        await button(page, 'Play partner audio').click()
+        await page.waitForFunction(() => {
+          const audio = document.querySelector('audio')
+          return audio && !audio.paused
+        })
+      }
+    }
+    if (tandem) {
+      await host.getByLabel('Minigame').selectOption('tandem-drive')
+      await guest.getByRole('heading', { name: 'Tandem Drive' }).waitFor()
+      await button(host, 'Start Game').click()
+      await host.getByText('Optic · Navigation', { exact: true }).waitFor()
+      await guest.getByText('Radar · Cadence', { exact: true }).waitFor()
+      assert.equal(await host.locator('canvas').count(), 1)
+      assert.equal(await guest.locator('canvas').count(), 1)
+      assert.equal(await host.locator('.drive-beats').count(), 0)
+      assert.equal(await guest.getByText(/Safe gate/).count(), 0)
+      assert.equal(await button(host, 'Release gate').count(), 0)
+      assert.equal(await button(guest, 'Release gate').isDisabled(), true)
+      const before = await guest.locator('canvas').evaluate(canvas => (canvas as HTMLCanvasElement).toDataURL())
+      const left = button(host, 'Left thruster')
+      const right = button(guest, 'Right thruster')
+      await Promise.all([left.focus(), right.focus()])
+      await Promise.all([host.keyboard.down('Space'), guest.keyboard.down('Space')])
+      await guest.waitForFunction(image => document.querySelector('canvas')?.toDataURL() !== image, before)
+      await Promise.all([host.keyboard.up('Space'), guest.keyboard.up('Space')])
+      assert.equal(await left.getAttribute('aria-pressed'), 'false')
+      assert.equal(await right.getAttribute('aria-pressed'), 'false')
+      await Promise.all([assertVoice(host), assertVoice(guest)])
+      return
+    }
     if (icons) {
       await host.getByLabel('Minigame').selectOption('icon-communication')
       await guest.getByRole('heading', { name: 'Icon Communication' }).waitFor()
@@ -254,13 +300,18 @@ const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
 })
 try {
-  await run(browser, false)
-  console.log('Passed Chromium mouse drag, click placement, game chat, scoring, replay, and persistent audio at 320px.')
-  await run(browser, true)
-  console.log('Passed Chromium touch drag, tap placement, mobile layout, and persistent audio at 320px.')
-  await run(browser, false, true)
-  await run(browser, true, true)
-  console.log('Passed Icon Communication mouse and touch at 320px, private views, chat, results, replay, and persistent audio.')
+  if (process.env.IDLE_TEST_TANDEM === 'true') {
+    await run(browser, true, false, true)
+    console.log('Passed Tandem Drive private views, cadence-only gate control, synchronized held controls, pedal release and active voice.')
+  } else {
+    await run(browser, false)
+    console.log('Passed Chromium mouse drag, click placement, game chat, scoring, replay, and persistent audio at 320px.')
+    await run(browser, true)
+    console.log('Passed Chromium touch drag, tap placement, mobile layout, and persistent audio at 320px.')
+    await run(browser, false, true)
+    await run(browser, true, true)
+    console.log('Passed Icon Communication mouse and touch at 320px, private views, chat, results, replay, and persistent audio.')
+  }
 } finally {
   await browser.close()
 }

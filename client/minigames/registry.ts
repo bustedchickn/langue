@@ -1,3 +1,5 @@
+import { tandemDrive } from '../../shared/minigames/tandem-drive'
+import { TandemDriveResults, TandemDriveView } from './tandem-drive/View'
 import type { ComponentType } from 'react'
 import type { GameConfig, GameProgress, GameResults, Seat } from '../../shared/minigames/contracts'
 import { lostInstructions } from '../../shared/minigames/lost-instructions'
@@ -11,10 +13,12 @@ type MinigameClient = {
   config: GameConfig
   View: ComponentType<{ progress: GameProgress; data: unknown; disabled: boolean; send: (action: unknown) => void }>
   Results?: ComponentType<{ result: GameResults; seat: Seat }>
+  continuousView?: boolean
 }
 
 export const minigames: ReadonlyMap<string, MinigameClient> = new Map([
   [lostInstructions.id, { config: lostInstructions, View: LostInstructionsView }],
   [iconCommunicationConfig.id, { config: iconCommunicationConfig, View: IconCommunicationView, Results: IconCommunicationResults }],
   [mapNavigatorConfig.id, { config: mapNavigatorConfig, View: MapNavigatorView }],
+  [tandemDrive.id, { config: tandemDrive, View: TandemDriveView, Results: TandemDriveResults, continuousView: true }],
 ])

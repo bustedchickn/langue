@@ -183,6 +183,7 @@ export class DuoRoom extends Room {
     const member = this.member(client)
     if (!member || this.closing) return
     member.connected = false
+    this.game?.suspend?.(Date.now())
     this.log('player-disconnected', { seat: this.seat(client), consented })
     member.voice = false
     this.broadcastSnapshot()
@@ -295,7 +296,7 @@ export class DuoRoom extends Room {
       if (this.updateGame()) return
       this.publishGame()
       this.scheduleGame()
-    }, Math.max(0, (now < startsAt ? startsAt : endsAt) - now))
+    }, Math.min(this.game.updateIntervalMs ?? Infinity, Math.max(0, (now < startsAt ? startsAt : endsAt) - now)))
   }
 
   private updateGame(now = Date.now()) {
