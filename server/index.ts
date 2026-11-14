@@ -17,6 +17,7 @@ import {
 
 const app = express()
 app.disable('x-powered-by')
+app.get('/healthz', (_req, res) => res.sendStatus(200))
 if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(',') }))
 app.use(express.json({ limit: '4kb' }))
 
