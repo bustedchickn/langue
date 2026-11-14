@@ -8,6 +8,8 @@
     "dev:server": "tsx watch --env-file-if-exists=.env server/index.ts",
     "build": "tsc --noEmit && vite build",
     "start": "tsx --env-file-if-exists=.env server/index.ts",
+    "build:cloud": "tsc --noEmit && vite build --mode cloud --outDir dist-cloud",
+    "start:cloud": "tsx --env-file=.env.cloud server/index.ts",
     "smoke": "tsx scripts/smoke.mjs",
     "emulators": "npx --yes firebase-tools@14.17.0 emulators:start --project demo-idle --only auth,firestore",
     "test": "tsx --test tests/*.test.ts",

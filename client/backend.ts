@@ -31,7 +31,7 @@ export const multiplayer = new Client(endpoint, {
 
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = await auth.currentUser?.getIdToken()
-  const response = await fetch('/api' + path, {
+  const response = await fetch((env.VITE_GAME_SERVER || '') + '/api' + path, {
     method,
     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),

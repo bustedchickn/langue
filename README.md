@@ -42,7 +42,28 @@ The smoke tests create example documents in the local emulator. Chromium tests d
 
 See the [minigame developer guide](MINIGAMES.md) for configuration, asset replacement, and the server/client integration points.
 
+## Test across devices with cloud Firebase
+
+The [Lost in Translation Firebase project](https://console.firebase.google.com/project/lost-in-translation-langue/overview) stores profiles, friendships, and invitations in Cloud Firestore. Each profile saves its fluent and learning languages. Use the same email/password or Google account on another device to load the same profile.
+
+On the Windows host, `.env.cloud` holds the Firebase web app configuration and tells the server to listen on loopback port 2568. To rebuild and restart the cloud-connected test server, run `npm run build:cloud` and then `npm run start:cloud`. The server uses Google Application Default Credentials. The emulator workflow still uses `.env`.
+
+Connect both test devices to the same Tailscale network and enable **Use Tailscale DNS** on each. Open the [private playtest URL](https://coco.tail4285d5.ts.net:8443/) on both devices. Keep the Windows host online while testing. Create a room on one device and join using a different account on the other. Tailscale Serve forwards the HTTPS and WebSocket traffic to the local game server.
+
 ## Deploy
+
+The [public playtest](https://lost-in-translation-langue.web.app/) uses Firebase Hosting for the browser build and Tailscale Funnel for the game server on the Windows host. Players can open the Firebase link in a browser. Keep the host and `npm run start:cloud` running during a playtest.
+
+To publish a new public browser build, use the cloud Firebase settings in `.env.cloud` and run:
+
+```powershell
+$env:VITE_GAME_SERVER = 'https://coco.tail4285d5.ts.net:10000'
+npx vite build --mode cloud --outDir dist-public
+npx --yes firebase-tools@15.36.0 deploy --only hosting --project lost-in-translation-langue
+Remove-Item Env:VITE_GAME_SERVER
+```
+
+The game server's `CLIENT_ORIGIN` setting includes the Firebase Hosting domains. The Funnel forwards port 10000 to loopback port 2568. For a server that can stay available when the PC is off, deploy the backend to a WebSocket-capable host. Cloud Run requires a billing account on the Firebase project.
 
 1. Create a Firebase project and a Cloud Firestore database. Enable Google, Email/Password, and Anonymous sign-in, and authorize your frontend domain in Firebase Authentication.
 2. Set the public `VITE_FIREBASE_*` web app settings, set `VITE_USE_EMULATORS=false`, and set the server's `FIREBASE_PROJECT_ID` to the same project. Remove both emulator host variables. Give the backend Firebase Admin access through Application Default Credentials.

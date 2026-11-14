@@ -160,7 +160,7 @@ api.get('/voice', (_, res) => {
 })
 
 api.use((_req, _res, next) => next(new RequestError(404, 'Endpoint not found.')))
-const dist = resolve('dist')
+const dist = resolve(process.env.CLIENT_DIST_DIR ?? 'dist')
 if (existsSync(dist)) app.use(express.static(dist))
 app.use(((error, _req, res, _next) => {
   if (error instanceof RequestError) {

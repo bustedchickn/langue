@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-cloud/
+dist-public/
 .env
 .env.*
 !.env.example

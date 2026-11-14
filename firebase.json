@@ -1,5 +1,9 @@
 {
   "firestore": { "rules": "firestore.rules" },
+  "hosting": {
+    "public": "dist-public",
+    "ignore": ["**/.*", "**/node_modules/**"]
+  },
   "emulators": {
     "auth": { "host": "127.0.0.1", "port": 9099 },
     "firestore": { "host": "127.0.0.1", "port": 8080 },
