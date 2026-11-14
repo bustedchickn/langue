@@ -72,9 +72,7 @@ function App() {
     } finally { setJoining(false) }
   }
 
-  function createRoom() { return multiplayer.create('duo') }
-
-  async function invite(to: string) {
+  async function invite(to: string, gameId?: string) {
     let target = session.room
     const created = !target
     if (joining || session.reconnecting) throw new Error('Wait for the room connection.')
@@ -82,7 +80,7 @@ function App() {
     try {
       if (!target) {
         multiplayer.auth.token = await auth.currentUser?.getIdToken() ?? ''
-        target = await createRoom()
+        target = await multiplayer.create('duo', { gameId })
       }
       await api('/invites', 'POST', { to, roomId: target.roomId })
       if (created) session.attach(target)
@@ -151,7 +149,7 @@ function App() {
           session.reset()
           navigate('play')
         }} invite={() => setInvitePicker(value => !value)} />}
-        {invitePicker && <Friends uid={user.uid} invite={invite} inviteOnly />}
+        {invitePicker && <Friends uid={user.uid} invite={invite} inviteOnly inLobby={inRoom} />}
         {searching && <QuickPlay profile={currentProfile} joined={joinedMatch} done={doneSearching} />}
         {!inRoom && !invitePicker && !searching && <>
           {page === 'welcome' && <section className="intro stack">

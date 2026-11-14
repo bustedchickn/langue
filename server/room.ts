@@ -27,7 +27,8 @@ export class DuoRoom extends Room {
   private gameId = defaultMinigame
   private automatic?: { host: string; guest: string; type: MatchType; secret: string }
 
-  onCreate() {
+  onCreate(options: { gameId?: unknown }) {
+    if (typeof options.gameId === 'string' && minigames.has(options.gameId)) this.gameId = options.gameId
     void this.setPrivate(true)
     rooms.set(this.roomId, this)
     this.log('room-created')
