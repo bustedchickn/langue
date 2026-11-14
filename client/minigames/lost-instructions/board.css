@@ -1,12 +1,12 @@
 .lost-board { display: grid; gap: .4rem; }
 .lost-board .lost-slot { display: grid; gap: .3rem; place-items: center; min-width: 0; padding: .35rem .1rem; user-select: none; -webkit-user-select: none; touch-action: none; }
-.lost-board .lost-slot[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lost-board .lost-slot[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .lost-board .lost-slot[data-dragging] { opacity: .65; cursor: grabbing; }
 .lost-piece { display: grid; width: clamp(42px, 14vw, 64px); height: clamp(42px, 14vw, 64px); place-items: center; }
 .lost-shape { display: block; width: 78%; height: 78%; object-fit: contain; pointer-events: none; }
-.lost-shape[data-color="red"] { background-color: #ff806f; }
-.lost-shape[data-color="blue"] { background-color: #7bbdff; }
-.lost-shape[data-color="yellow"] { background-color: #f6d76b; }
+.lost-shape[data-color="red"] { background-color: #F26A8D; }
+.lost-shape[data-color="blue"] { background-color: #89E7E9; }
+.lost-shape[data-color="yellow"] { background-color: #FBF3B9; }
 .lost-circle { border-radius: 50%; }
 .lost-triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .lost-instruction { font-size: 1.2rem; overflow-wrap: anywhere; }
