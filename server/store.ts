@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import type { WriteBatch } from 'firebase-admin/firestore'
 import { createHash } from 'node:crypto'
 import { communicationLevels, languages, type Language, type LanguageAssessment, type ProfileFields, type UserProfile } from '../shared/types'
 
@@ -31,6 +32,42 @@ export async function requireProfile(uid: string) {
   const profile = await getProfile(uid)
   if (!profile) throw new RequestError(409, 'Create your profile first.')
   return profile
+}
+
+export async function deletePlayerAccount(uid: string) {
+  const profile = await getProfile(uid)
+  const [friendships, sentInvitations, receivedInvitations, scoredMatches, vocabularySets] = await Promise.all([
+    db.collection('friendships').where('members', 'array-contains', uid).get(),
+    db.collection('invitations').where('from', '==', uid).get(),
+    db.collection('invitations').where('to', '==', uid).get(),
+    db.collection('scoredMatches').where('players', 'array-contains', uid).get(),
+    db.collection('vocabularySets').where('ownerUid', '==', uid).get(),
+  ])
+  const invitations = new Map([...sentInvitations.docs, ...receivedInvitations.docs].map(doc => [doc.id, doc]))
+  const writes: ((batch: WriteBatch) => void)[] = [batch => batch.delete(profileRef(uid))]
+  writes.push(batch => batch.delete(db.collection('vocabularyHubs').doc(uid)))
+  for (const set of vocabularySets.docs) writes.push(batch => batch.delete(set.ref))
+  if (profile) writes.push(batch => batch.delete(db.collection('usernames').doc(profile.username)))
+  for (const friend of friendships.docs) writes.push(batch => batch.delete(friend.ref))
+  for (const invitation of invitations.values()) {
+    writes.push(batch => batch.delete(invitation.ref))
+    writes.push(batch => batch.delete(db.collection('inviteRooms').doc(invitation.id)))
+  }
+  // Keep the match marker so a replay cannot award the other player twice.
+  for (const match of scoredMatches.docs) {
+    const remaining = (match.data().players as string[]).filter(player => player !== uid)
+    writes.push(batch => batch.update(match.ref, { players: remaining }))
+  }
+  for (let index = 0; index < writes.length; index += 400) {
+    const batch = db.batch()
+    for (const write of writes.slice(index, index + 400)) write(batch)
+    await batch.commit()
+  }
+  try {
+    await getAuth().deleteUser(uid)
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'auth/user-not-found') throw error
+  }
 }
 
 export function usernameKey(value: unknown) {

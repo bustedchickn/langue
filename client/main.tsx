@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
@@ -13,10 +13,12 @@ import { Avatar } from './PlayerIdentity'
 import { LanguageAssessments } from './LanguageAssessments'
 import { LanguagePicker } from './LanguagePicker'
 import { Leaderboard } from './Leaderboard'
+import { LeaderboardIcon } from './LeaderboardIcon'
+import { VocabularyHub } from './vocabulary/Vocabulary'
 import { playEffect, setSoundsEnabled, soundsEnabled, startSearchMusic } from './sounds'
 import './style.css'
 
-type Page = 'home' | 'friends' | 'profile' | 'leaderboard'
+type Page = 'home' | 'friends' | 'profile' | 'leaderboard' | 'vocabulary'
 
 function Logo() {
   const logos = ['/lostintranslation.png', '/lostintranslationspanish.png', '/lostintranslationfrench.png']
@@ -28,6 +30,14 @@ function Logo() {
     const timeout = window.setTimeout(() => setPrevious(null), 650)
     return () => window.clearTimeout(timeout)
   }, [previous])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPrevious(current)
+      setCurrent((current + 1) % logos.length)
+    }, 2000)
+    return () => window.clearTimeout(timeout)
+  }, [current])
 
   function changeLogo() {
     if (previous !== null) return
@@ -64,10 +74,35 @@ function App() {
   const [joining, setJoining] = useState(false)
   const [invitePicker, setInvitePicker] = useState(false)
   const [soundOn, setSoundOn] = useState(soundsEnabled)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const deleteDialog = useRef<HTMLDialogElement>(null)
   const uid = user?.uid
   const session = useSession(uid, setNotice)
   const invitations = useInvitations(profile?.uid, setNotice)
   const inRoom = !!session.room || session.reconnecting
+
+  useEffect(() => {
+    if (confirmingDelete) deleteDialog.current?.showModal()
+    else deleteDialog.current?.close()
+  }, [confirmingDelete])
+
+  async function deleteAccount() {
+    if (deletingAccount) return
+    setDeletingAccount(true)
+    setDeleteError('')
+    try {
+      await api('/profile', 'DELETE', { confirm: true })
+      await signOut(auth)
+      setConfirmingDelete(false)
+      navigate('home')
+    } catch (error) {
+      setDeleteError(errorText(error))
+    } finally {
+      setDeletingAccount(false)
+    }
+  }
 
   useEffect(() => {
     if (session.session?.phase !== 'results' || !uid) return
@@ -244,9 +279,17 @@ function App() {
           {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>Back to home</button>}
           {page === 'home' && !assessing && <section className="home-screen">
             <div className="home-top-actions">
-              <button className="leaderboard-access" aria-label="Open leaderboard" title="Leaderboard" onClick={() => navigate('leaderboard')}>★</button>
+              <button className="vocabulary-access" aria-label="Open Vocabulary" title="Vocabulary" onClick={() => navigate('vocabulary')}>
+                <svg width="27" height="27" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 6c4-2 8-2 12 1 4-3 8-3 12-1v20c-4-2-8-2-12 1-4-3-8-3-12-1V6Z" />
+                  <path d="M16 7v20M8 11h4m-4 4h4m8-4h4m-4 4h4" />
+                </svg>
+              </button>
+              <div className="home-top-menu">
+              <button className="leaderboard-access" aria-label="Open leaderboard" title="Leaderboard" onClick={() => navigate('leaderboard')}><LeaderboardIcon /></button>
               <button className="profile-access" aria-label="Open profile and settings" disabled={savingLanguage || joining}
                 onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
+              </div>
             </div>
             <div className="home-content">
               <Logo />
@@ -276,6 +319,7 @@ function App() {
           </section>}
           {page === 'friends' && <Friends key={uid} uid={user.uid} invite={invite} />}
           {page === 'leaderboard' && <Leaderboard uid={user.uid} />}
+          {page === 'vocabulary' && <VocabularyHub uid={user.uid} defaultLanguage={currentProfile.learningLanguage} />}
           {page === 'profile' && <div className="stack">
             <section className="panel profile-identity">
               <Avatar name={currentProfile.displayName} photo={user.photoURL} />
@@ -298,7 +342,27 @@ function App() {
               }}>Game sounds {soundOn ? 'on' : 'off'}</button>
               <button className="secondary" onClick={() => {
               void signOut(auth).then(() => navigate('home')).catch(error => setNotice(errorText(error)))
-            }}>Sign out</button></section>
+            }}>Sign out</button>
+              <button className="secondary delete-account-button" onClick={() => {
+                setDeleteError('')
+                setConfirmingDelete(true)
+              }}>Delete account</button>
+            </section>
+            <dialog ref={deleteDialog} className="panel delete-account-dialog" aria-labelledby="delete-account-title"
+              onCancel={event => { if (deletingAccount) event.preventDefault() }}
+              onClose={() => setConfirmingDelete(false)}>
+              <div className="stack">
+                <h2 id="delete-account-title">Delete your account?</h2>
+                <p>Your profile, scores, friends, and invitations will be permanently deleted. This cannot be undone.</p>
+                {deleteError && <p className="error" role="alert">{deleteError}</p>}
+                <div className="actions">
+                  <button className="secondary" disabled={deletingAccount} onClick={() => setConfirmingDelete(false)}>Cancel</button>
+                  <button className="delete-account-confirm" disabled={deletingAccount} onClick={() => void deleteAccount()}>
+                    {deletingAccount ? 'Deleting…' : 'Yes, delete my account'}
+                  </button>
+                </div>
+              </div>
+            </dialog>
           </div>}
         </>}
         {invitePicker && inRoom && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}

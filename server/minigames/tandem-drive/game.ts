@@ -143,6 +143,7 @@ export function startTandemDrive(matchId: string, players: GamePlayers, started:
       const side = navigator ? 'left' : 'right'
       const current = course[Math.min(stage, stages - 1)]
       const common = { x: pose.x, angle: pose.angle, distance: -pose.y, stage, hull, map,
+        language: players[seat].learningLanguage,
         hazards: current.hazards.filter(hazard => hazard.vis === 'BOTH' || hazard.vis === (navigator ? 'P1_ONLY' : 'P2_ONLY')),
         side, left: engaged(swapped ? 'guest' : 'host', now), right: engaged(swapped ? 'host' : 'guest', now),
         swapped, switchAhead: hasSwitch && !swapped && stage === 2, message, gateKind: current.kind, unlockedUntil, serverNow: now, impact, blocked } as const

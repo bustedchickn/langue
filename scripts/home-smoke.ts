@@ -8,6 +8,13 @@ try {
   await page.getByRole('button', { name: 'Quick test guest' }).click()
   await page.getByRole('button', { name: 'Open leaderboard' }).waitFor()
   const logo = page.getByRole('button', { name: 'Switch logo language' })
+  const initial = await logo.locator('img[alt="Lost in Translation"]').getAttribute('src')
+  const started = Date.now()
+  await page.waitForFunction(previous => document.querySelector('img[alt="Lost in Translation"]')?.getAttribute('src') !== previous,
+    initial, { timeout: 3500 })
+  assert.ok(Date.now() - started >= 1700, 'Logo switches after about two seconds')
+  assert.equal(await logo.locator('img.game-logo-next').evaluate(element => getComputedStyle(element).animationName), 'logo-fade-in')
+  await page.waitForTimeout(700)
   const first = await logo.locator('img[alt="Lost in Translation"]').getAttribute('src')
   const seen = new Set([first])
   for (let index = 0; index < 2; index++) {

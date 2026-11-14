@@ -12,12 +12,16 @@ import { activity } from './participation'
 import { issueCloudflareVoiceConfiguration, issueVoiceConfiguration, voiceSettings } from './voice'
 import { getLeaderboards } from './leaderboard'
 import {
-  db, friendshipRef, getProfile, profileRef, publicProfile,
+  db, deletePlayerAccount, friendshipRef, getProfile, profileRef, publicProfile,
   RequestError, requireProfile, saveAssessment, saveProfile, usernameKey, verify,
 } from './store'
 
 const app = express()
 app.disable('x-powered-by')
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+  next()
+})
 app.get('/healthz', (_req, res) => res.sendStatus(200))
 if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(',') }))
 app.use(express.json({ limit: '4kb' }))
@@ -44,6 +48,12 @@ api.get('/profile', async (_, res) => {
   res.json(profile ?? null)
 })
 api.put('/profile', async (req, res) => res.json(await saveProfile(res.locals.uid, req.body ?? {})))
+api.delete('/profile', async (req, res) => {
+  if (req.body?.confirm !== true) throw new RequestError(400, 'Confirm account deletion first.')
+  if (activity(res.locals.uid)) throw new RequestError(409, 'Leave your game or cancel Quick Play before deleting your account.')
+  await deletePlayerAccount(res.locals.uid)
+  res.json({ ok: true })
+})
 api.put('/profile/languages/:language', async (req, res) =>
   res.json(await saveAssessment(res.locals.uid, req.params.language, req.body)))
 api.get('/leaderboard', async (_, res) => {
@@ -196,7 +206,9 @@ api.get('/voice', async (req, res) => {
 
 api.use((_req, _res, next) => next(new RequestError(404, 'Endpoint not found.')))
 const dist = resolve(process.env.CLIENT_DIST_DIR ?? 'dist')
-if (existsSync(dist)) app.use(express.static(dist))
+if (existsSync(dist)) app.use(express.static(dist, {
+  setHeaders: res => res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'),
+}))
 app.use(((error, _req, res, _next) => {
   if (error instanceof RequestError) {
     res.status(error.status).json({ error: error.message })

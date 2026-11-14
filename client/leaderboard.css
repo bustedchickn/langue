@@ -2,7 +2,8 @@
 .leaderboard-header { display: flex; align-items: center; gap: 1rem; padding: .5rem 0; }
 .leaderboard-header h1 { font-size: clamp(2.5rem, 8vw, 4rem); margin-bottom: .2rem; }
 .leaderboard-header p { margin: 0; }
-.leaderboard-emblem { display: grid; place-items: center; flex: none; width: 4rem; height: 4rem; border-radius: 1rem; background: #b7b1f2; color: #422c6c; font-size: 2.5rem; }
+.leaderboard-emblem { display: grid; place-items: center; flex: none; width: 4rem; height: 4rem; padding: .65rem; border-radius: 1rem; background: #b7b1f2; color: #422c6c; }
+.leaderboard-emblem svg { width: 100%; height: 100%; }
 .leaderboard-tabs { display: flex; flex-wrap: wrap; gap: .45rem; }
 .leaderboard-tabs button { min-height: 2.5rem; padding: .4rem .7rem; border: 1px solid #b7b1f2; border-radius: 999px; }
 .leaderboard-tabs button.selected { background: #b7b1f2; color: #251d44; }

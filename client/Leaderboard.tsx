@@ -3,6 +3,7 @@ import type { Leaderboards } from '../shared/types'
 import { api, errorText } from './backend'
 import { minigames } from './minigames/registry'
 import './leaderboard.css'
+import { LeaderboardIcon } from './LeaderboardIcon'
 
 const games = [...minigames.values()].map(({ config }) => ({ id: config.id, name: config.name }))
 
@@ -28,7 +29,7 @@ export function Leaderboard({ uid }: { uid: string }) {
   const mine = selected === 'overall' ? data?.mine.total : data?.mine.games[selected]?.highScore
   return <section className="leaderboard-page stack">
     <header className="leaderboard-header">
-      <span className="leaderboard-emblem" aria-hidden="true">★</span>
+      <span className="leaderboard-emblem"><LeaderboardIcon /></span>
       <div><h1>Leaderboard</h1><p>See the best scores across every game.</p></div>
     </header>
     <div className="leaderboard-tabs" role="group" aria-label="Choose leaderboard">

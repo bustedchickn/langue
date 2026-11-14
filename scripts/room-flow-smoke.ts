@@ -51,7 +51,11 @@ try {
   await ready(pages, 'Play Again', 'Play again together?')
   for (const page of pages) await page.getByRole('button', { name: 'Leave Voice' }).waitFor()
   await ready(pages, 'I’m ready!', 'Meet your partner!')
-  for (const page of pages) await page.getByRole('button', { name: 'Leave Voice' }).waitFor()
+  for (const page of pages) {
+    await page.getByRole('button', { name: 'Leave Voice' }).waitFor()
+    assert.equal(await page.locator('.game-instructions').getAttribute('open'), '')
+    assert.equal(await page.locator('.instruction-recipe svg[role=img]').count(), 3)
+  }
   console.log('Room flow and instructions emulator check passed.')
 } finally {
   await browser.close()

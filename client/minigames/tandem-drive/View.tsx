@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
-import { beatMs, gateDistance, lanes, releaseRange, type DriveView } from '../../../shared/minigames/tandem-drive'
+import { beatMs, gateDistance, gateWordsFor, releaseRange, type DriveView } from '../../../shared/minigames/tandem-drive'
 import { driveStep } from '../../../shared/minigames/drive-physics'
 import { drawCourse } from './art'
 import './drive.css'
@@ -121,13 +121,13 @@ export function TandemDriveView({ data, progress, disabled, send }: {
         : 'GATE LOCKED'}</strong> <span>{remaining}px to gate</span>
     </div>
     <p className="drive-control-hint">Hold Space or press and hold the driving area to use your {view.side} thruster. Release to stop your side. You can type normally in chat.</p>
-    <div className="drive-viewport" role="button" tabIndex={disabled ? -1 : 0} aria-pressed={holding} aria-disabled={disabled}
+    <div className="drive-viewport" data-side={view.side} role="button" tabIndex={disabled ? -1 : 0} aria-pressed={holding} aria-disabled={disabled}
       aria-label={'Hold driving area for your ' + view.side + ' thruster'}
       onPointerDown={pointerDown} onPointerUp={pointerRelease} onPointerCancel={pointerRelease} onLostPointerCapture={pointerRelease}>
       <canvas ref={canvas} width={500} height={378} aria-label="Pink car, gates and visible barriers" />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}
-    {view.role === 'navigation' ? <p>{view.gate !== undefined ? <>Safe gate <strong>{lanes[view.gate]}</strong> · Tell your partner.</>
+    {view.role === 'navigation' ? <p>{view.gate !== undefined ? <>Safe word <strong lang={view.language === 'French' ? 'fr' : view.language === 'Spanish' ? 'es' : 'en'}>{gateWordsFor(view.stage, view.language)[view.gate]}</strong> · Tell your partner which word to follow.</>
       : 'Any lane works here. Listen for your partner’s timing.'}</p>
       : <Cadence startsAt={view.beatStartsAt} openBeat={view.openBeat} serverNow={progress.serverNow}
           cycle={view.gateKind === 'cycle'}

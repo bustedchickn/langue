@@ -1,9 +1,17 @@
-import { gateDistance, lanes, laneX, stages, switchDistance, type DriveView } from '../../../shared/minigames/tandem-drive'
+import { beatMs, gateDistance, gateWordsFor, laneX, stages, switchDistance, type DriveView } from '../../../shared/minigames/tandem-drive'
 
 const carImage = typeof Image === 'undefined' ? undefined : new Image()
 if (carImage) carImage.src = '/lostintranslationcar.png'
 const roadImage = typeof Image === 'undefined' ? undefined : new Image()
 if (roadImage) roadImage.src = '/lostintranslationroad.png'
+const crateImage = typeof Image === 'undefined' ? undefined : new Image()
+if (crateImage) crateImage.src = '/lostintranslationcrates.png'
+const correctGateImage = typeof Image === 'undefined' ? undefined : new Image()
+if (correctGateImage) correctGateImage.src = '/lostintranslationcargamecorrect.png'
+const incorrectGateImage = typeof Image === 'undefined' ? undefined : new Image()
+if (incorrectGateImage) incorrectGateImage.src = '/lostintranslationcargameincorrect.png'
+const cratePink = '#f26a8d'
+const crateLightPink = '#fdb7ea'
 // Two full dash cycles, cut in the gaps so repeated tiles join cleanly.
 const ROAD_TILE_Y = 375
 const ROAD_TILE_HEIGHT = 740
@@ -17,7 +25,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   const staticObstacles = view.hazards
   const linguisticGates = [{
     y: -(view.stage + 1) * gateDistance,
-    lanes: lanes.map((code, i) => ({ x: laneX[i], w: 112, code, safe: view.role === 'navigation' && view.gate === i })),
+    lanes: gateWordsFor(view.stage, view.language).map((word, i) => ({ x: laneX[i], w: 112, word, safe: view.role === 'navigation' && view.gate === i })),
   }]
   ctx.fillStyle = palette.background
   ctx.fillRect(0, 0, 500, 378)
@@ -51,11 +59,13 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
   if (view.gateKind === 'lane') drawLinguisticGates(view.role === 'navigation')
   else {
     const y = -(view.stage + 1) * gateDistance
-    ctx.fillStyle = '#293548'
+    const beat = view.role === 'cadence' ? Math.floor((view.serverNow - view.beatStartsAt) / beatMs) % 4 : -1
+    const cycleOpen = view.role === 'cadence' && (beat === view.openBeat || beat === (view.openBeat + 1) % 4)
+    ctx.fillStyle = cycleOpen ? '#82e5e9' : cratePink
     ctx.fillRect(-236, y - 14, 472, 28)
-    ctx.strokeStyle = '#94a3b8'
+    ctx.strokeStyle = cycleOpen ? '#176b57' : crateLightPink
     ctx.strokeRect(-236, y - 14, 472, 28)
-    ctx.fillStyle = '#e2e8f0'
+    ctx.fillStyle = '#3a2231'
     ctx.font = 'bold 13px monospace'
     ctx.textAlign = 'center'
     ctx.fillText('CYCLING SHUTTER', 0, y + 4)
@@ -73,7 +83,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     const side = view.left ? 34 : -34
     const pivotX = car.x - Math.sin(car.angle) * side
     const pivotY = car.y + Math.cos(car.angle) * side
-    ctx.strokeStyle = view.left ? '#fbbf24' : '#22d3ee'
+    ctx.strokeStyle = view.left ? '#fbbf24' : '#8b5cf6'
     ctx.setLineDash([4, 4])
     ctx.beginPath()
     ctx.moveTo(car.x, car.y)
@@ -98,7 +108,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.save()
     ctx.translate(car.x, car.y)
     ctx.rotate(car.angle)
-    for (const [on, side, color] of [[view.left, -1, '#fbbf24'], [view.right, 1, '#22d3ee']] as const) {
+    for (const [on, side, color] of [[view.left, -1, '#fbbf24'], [view.right, 1, '#8b5cf6']] as const) {
       if (!on) continue
       for (let i = 0; i < 5; i++) {
         const age = ((view.serverNow / 140) + i / 5) % 1
@@ -133,7 +143,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
       ctx.restore()
     }
 
-    // Left & Right Road Guardrails (Color-coded Amber Left / Cyan Right!)
+    // Left and right road guardrails match the players' yellow and purple controls.
     ctx.lineWidth = 6;
     ctx.strokeStyle = palette.leftRail;
     ctx.beginPath();
@@ -153,50 +163,28 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
       ctx.save();
       const x = obs.x - obs.w / 2;
       const y = obs.y - obs.h / 2;
-
-      let fill = '#1e293b';
-      let stroke = palette.hazard;
-      if (obs.vis === 'P1_ONLY') {
-        fill = 'rgba(245, 158, 11, 0.22)';
-        stroke = '#fbbf24';
-      } else if (obs.vis === 'P2_ONLY') {
-        fill = 'rgba(6, 182, 212, 0.22)';
-        stroke = '#22d3ee';
-      }
-
-      ctx.fillStyle = fill;
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 2.5;
       if (obs.shape === 'drum') {
         ctx.beginPath()
         ctx.arc(obs.x, obs.y, obs.w / 2, 0, Math.PI * 2)
       } else {
         roundRect(ctx, x, y, obs.w, obs.h, obs.shape === 'rail' ? 3 : 8);
       }
-      ctx.fill();
-      ctx.stroke();
-
-      // Diagonal hazard stripes
       ctx.save();
       ctx.clip();
-      ctx.strokeStyle = stroke;
-      ctx.globalAlpha = 0.22;
-      ctx.lineWidth = 3;
-      for (let sx = x - obs.h; sx < x + obs.w + obs.h; sx += 16) {
-        ctx.beginPath();
-        ctx.moveTo(sx, y + obs.h);
-        ctx.lineTo(sx + obs.h, y);
-        ctx.stroke();
+      if (crateImage?.complete && crateImage.naturalWidth) {
+        ctx.imageSmoothingEnabled = false;
+        const tile = Math.min(obs.w, obs.h);
+        for (let tileX = x; tileX < x + obs.w; tileX += tile) {
+          ctx.drawImage(crateImage, tileX, y, tile, tile);
+        }
+      } else {
+        ctx.fillStyle = crateLightPink;
+        ctx.fill();
       }
       ctx.restore();
-
-      if (obs.label) {
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = '700 11px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(obs.label, obs.x, obs.y);
-      }
+      ctx.strokeStyle = obs.vis === 'P1_ONLY' ? '#fbbf24' : obs.vis === 'P2_ONLY' ? '#8b5cf6' : palette.hazard;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
       ctx.restore();
     }
   }
@@ -208,35 +196,22 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
         const y = gate.y - 14;
 
         ctx.save();
-        // Only the navigation feed can color-code the safe gate.
-
-        if (isRevealed) {
-          ctx.fillStyle = lane.safe ? '#176b57' : '#743452';
-          ctx.strokeStyle = lane.safe ? '#fbf3b9' : '#ffdccc';
+        // The navigator alone sees which word marks the safe lane.
+        const safe = isRevealed && lane.safe;
+        const image = safe ? correctGateImage : incorrectGateImage;
+        if (image?.complete && image.naturalWidth) {
+          ctx.drawImage(image, x, y, lane.w, 28);
         } else {
-          ctx.fillStyle = '#3b315c';
-          ctx.strokeStyle = '#fbf3b9';
+          ctx.fillStyle = safe ? '#acd3c3' : '#f34767';
+          roundRect(ctx, x, y, lane.w, 28, 6);
+          ctx.fill();
         }
 
-        ctx.lineWidth = 2.5;
-        roundRect(ctx, x, y, lane.w, 28, 6);
-        ctx.fill();
-        ctx.stroke();
-
-        // Phonetic Code Word Label
-        ctx.fillStyle = isRevealed ? (lane.safe ? '#fbf3b9' : '#ffe0ec') : '#fbf3b9';
+        ctx.fillStyle = '#29212a';
         ctx.font = '800 13px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(lane.code, lane.x, gate.y);
-
-        // Status Sub-tag
-        ctx.font = '700 10px "JetBrains Mono", monospace';
-        if (isRevealed) {
-          ctx.fillText(lane.safe ? 'SAFE PASS' : 'LOCKED', lane.x, gate.y + 24);
-        } else {
-          ctx.fillText('ASK NAV', lane.x, gate.y + 24);
-        }
+        ctx.fillText(lane.word, lane.x, gate.y, lane.w - 12);
         ctx.restore();
       }
     }

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { generateCourse, hitsHazard, startTandemDrive } from '../server/minigames/tandem-drive/game'
 import { driveStep } from '../shared/minigames/drive-physics'
 import type { GamePlayers } from '../shared/minigames/contracts'
-import { gateDistance, laneX, switchDistance, type DriveView } from '../shared/minigames/tandem-drive'
+import { gateDistance, gateWordsFor, laneX, switchDistance, type DriveView } from '../shared/minigames/tandem-drive'
 
 const players: GamePlayers = {
   host: { name: 'Navigator', learningLanguage: 'French' },
@@ -20,6 +20,20 @@ test('prototype steering pivots around the idle wheel and brakes without drift',
   assert.ok(left.y < 0 && left.x > 0 && left.angle > start.angle)
   assert.equal(left.y.toFixed(8), right.y.toFixed(8))
   assert.equal(left.x.toFixed(8), (-right.x).toFixed(8))
+})
+
+test('word gates use each player’s learning language without revealing the safe lane to cadence', () => {
+  assert.deepEqual(gateWordsFor(0, 'English'), ['Apple', 'Bird', 'Book', 'Key'])
+  assert.deepEqual(gateWordsFor(0, 'French'), ['Pomme', 'Oiseau', 'Livre', 'Clé'])
+  assert.deepEqual(gateWordsFor(0, 'Spanish'), ['Manzana', 'Pájaro', 'Libro', 'Llave'])
+  const game = startTandemDrive('words', players, 0, () => 0)
+  const navigator = game.view('host', 0) as DriveView
+  const cadence = game.view('guest', 0) as DriveView
+  assert.equal(navigator.language, 'French')
+  assert.equal(cadence.language, 'English')
+  assert.equal(navigator.role, 'navigation')
+  assert.equal('gate' in navigator, true)
+  assert.equal('gate' in cadence, false)
 })
 
 test('held controls advance on server ticks, expire, and stop on disconnect', () => {

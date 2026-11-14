@@ -175,7 +175,8 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
               {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
             </select>
           </label>}
-          {session && <GameInstructions gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
+          {session && <GameInstructions key={'before-' + session.gameId + '-' + session.rolesSwapped}
+            gameId={session.gameId} seat={session.rolesSwapped ? peer : seat} timeMultiplier={timeMultiplier} />}
           {language && <section className="prompt-card">
             <h2>Say hello!</h2>
             <ul lang={languageTags[language]}>{prompts[language].map(prompt => <li key={prompt}>{prompt}</li>)}</ul>

@@ -64,11 +64,12 @@ const guides: Record<string, GameGuide> = {
     goal: 'Steer one vehicle together, avoid barriers, and clear four gates before time or hull integrity runs out.',
     roles: {
       host: { id: 'navigation', name: 'Optic · Navigation', steps: [
-        'Tell your partner the safe lane: ALPHA, BRAVO, DELTA, or OMEGA.',
+        'Find the green barrier and tell your partner its word in your learning language.',
         'Call out obstacles you see.',
         'Hold your thruster to steer; release to stop your side.',
       ] },
       guest: { id: 'cadence', name: 'Radar · Cadence', steps: [
+        'Follow the word your partner names; your barriers do not show the safe lane.',
         'Tell your partner when the beat says GO or WAIT.',
         'Release locked gates on a green beat; shutters open on green.',
         'Hold your thruster to steer and call out obstacles.',
