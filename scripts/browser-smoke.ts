@@ -74,6 +74,24 @@ async function player(browser: Browser, name: string, touch: boolean) {
   await button(page, 'Play').click()
   await button(page, 'Save language assessment').click()
   await button(page, 'Play').waitFor()
+  if (name === 'Alice' || name === 'Lina') {
+    const picker = page.getByRole('combobox', { name: /Learning/ })
+    await picker.focus()
+    await picker.press('ArrowDown')
+    assert.equal(await picker.getAttribute('aria-expanded'), 'true')
+    await picker.press('End')
+    assert.equal(await picker.getAttribute('aria-activedescendant'), 'practice-language-Spanish')
+    await picker.press('Escape')
+    assert.equal(await picker.getAttribute('aria-expanded'), 'false')
+    await picker.press('ArrowDown')
+    await picker.press('End')
+    await picker.press('Enter')
+    await button(page, 'Save language assessment').click()
+    await picker.waitFor()
+    await picker.click()
+    await page.getByRole('option', { name: 'French' }).click()
+    await page.getByRole('combobox', { name: 'Learning French' }).waitFor()
+  }
   return page
 }
 

@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
-import { languages, type Language, type UserProfile } from '../shared/types'
+import { type Language, type UserProfile } from '../shared/types'
 import { api, auth, devGuest, errorText, multiplayer } from './backend'
 import { Account, Profile } from './Account'
 import { Friends, PlayerName, useInvitations } from './Friends'
 import { RoomScreen } from './RoomScreen'
 import { useSession } from './session'
 import { QuickPlay } from './QuickPlay'
-import { Avatar, flags } from './PlayerIdentity'
+import { Avatar } from './PlayerIdentity'
 import { LanguageAssessments } from './LanguageAssessments'
+import { LanguagePicker } from './LanguagePicker'
 import './style.css'
 
 type Page = 'home' | 'friends' | 'profile'
@@ -189,14 +190,8 @@ function App() {
               onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
             <div className="home-content">
               <Logo />
-              <div className="learning-picker">
-                <span aria-hidden="true">{flags[currentProfile.learningLanguage]}</span>
-                <label htmlFor="practice-language">Learning</label>
-                <select id="practice-language" value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
-                  onChange={event => void saveLanguage(event.target.value as Language)}>
-                  {languages.map(language => <option key={language}>{language}</option>)}
-                </select>
-              </div>
+              <LanguagePicker value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
+                onChange={language => void saveLanguage(language)} />
               <div className="home-actions">
                 <button className="large-action" disabled={joining || savingLanguage} onClick={() => {
                   setNotice('')
