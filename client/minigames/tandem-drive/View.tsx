@@ -70,11 +70,13 @@ export function TandemDriveView({ data, progress, disabled, send }: {
       <strong>{view.role === 'navigation' ? 'Optic · Navigation' : 'Radar · Cadence'}</strong>
       <span className="drive-hull" data-low={view.hull < 35}>Hull {view.hull}% <meter min={0} max={100} value={view.hull} aria-label="Hull integrity" /></span>
     </div>
+    <p className="drive-map-brief"><strong>{view.map.name}</strong> · {view.map.subtitle} · Communication is required at every gate.</p>
     <div className="drive-gate-status" data-ready={released}>
       <strong>{view.gateKind === 'cycle' ? 'CYCLING SHUTTER' : released ? 'GATE RELEASED · ' + ((view.unlockedUntil - progress.serverNow) / 1000).toFixed(1) + 's'
         : 'GATE LOCKED'}</strong> <span>{remaining}px to gate</span>
     </div>
-    <div className="drive-viewport">
+    <div className="drive-viewport" aria-label={`Current heading ${Math.round(((view.angle + Math.PI / 2) * 180 / Math.PI + 360) % 360)} degrees`}>
+      <div className="drive-heading" aria-hidden="true" style={{ transform: `rotate(${view.angle + Math.PI / 2}rad)` }}>↑</div>
       <canvas ref={canvas} width={500} height={378} aria-label="Northbound crawler, gates and visible barriers" />
     </div>
     {view.impact > 0 && <div key={view.impact} className="drive-impact" aria-hidden="true" />}

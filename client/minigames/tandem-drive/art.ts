@@ -2,6 +2,7 @@ import { gateDistance, lanes, laneX, stages, switchDistance, type DriveView } fr
 
 // Canvas artwork adapted from the supplied Tandem Drive prototype.
 export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
+  const palette = view.map
   const ROAD_HALF_WIDTH = 240
   const FINISH_Y = -stages * gateDistance
   const CAR_LENGTH = 68
@@ -14,7 +15,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     y: -(view.stage + 1) * gateDistance,
     lanes: lanes.map((code, i) => ({ x: laneX[i], w: 112, code, safe: view.role === 'navigation' && view.gate === i })),
   }]
-  ctx.fillStyle = '#020617'
+  ctx.fillStyle = palette.background
   ctx.fillRect(0, 0, 500, 378)
   ctx.save()
   ctx.translate(250, 290 - car.y)
@@ -112,11 +113,11 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     const height = botY - topY;
 
     // Road Asphalt Base
-    ctx.fillStyle = role === 'P2' ? '#0b1320' : '#111622';
+    ctx.fillStyle = palette.road;
     ctx.fillRect(-ROAD_HALF_WIDTH, topY, ROAD_HALF_WIDTH * 2, height);
 
     // Tactical Grid Lines
-    ctx.strokeStyle = role === 'P2' ? 'rgba(34, 211, 238, 0.08)' : 'rgba(148, 163, 184, 0.07)';
+    ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     const gridStep = 90;
     const startGridY = Math.floor((car.y - 900) / gridStep) * gridStep;
@@ -148,13 +149,13 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
 
     // Left & Right Road Guardrails (Color-coded Amber Left / Cyan Right!)
     ctx.lineWidth = 6;
-    ctx.strokeStyle = '#f59e0b'; // Amber Left Edge
+    ctx.strokeStyle = palette.leftRail;
     ctx.beginPath();
     ctx.moveTo(-ROAD_HALF_WIDTH, topY);
     ctx.lineTo(-ROAD_HALF_WIDTH, botY);
     ctx.stroke();
 
-    ctx.strokeStyle = '#06b6d4'; // Cyan Right Edge
+    ctx.strokeStyle = palette.rightRail;
     ctx.beginPath();
     ctx.moveTo(ROAD_HALF_WIDTH, topY);
     ctx.lineTo(ROAD_HALF_WIDTH, botY);
@@ -168,7 +169,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
       const y = obs.y - obs.h / 2;
 
       let fill = '#1e293b';
-      let stroke = '#94a3b8';
+      let stroke = palette.hazard;
       if (obs.vis === 'P1_ONLY') {
         fill = 'rgba(245, 158, 11, 0.22)';
         stroke = '#fbbf24';
@@ -262,7 +263,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.rotate(car.angle);
 
     // Forward Heading Sightline
-    ctx.strokeStyle = 'rgba(52, 211, 153, 0.35)';
+    ctx.strokeStyle = `${palette.accent}55`;
     ctx.setLineDash([6, 6]);
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -311,7 +312,7 @@ export function drawCourse(ctx: CanvasRenderingContext2D, view: DriveView) {
     ctx.fill();
 
     // Nose Chevron pointing Forward
-    ctx.fillStyle = '#34d399';
+    ctx.fillStyle = palette.accent;
     ctx.beginPath();
     ctx.moveTo(CAR_LENGTH / 2 - 4, 0);
     ctx.lineTo(CAR_LENGTH / 2 - 14, -7);

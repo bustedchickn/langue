@@ -15,8 +15,9 @@ export const mapNavigatorConfig = {
 } satisfies GameConfig
 
 export type Point = { row: number; column: number }
+export type MapDirection = 'up' | 'down' | 'left' | 'right'
 export type NavigatorAction =
-  | { type: 'move'; direction: 'up' | 'down' | 'left' | 'right' }
+  | { type: 'move'; direction: MapDirection }
   | { type: 'finish' }
   | { type: 'reset' }
 
@@ -24,6 +25,7 @@ export type MapNavigatorView = {
   role: 'navigator' | 'traveler'
   language: Language
   position: Point
+  direction: MapDirection
   goal?: Point
   route?: Point[]
   moves: number
@@ -32,7 +34,6 @@ export type MapNavigatorView = {
   waypoints?: Point[]
   feedback?: 'moved' | 'wrong' | 'blocked' | 'success' | 'checkpoint'
   landmarks: ReadonlyArray<{ row: number; column: number; name: string; emoji: string }>
-  prompts: ReadonlyArray<{ english: string; translated: string }>
   vocabulary: ReadonlyArray<{ english: string; translated: string }>
 }
 
@@ -56,15 +57,15 @@ export const mapNavigatorLandmarks = [
   { row: 5, column: 5, name: 'Park', emoji: '🌳' },
 ] as const
 
-const copy: Record<Language, { prompts: string[]; vocabulary: string[] }> = {
-  English: { prompts: ['Go straight.', 'Turn left at the café.', 'Turn right after the park.', 'Go past the library.', 'Where are you now?', 'Can you repeat that?'], vocabulary: ['Go straight', 'Turn left', 'Turn right', 'Stop here', 'At the corner', 'Go past', 'Next to', 'Go back'] },
-  French: { prompts: ['Allez tout droit.', 'Tournez à gauche au café.', 'Tournez à droite après le parc.', 'Passez devant la bibliothèque.', 'Où êtes-vous maintenant ?', 'Pouvez-vous répéter ?'], vocabulary: ['Tout droit', 'Tournez à gauche', 'Tournez à droite', 'Arrêtez-vous ici', 'Au coin', 'Passez devant', 'À côté de', 'Revenez en arrière'] },
-  Spanish: { prompts: ['Sigue recto.', 'Gira a la izquierda en el café.', 'Gira a la derecha después del parque.', 'Pasa la biblioteca.', '¿Dónde estás ahora?', '¿Puedes repetirlo?'], vocabulary: ['Sigue recto', 'Gira a la izquierda', 'Gira a la derecha', 'Detente aquí', 'En la esquina', 'Pasa', 'Al lado de', 'Vuelve atrás'] },
+const copy: Record<Language, { vocabulary: string[] }> = {
+  English: { vocabulary: ['Go straight', 'Turn left', 'Turn right', 'Stop here', 'At the corner', 'Go past', 'Next to', 'Go back'] },
+  French: { vocabulary: ['Tout droit', 'Tournez à gauche', 'Tournez à droite', 'Arrêtez-vous ici', 'Au coin', 'Passez devant', 'À côté de', 'Revenez en arrière'] },
+  Spanish: { vocabulary: ['Sigue recto', 'Gira a la izquierda', 'Gira a la derecha', 'Detente aquí', 'En la esquina', 'Pasa', 'Al lado de', 'Vuelve atrás'] },
 }
 
 export function mapNavigatorLanguage(language: Language) {
   const selected = copy[language]
-  return { prompts: selected.prompts.map((translated, i) => ({ english: copy.English.prompts[i], translated })), vocabulary: selected.vocabulary.map((translated, i) => ({ english: copy.English.vocabulary[i], translated })) }
+  return { vocabulary: selected.vocabulary.map((translated, i) => ({ english: copy.English.vocabulary[i], translated })) }
 }
 
 export type { Seat }

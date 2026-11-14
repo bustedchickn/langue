@@ -1,6 +1,6 @@
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 import type { GamePlayers, Seat } from '../../../shared/minigames/contracts'
-import { differenceIds, sceneObjects, spotDifferenceConfig as config, spotLanguage, type SceneObject, type SpotDifferenceResults, type SpotDifferenceView } from '../../../shared/minigames/spot-difference'
+import { differenceIds, sceneObjects, spotDifferenceConfig as config, spotLanguage, type SceneKind, type SceneObject, type SpotDifferenceResults, type SpotDifferenceView } from '../../../shared/minigames/spot-difference'
 
 function sceneFor(seat: Seat): SceneObject[] {
   return sceneObjects.map(object => {
@@ -18,12 +18,14 @@ export function startSpotDifference(matchId: string, players: GamePlayers, now: 
   const endsAt = startsAt + gameConfig.durationMs!
   let found: string[] = []; let incorrectGuesses = 0; let feedback: SpotDifferenceView['feedback']; let result: SpotDifferenceResults | undefined
   const language = players.host.learningLanguage; const translated = spotLanguage(language)
+  const sceneKinds: SceneKind[] = ['kitchen', 'bedroom', 'office', 'classroom', 'park']
+  const sceneKind = sceneKinds[[...matchId].reduce((sum, character) => sum + character.charCodeAt(0), 0) % sceneKinds.length]
   function finish(outcome: SpotDifferenceResults['outcome'], time: number) { result = { gameId: config.id, outcome, completed: found.length, attempted: Math.max(1, found.length + 1), elapsedMs: Math.max(0, time - startsAt), score: found.length * config.scoring.pointsPerDifference - incorrectGuesses * config.scoring.wrongGuessPenalty, players: [players.host.name, players.guest.name], found: found.length, incorrectGuesses } }
   function tick(time: number) { if (!result && time >= endsAt) finish('defeat', endsAt) }
   return {
     tick,
     progress: time => ({ gameId: config.id, matchId, round: 1, completed: found.length, score: found.length * config.scoring.pointsPerDifference, startsAt, endsAt, serverNow: time }),
-    view(seat): SpotDifferenceView { return { scene: seat === 'host' ? 'player-one' : 'player-two', language, roundName: 'Cozy Art Studio', objects: sceneFor(seat), found, totalDifferences: differenceIds.length, incorrectGuesses, feedback, ...translated } },
+    view(seat): SpotDifferenceView { return { scene: seat === 'host' ? 'player-one' : 'player-two', sceneKind, language, roundName: sceneKind[0].toUpperCase() + sceneKind.slice(1), objects: sceneFor(seat), found, totalDifferences: differenceIds.length, incorrectGuesses, feedback, ...translated } },
     act(seat, payload, time) {
       tick(time); if (result || time < startsAt || !payload || typeof payload !== 'object') return false
       const action = payload as { type?: string; objectId?: unknown }

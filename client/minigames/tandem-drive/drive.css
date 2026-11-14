@@ -1,7 +1,9 @@
 .drive { display: grid; gap: .65rem; padding: .75rem; background: #0f172a; color: #e2e8f0; border-radius: .75rem; font-family: monospace; }
 .drive-telemetry, .drive-beats { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
+.drive-map-brief { margin: 0; color: #cbd5e1; font-size: .8rem; }
 .drive-viewport { position: relative; }
 .drive-viewport canvas { display: block; width: 100%; height: auto; }
+.drive-heading { position: absolute; z-index: 2; top: .65rem; left: 50%; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; border: 2px solid #6ee7b7; border-radius: 50%; background: #020617dd; color: #6ee7b7; font: 800 1.65rem/1 sans-serif; text-shadow: 0 0 8px #34d399; transform-origin: 50% 50%; pointer-events: none; }
 .drive-viewport::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, #0004 2px 4px); }
 .drive-beats span { padding: .25rem .5rem; border: 1px solid #475569; border-radius: .25rem; }
 .drive-beats span[data-open=true] { color: #6ee7b7; }

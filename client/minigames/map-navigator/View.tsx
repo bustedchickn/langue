@@ -1,7 +1,5 @@
 import { useEffect } from 'react'
 import type { GameProgress, GameResults } from '../../../shared/minigames/contracts'
-import { languageTags } from '../../../shared/types'
-import { PronunciationButton } from '../../pronunciation/PronunciationButton'
 import { mapNavigatorGrid, type MapNavigatorResults, type MapNavigatorView, type NavigatorAction } from '../../../shared/minigames/map-navigator'
 import './map.css'
 
@@ -69,15 +67,6 @@ export function MapNavigatorView({ data, disabled, send }: {
         onClick={() => send({ type: 'move', direction })}><strong aria-hidden="true">{arrow}</strong><span>{label}</span></button>)}
     </div>}
     <p className="map-feedback" role="status">{feedback || view.moves + (view.moves === 1 ? ' move' : ' moves')}</p>
-    <details className="map-phrasebook">
-      <summary>{view.language} phrasebook</summary>
-      <div className="map-phrases" lang={languageTags[view.language]}>
-        {view.prompts.map(prompt => <div key={prompt.english}>
-          <span>{prompt.translated}</span>
-          <PronunciationButton text={prompt.translated} language={view.language} label={'Pronounce ' + prompt.translated} />
-        </div>)}
-      </div>
-    </details>
   </section>
 }
 

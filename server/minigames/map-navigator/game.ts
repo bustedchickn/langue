@@ -9,6 +9,7 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
   let startsAt = now + gameConfig.countdownMs!
   let endsAt = startsAt + gameConfig.durationMs!
   let position = clone(mapNavigatorStart)
+  let direction: MapNavigatorView['direction'] = 'down'
   let moves = 0
   let wrongTurns = 0
   let checkpoints = 0
@@ -25,14 +26,14 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
   function reset(time: number) {
     startsAt = time + gameConfig.countdownMs!
     endsAt = startsAt + gameConfig.durationMs!
-    position = clone(mapNavigatorStart); moves = 0; wrongTurns = 0; checkpoints = 0; feedback = undefined; result = undefined
+    position = clone(mapNavigatorStart); direction = 'down'; moves = 0; wrongTurns = 0; checkpoints = 0; feedback = undefined; result = undefined
   }
 
   return {
     tick,
     progress: time => ({ gameId: config.id, matchId, round: 1, completed: result?.completed ?? 0, score: result?.score ?? 0, startsAt, endsAt, serverNow: time }),
     view(seat): MapNavigatorView {
-      return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position),
+      return { role: seat === 'host' ? 'navigator' : 'traveler', language, position: clone(position), direction,
         ...(seat === 'host' ? { goal: clone(mapNavigatorGoal), route: mapNavigatorRoute.map(clone), waypoints } : {}),
         moves, wrongTurns, checkpoints, feedback, landmarks: mapNavigatorLandmarks, ...translated }
     },
@@ -44,6 +45,7 @@ export function startMapNavigator(matchId: string, players: GamePlayers, now: nu
       if (seat !== 'guest' || action.type !== 'move') return false
       const delta = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] }[action.direction]
       if (!Object.hasOwn({ up: 1, down: 1, left: 1, right: 1 }, action.direction) || !delta) return false
+      direction = action.direction
       const previousIndex = mapNavigatorRoute.findIndex(point => same(point, position))
       const next = { row: position.row + delta[0], column: position.column + delta[1] }
       moves++

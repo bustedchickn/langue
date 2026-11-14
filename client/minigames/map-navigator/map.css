@@ -20,7 +20,3 @@
 .direction-controls strong { font-size: 1.4rem; line-height: 1; }
 .direction-controls span, .map-feedback { font-size: .8rem; }
 .map-feedback { min-height: 1.3rem; color: var(--muted); }
-.map-phrasebook { padding: .65rem .85rem; border: 1px solid var(--border); border-radius: .75rem; background: #faf4ff; }
-.map-phrasebook summary { cursor: pointer; font-weight: 700; }
-.map-phrases { display: grid; gap: .3rem; margin-top: .6rem; }
-.map-phrases > div { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }

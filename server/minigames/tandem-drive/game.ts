@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto'
 import type { GamePlayers, GameResults, Seat } from '../../../shared/minigames/contracts'
 import { driveStep } from '../../../shared/minigames/drive-physics'
-import { beatMs, gateDistance, laneX, releaseDuration, releaseRange, stages, switchChancePercent, switchDistance, tandemDrive, type DriveView, type Hazard } from '../../../shared/minigames/tandem-drive'
+import { beatMs, driveMaps, gateDistance, laneX, releaseDuration, releaseRange, stages, switchChancePercent, switchDistance, tandemDrive, type DriveView, type Hazard, type DriveMap } from '../../../shared/minigames/tandem-drive'
 import type { ActiveMinigame, ServerMinigame } from '../contracts'
 
 type Position = { x: number; y: number }
@@ -21,7 +21,7 @@ const barrierShapes = [
   { shape: 'rail', w: 116, h: 22, label: 'RAIL' },
 ] as const
 
-export function generateCourse(pick = randomInt) {
+export function generateCourse(pick = randomInt, map: DriveMap = driveMaps[0]) {
   return Array.from({ length: stages }, (_, index) => {
     const hazard = (offset: number, vis: Hazard['vis']): Hazard => {
       const shape = barrierShapes[pick(barrierShapes.length)]
@@ -31,15 +31,22 @@ export function generateCourse(pick = randomInt) {
       return { ...shape, w: shape.w * size, h: shape.h * size,
         x: laneX[lane], y: -(index * gateDistance + offset + pick(13)), vis }
     }
-    return { gate: pick(4), openBeat: pick(4), kind: index % 2 === 0 ? 'lane' as const : 'cycle' as const,
-      hazards: [hazard(190, 'BOTH'), hazard(425, index % 2 === 0 ? 'P1_ONLY' : 'P2_ONLY')] }
+    const hazardCount = 2 + Math.floor(index / 2)
+    const hazards = [hazard(190, 'BOTH'), hazard(425, index % 2 === 0 ? 'P1_ONLY' : 'P2_ONLY')]
+    if (hazardCount > 2) {
+      const extra = barrierShapes[index % barrierShapes.length]
+      const extraLane = map.id === 'ember-canyon' ? 3 : index % 2 ? 3 : 0
+      hazards.push({ ...extra, w: extra.w * .9, h: extra.h * .9, x: laneX[extraLane], y: -(index * gateDistance + 545), vis: 'BOTH' })
+    }
+    return { gate: pick(4), openBeat: pick(4), kind: index % 2 === 0 ? 'lane' as const : 'cycle' as const, hazards }
   })
 }
 
 export function startTandemDrive(matchId: string, players: GamePlayers, started: number, pick = randomInt): ActiveMinigame {
   const endsAt = started + tandemDrive.durationMs
+  const map = driveMaps[[...matchId].reduce((sum, character) => sum + character.charCodeAt(0), 0) % driveMaps.length]
   const hasSwitch = pick(100) < switchChancePercent
-  const course = generateCourse(pick)
+  const course = generateCourse(pick, map)
   let stage = 0
   let pose = { x: -60, y: 0, angle: -Math.PI / 2 }
   let hull = 100
@@ -126,7 +133,7 @@ export function startTandemDrive(matchId: string, players: GamePlayers, started:
       const navigator = navigation(seat)
       const side = navigator ? 'left' : 'right'
       const current = course[Math.min(stage, stages - 1)]
-      const common = { x: pose.x, angle: pose.angle, distance: -pose.y, stage, hull,
+      const common = { x: pose.x, angle: pose.angle, distance: -pose.y, stage, hull, map,
         hazards: current.hazards.filter(hazard => hazard.vis === 'BOTH' || hazard.vis === (navigator ? 'P1_ONLY' : 'P2_ONLY')),
         side, left: engaged(swapped ? 'guest' : 'host', now), right: engaged(swapped ? 'host' : 'guest', now),
         swapped, switchAhead: hasSwitch && !swapped && stage === 2, message, gateKind: current.kind, unlockedUntil, serverNow: now, impact, blocked } as const
