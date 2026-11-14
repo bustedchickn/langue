@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { startCodenames } from '../server/minigames/codenames/game'
 import { languageTags, registeredLanguages } from '../shared/types'
-import { isBoardWord, normalizeClue, wordCards, type CodenamesResults, type CodenamesView } from '../shared/minigames/codenames'
+import { codenamesBoardSize, isBoardWord, normalizeClue, wordCards, type CodenamesResults, type CodenamesView } from '../shared/minigames/codenames'
 
 test('dictionary contains 100 unique translated terms and definitions', () => {
   assert.equal(wordCards.length, 100)
@@ -113,6 +113,15 @@ test('the clue count grants one optional bonus guess and passing returns control
   assert.equal(view().remaining, 0)
   assert.equal(view().bonusGuess, false)
   assert.equal(game.progress(3000).score, 100)
+})
+
+test('a zero clue count grants all 25 guesses', () => {
+  const players = { host: { name: 'A', learningLanguage: 'English' as const }, guest: { name: 'B', learningLanguage: 'French' as const } }
+  const game = startCodenames('zero-count', players, 0, () => 0)
+  assert.equal(game.act('host', { type: 'clue', word: 'example', count: 0, revision: 0 }, 3000), true)
+  const view = game.view('guest', 3000) as CodenamesView
+  assert.equal(view.clueCount, 0)
+  assert.equal(view.remaining, codenamesBoardSize)
 })
 
 test('codenames uses turns and ends when the assassin is chosen', () => {

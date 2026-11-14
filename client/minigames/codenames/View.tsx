@@ -64,9 +64,9 @@ export function CodenamesView({ data, disabled, send }: {
       : <p role="status">{text.waiting}</p>}
     {view.role === 'clue-giver' && !view.remaining && !view.suddenDeath && <form className="clue-form" onSubmit={giveClue}>
       <label>{text.clueLabel}<input value={word} lang={languageTags[cardLocale]} onChange={event => setWord(event.target.value)} /></label>
-      <label>{text.number}<input type="number" min={1} max={codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}
+      <label>{text.number}<input type="number" min={0} max={codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}
         value={count} onChange={event => setCount(Number(event.target.value))} /></label>
-      <button disabled={disabled || invalid || count < 1 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>{text.give}</button>
+      <button disabled={disabled || invalid || count < 0 || count > codenamesTeamWords - view.cards.filter(card => card.revealed === 'team').length}>{text.give}</button>
       {word && invalid && <p className="error">{text.invalid}</p>}
     </form>}
     {view.bonusGuess && <p className="codenames-bonus" role="status">{text.bonus}</p>}

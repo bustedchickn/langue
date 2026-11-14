@@ -68,13 +68,13 @@ export function startCodenames(matchId: string, players: GamePlayers, now: numbe
       }
       if (seat === 'host' && action.type === 'clue' && remaining === 0 && !suddenDeath &&
           typeof action.word === 'string' && Number.isInteger(action.count) &&
-          Number(action.count) >= 1 && Number(action.count) <= codenamesTeamWords - completed) {
+          Number(action.count) >= 0 && Number(action.count) <= codenamesTeamWords - completed) {
         const word = normalizeClue(action.word)
         const language = players.host.learningLanguage
         if (!word || isBoardWord(word, cards.map(card => card.words[language]), language)) return false
         clue = word
         clueCount = Number(action.count)
-        remaining = Number(action.count) + 1
+        remaining = Number(action.count) === 0 ? codenamesBoardSize : Number(action.count) + 1
         revision++
         return true
       }
