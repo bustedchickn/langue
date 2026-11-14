@@ -84,7 +84,7 @@ function Chat({ room, messages }: { room?: Room; messages: Session['chat'] }) {
     </div>
     <form className="chat-form" onSubmit={send}>
       <input aria-label={t('Message')} placeholder={t('Send a message')} maxLength={500} value={text} onChange={event => setText(event.target.value)} />
-      <button disabled={!room || cooldown || !text.trim()}>{t('Send')}</button>
+      <button data-sound="none" disabled={!room || cooldown || !text.trim()}>{t('Send')}</button>
     </form>
   </section>
 }
@@ -145,7 +145,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
 
   const readyButton = (label: string) => <div className="readiness stack">
     <p role="status">{voted ? t('Waiting for your partner…') : partnerVoted ? t('Your partner is ready.') : t('Your partner is getting ready.')}</p>
-    <button className="large-action" disabled={!connected || voted} onClick={() => room?.send('ready', phase)}>{label}</button>
+    <button data-effect="open" className="large-action" disabled={!connected || voted} onClick={() => room?.send('ready', phase)}>{label}</button>
   </div>
 
   return <>
@@ -223,7 +223,7 @@ export function RoomScreen({ room, session, host, view, reconnecting, leave, inv
             </> : <>
               <h2>Keep the conversation going</h2>
               <p>{session.friendship[seat] ? 'Friend request sent!' : session.friendship[peer] ? 'Your partner would like to be friends!' : 'Send your partner a high five and a friend request.'}</p>
-              <button className="secondary" disabled={!room || friendBusy || session.friendship[seat]} onClick={() => {
+              <button data-effect={session.friendship[peer] ? 'open' : undefined} className="secondary" disabled={!room || friendBusy || session.friendship[seat]} onClick={() => {
                 setFriendError('')
                 setFriendBusy(true)
                 room?.send('friend')

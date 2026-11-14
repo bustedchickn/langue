@@ -128,7 +128,7 @@ export function Friends({ uid, invite, inviteOnly, inLobby }: {
         return <div className="card" key={record.id}>
           <PlayerName uid={other} presence />
           <div className="actions">
-            <button disabled={working} onClick={() => void run(() => invite(other, gameId), 'Invitation sent.')}>{t('Invite to Play')}</button>
+            <button data-effect="message" disabled={working} onClick={() => void run(() => invite(other, gameId), 'Invitation sent.')}>{t('Invite to Play')}</button>
             {!inviteOnly && <button className="secondary" disabled={working} onClick={() => change(record.id, 'remove')}>{t('Remove')}</button>}
           </div>
         </div>
@@ -140,7 +140,7 @@ export function Friends({ uid, invite, inviteOnly, inLobby }: {
       {incoming.map(record => <div className="card" key={record.id}>
         <PlayerName uid={record.from} />
         <div className="actions">
-          <button disabled={working} onClick={() => change(record.id, 'accept')}>{t('Accept')}</button>
+          <button data-effect="open" disabled={working} onClick={() => change(record.id, 'accept')}>{t('Accept')}</button>
           <button className="secondary" disabled={working} onClick={() => change(record.id, 'decline')}>{t('Decline')}</button>
         </div>
       </div>)}

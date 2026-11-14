@@ -200,12 +200,11 @@ function App() {
     const button = target.closest('button, [role="option"]')
     if (!button || button.matches(':disabled, [aria-disabled="true"], [data-sound="none"]') ||
         button.closest('.room-grid[data-game]') && session.session?.phase === 'game') return
-    const label = (button.getAttribute('aria-label') ?? button.textContent ?? '').trim().toLowerCase()
     if (button.getAttribute('data-navigation') === 'back') playEffect('back')
-    else if (label.includes('cancel')) playEffect('cancel')
-    else if (label.includes('close')) playEffect('close')
     else if (button.getAttribute('data-effect') === 'select') playEffect('select')
-    else playEffect('open')
+    else if (button.getAttribute('data-effect') === 'open') playEffect('open')
+    else if (button.getAttribute('data-effect') === 'message') playEffect('message')
+    else playEffect('back')
   }
 
   async function saveLanguage(learningLanguage: Language) {
@@ -261,7 +260,7 @@ function App() {
           {invitations.map(invitation => <div className="card" key={invitation.id}>
             <PlayerName uid={invitation.from} />
             <div className="actions">
-              <button disabled={joining} onClick={() => void enter(async () =>
+              <button data-effect="open" disabled={joining} onClick={() => void enter(async () =>
                 multiplayer.consumeSeatReservation(await api('/invites/' + invitation.id + '/join', 'POST'))
               )}>{t('Join game')}</button>
               <button className="secondary" disabled={joining} onClick={() => {
@@ -301,7 +300,7 @@ function App() {
               <LanguagePicker value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
                 onChange={language => void saveLanguage(language)} />
               <div className="home-actions">
-                <button className={interfaceLanguage === 'English' ? 'image-action image-action-play' : 'localized-action'}
+                <button data-effect="open" className={interfaceLanguage === 'English' ? 'image-action image-action-play' : 'localized-action'}
                   aria-label={text.play} disabled={joining || savingLanguage} onClick={() => {
                   setNotice('')
                   if (!currentProfile.assessments?.[currentProfile.learningLanguage]) setAssessing(true)
@@ -315,7 +314,7 @@ function App() {
                     <img className="image-action-hover" src="/play-button-2.png" alt="" />
                   </> : text.play}
                 </button>
-                <button className={interfaceLanguage === 'English' ? 'image-action image-action-friends' : 'localized-action'}
+                <button data-effect="open" className={interfaceLanguage === 'English' ? 'image-action image-action-friends' : 'localized-action'}
                   aria-label={invitations.length ? text.friends + ' (' + invitations.length + ')' : text.friends}
                   disabled={joining || savingLanguage} onClick={() => navigate('friends')}>
                   {interfaceLanguage === 'English' ? <>
