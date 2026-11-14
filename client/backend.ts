@@ -16,7 +16,7 @@ const firebase = initializeApp({
 export const auth = getAuth(firebase)
 export const db = getFirestore(firebase)
 if (emulator) {
-  connectAuthEmulator(auth, 'http://' + location.hostname + ':9099')
+  connectAuthEmulator(auth, 'http://' + location.hostname + ':9099', { disableWarnings: true })
   connectFirestoreEmulator(db, location.hostname, 8080)
 }
 

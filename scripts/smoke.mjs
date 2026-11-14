@@ -40,6 +40,15 @@ const message = (room, type, select = value => value, timeout) =>
 const documents = (request, select) =>
   observe((next, fail) => onSnapshot(request, next, fail), snap => snap.docs.find(select))
 
+async function bothReady(host, guest, phase, next) {
+  const waiting = message(guest, 'session', value => value.phase === phase && value.ready?.host && value)
+  host.send('ready', phase)
+  assert.equal((await waiting).ready.guest, false)
+  const advanced = [host, guest].map(room => message(room, 'session', value => value.phase === next && value))
+  guest.send('ready', phase)
+  return Promise.all(advanced)
+}
+
 async function player(name) {
   const app = initializeApp({ apiKey: 'demo-key', projectId: 'demo-idle' }, name + suffix)
   apps.push(app)
@@ -112,6 +121,7 @@ try {
   const invitedLobby = message(guest, 'session')
   guest.send('sync')
   assert.equal((await invitedLobby).gameId, 'icon-communication')
+  assert.equal((await invitedLobby).phase, 'confirmation')
   const changedGame = message(guest, 'session', state => state.gameId === 'lost-instructions' && state)
   host.send('phase', { gameId: 'lost-instructions' })
   await changedGame
@@ -121,6 +131,13 @@ try {
   const chat = message(guest, 'session', state => state.chat[0])
   host.send('chat', 'Bonjour!')
   assert.equal((await chat).text, 'Bonjour!')
+
+  const premature = message(host, 'session')
+  host.send('phase', 'game')
+  host.send('ready', 'introduction')
+  host.send('sync')
+  assert.equal((await premature).phase, 'confirmation')
+  await bothReady(host, guest, 'confirmation', 'introduction')
 
   const voice = message(guest, 'voice', signal => signal.kind === 'state' && signal.joined)
   host.send('voice', { kind: 'state', joined: true })
@@ -135,7 +152,7 @@ try {
   unsubscribes.push(host.onMessage('game-view', value => hostViews.push(value)))
   unsubscribes.push(guest.onMessage('game-view', value => guestViews.push(value)))
   const countdown = message(host, 'session', state => state.progress)
-  host.send('phase', 'game')
+  await bothReady(host, guest, 'introduction', 'game')
   const match = await countdown
   assert.equal(match.startsAt - match.serverNow <= 3000, true)
   assert.equal(match.endsAt - match.startsAt, 90000)
@@ -219,7 +236,7 @@ try {
     type === 'instruction' || /"(instruction|instructions|solution|hint|puzzleId)":/.test(JSON.stringify(value) ?? '')))
 
   const replayed = message(host, 'session', state => state.progress && state.progress.matchId !== match.matchId && state.progress)
-  host.send('phase', 'game')
+  await bothReady(host, rejoined, 'results', 'game')
   const replay = await replayed
   assert.equal(replay.round, 1)
   assert.equal(replay.score, 0)
@@ -234,9 +251,6 @@ try {
     assert.equal(hostResult.elapsedMs, replay.endsAt - replay.startsAt)
     assert.equal(hostResult.completed, 0)
     assert.equal(hostResult.attempted, 1)
-    const lobbyAgain = message(host, 'session', state => state.phase === 'lobby' && state)
-    rejoined.send('phase', 'lobby')
-    assert.equal((await lobbyAgain).results, undefined)
     console.log('Passed: the live server timed out the replay and published matching defeat results.')
   }
   const ended = message(host, 'ended')
@@ -285,9 +299,10 @@ try {
   const picked = message(matchedAlice, 'session', value => value.gameId === 'icon-communication' && value)
   matchedAlice.send('phase', { gameId: 'icon-communication' })
   await picked
+  await bothReady(matchedAlice, matchedBob, 'confirmation', 'introduction')
   const reveal = message(matchedBob, 'game-view', event => event.data.target && event, 13000)
   const selectorReveal = message(matchedAlice, 'game-view', event => event.data.revealed && event, 13000)
-  matchedAlice.send('phase', 'game')
+  await bothReady(matchedAlice, matchedBob, 'introduction', 'game')
   const [icon, selector] = await Promise.all([reveal, selectorReveal])
   assert.equal(selector.data.grid.length, 9)
   assert.ok(iconViews.every(event => !Object.hasOwn(event.data, 'target')))
@@ -316,7 +331,7 @@ try {
   const results = message(iconPartner, 'session', value => value.results && value.results, 12000)
   assert.equal((await results).incorrectGuesses, 1)
   const iconReplay = message(iconPartner, 'session', value => value.progress && value)
-  matchedAlice.send('phase', 'game')
+  await bothReady(matchedAlice, iconPartner, 'results', 'game')
   const replayedIcon = await iconReplay
   assert.equal(replayedIcon.progress.round, 1)
   assert.equal(replayedIcon.progress.score, 0)

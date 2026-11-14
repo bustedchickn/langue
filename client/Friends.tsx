@@ -5,7 +5,7 @@ import { api, db, errorText } from './backend'
 import { minigames } from './minigames/registry'
 
 type RecordWithId<T> = T & { id: string }
-export type Person = ProfileFields & { uid: string }
+export type Person = ProfileFields & { uid: string; lastSeenAt?: number }
 export type GameInvite = RecordWithId<Invitation>
 
 export function useInvitations(uid: string | undefined, report: (message: string) => void) {
@@ -32,20 +32,27 @@ export function useInvitations(uid: string | undefined, report: (message: string
   return records.filter(record => record.to === uid && record.status === 'pending' && record.expiresAt > now)
 }
 
-export function PlayerName({ uid }: { uid: string }) {
+export function PlayerName({ uid, presence }: { uid: string; presence?: boolean }) {
   const [person, setPerson] = useState<Person>()
   useEffect(() => {
     let active = true
-    api<Person>('/people/' + encodeURIComponent(uid)).then(value => {
-      if (active) setPerson(value)
-    }).catch(() => {})
-    return () => { active = false }
-  }, [uid])
+    function refresh() {
+      void api<Person>('/people/' + encodeURIComponent(uid)).then(value => {
+        if (active) setPerson(value)
+      }).catch(() => {})
+    }
+    refresh()
+    const timer = presence ? setInterval(refresh, 30000) : undefined
+    return () => { active = false; clearInterval(timer) }
+  }, [uid, presence])
   return <div>
     <strong>{person?.displayName ?? 'Player'}</strong>
     {person && <>
       <p className="muted">@{person.username}</p>
       <p className="muted">Speaks {person.fluentLanguage} · Learning {person.learningLanguage}</p>
+      {presence && person.lastSeenAt !== undefined && <p className="muted">
+        {Date.now() - person.lastSeenAt < 75000 ? '● Online recently' : 'Offline'}
+      </p>}
     </>}
   </div>
 }
@@ -115,7 +122,7 @@ export function Friends({ uid, invite, inviteOnly, inLobby }: {
       {accepted.map(record => {
         const other = record.from === uid ? record.to : record.from
         return <div className="card" key={record.id}>
-          <PlayerName uid={other} />
+          <PlayerName uid={other} presence />
           <div className="actions">
             <button disabled={working} onClick={() => void run(() => invite(other, gameId), 'Invitation sent.')}>Invite to Play</button>
             {!inviteOnly && <button className="secondary" disabled={working} onClick={() => change(record.id, 'remove')}>Remove</button>}

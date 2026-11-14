@@ -5,13 +5,14 @@ import { defaultMinigame, minigames } from './minigames/registry'
 import type { ActiveMinigame } from './minigames/contracts'
 import type { Seat } from '../shared/minigames/contracts'
 import { randomUUID } from 'node:crypto'
+import { getAuth } from 'firebase-admin/auth'
 import type { MatchType } from '../shared/matchmaking'
 import { matchmakingConfig } from './matchmaking-rules'
 import { activity, claimRoom, release } from './participation'
 
 const disconnectGrace = 30
 const waitingTime = 30 * 60 * 1000
-type Member = { profile: UserProfile; client: Client; connected: boolean; lastChat: number; voice: boolean }
+type Member = { profile: UserProfile; client: Client; connected: boolean; lastChat: number; voice: boolean; photoURL?: string }
 export const rooms = new Map<string, DuoRoom>()
 
 export class DuoRoom extends Room {
@@ -19,6 +20,7 @@ export class DuoRoom extends Room {
   private host?: Member
   private guest?: Member
   private phase: Session['phase'] = 'lobby'
+  private ready = { host: false, guest: false }
   private chat: Session['chat'] = []
   private closing = false
   private waiting?: ReturnType<typeof setTimeout>
@@ -45,15 +47,27 @@ export class DuoRoom extends Room {
     this.onMessage('phase', (client, action) => {
       const seat = this.seat(client)
       if (!seat || this.closing) return
-      if (this.phase === 'lobby' && seat === 'host' && typeof action === 'object' && action &&
+      if ((this.phase === 'lobby' || this.phase === 'confirmation') && seat === 'host' &&
+          !this.ready.host && !this.ready.guest && typeof action === 'object' && action &&
           typeof action.gameId === 'string' && minigames.has(action.gameId)) {
         this.gameId = action.gameId
         this.broadcastSnapshot()
-      } else if (action === 'lobby' && this.phase === 'results') {
-        this.phase = 'lobby'
-        this.game = undefined
+      }
+    })
+    this.onMessage('ready', (client, phase: unknown) => {
+      const seat = this.seat(client)
+      if (!seat || this.closing || phase !== this.phase || !this.host?.connected || !this.guest?.connected) return
+      if (phase !== 'confirmation' && phase !== 'introduction' && phase !== 'results') return
+      this.ready[seat] = true
+      if (!this.ready.host || !this.ready.guest) {
         this.broadcastSnapshot()
-      } else if (action === 'game' && this.phase !== 'game' && seat === 'host') {
+        return
+      }
+      this.ready = { host: false, guest: false }
+      if (phase === 'confirmation') {
+        this.phase = 'introduction'
+        this.broadcastSnapshot()
+      } else {
         this.startGame()
       }
     })
@@ -125,7 +139,7 @@ export class DuoRoom extends Room {
     this.automatic = { host, guest, type, secret }
     this.setSeatReservationTime(matchmakingConfig.seatTimeoutMs / 1000)
     clearTimeout(this.waiting)
-    this.waiting = setTimeout(() => this.end('The other player could not join. Try Quick Play again.'), matchmakingConfig.seatTimeoutMs)
+    this.waiting = setTimeout(() => this.end('The other player could not join. Select Play to search again.'), matchmakingConfig.seatTimeoutMs)
   }
 
   async onJoin(client: Client, options: { invitation?: unknown; secret?: string }, profile: UserProfile) {
@@ -175,13 +189,22 @@ export class DuoRoom extends Room {
       }
       this.host = member
     }
+    if (this.host && this.guest) this.phase = 'confirmation'
     this.log('player-joined', { seat: this.seat(client) })
     this.broadcastSnapshot()
+    void getAuth().getUser(profile.uid).then(({ photoURL }) => {
+      if (!this.closing && photoURL?.startsWith('https://')) {
+        member.photoURL = photoURL
+        this.broadcastSnapshot()
+      }
+    }).catch(() => {})
   }
 
   async onLeave(client: Client, consented: boolean) {
-    const member = this.member(client)
+    const seat = this.seat(client)
+    const member = seat && this[seat]
     if (!member || this.closing) return
+    this.ready[seat] = false
     member.connected = false
     this.game?.suspend?.(Date.now())
     this.log('player-disconnected', { seat: this.seat(client), consented })
@@ -223,7 +246,7 @@ export class DuoRoom extends Room {
 
   cancelPendingMatch() {
     if (!this.automatic || (this.host && this.guest) || this.closing) return false
-    this.end('The match was canceled. Try Quick Play again.')
+    this.end('The match was canceled. Select Play to search again.')
     return true
   }
 
@@ -250,12 +273,15 @@ export class DuoRoom extends Room {
 
   private snapshot(): Session {
     const player = (member?: Member): Player | null => member ? {
-      name: member.profile.displayName, fluentLanguage: member.profile.fluentLanguage,
+      name: member.profile.displayName, username: member.profile.username, fluentLanguage: member.profile.fluentLanguage,
       learningLanguage: member.profile.learningLanguage, connected: member.connected,
+      ...(member.profile.assessments?.[member.profile.learningLanguage]?.level
+        ? { communicationLevel: member.profile.assessments[member.profile.learningLanguage]!.level } : {}),
+      ...(member.photoURL ? { photoURL: member.photoURL } : {}),
     } : null
     return {
       host: player(this.host), guest: player(this.guest), gameId: this.gameId, phase: this.phase, chat: this.chat,
-      matchType: this.automatic?.type,
+      matchType: this.automatic?.type, ready: { ...this.ready },
       ...(this.phase === 'game' && this.game ? { progress: this.game.progress(Date.now()) } : {}),
       ...(this.phase === 'results' && this.game ? { results: this.game.results() } : {}),
     }

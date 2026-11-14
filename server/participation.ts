@@ -9,7 +9,8 @@ export function activity(uid: string) { return players.get(uid) }
 export function enqueue(profile: UserProfile, now: number) {
   const current = players.get(profile.uid)
   if (current && 'room' in current) return
-  if (current) {
+  if (current && current.queue.profile.learningLanguage === profile.learningLanguage &&
+      current.queue.profile.fluentLanguage === profile.fluentLanguage) {
     current.queue.lastSeenAt = now
     return current.queue
   }

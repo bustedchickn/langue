@@ -12,7 +12,7 @@ import { searchStatus, startSearch, stopSearch } from './matchmaking'
 import { activity } from './participation'
 import {
   db, friendshipRef, getProfile, profileRef, publicProfile,
-  RequestError, requireProfile, saveProfile, usernameKey, verify,
+  RequestError, requireProfile, saveAssessment, saveProfile, usernameKey, verify,
 } from './store'
 
 const app = express()
@@ -38,6 +38,12 @@ api.get('/profile', async (_, res) => {
   res.json(profile ?? null)
 })
 api.put('/profile', async (req, res) => res.json(await saveProfile(res.locals.uid, req.body ?? {})))
+api.put('/profile/languages/:language', async (req, res) =>
+  res.json(await saveAssessment(res.locals.uid, req.params.language, req.body)))
+api.post('/presence', async (_, res) => {
+  await profileRef(res.locals.uid).update({ lastSeenAt: Date.now() })
+  res.json({ ok: true })
+})
 api.post('/matchmaking', async (_, res) => {
   res.set('Cache-Control', 'no-store').json(startSearch(await requireProfile(res.locals.uid)))
 })
@@ -57,10 +63,15 @@ api.get('/people/:uid', async (req, res) => {
   const uid: string = res.locals.uid
   const other = req.params.uid
   const { ref } = friendshipRef(uid, other)
-  if (!other || other.includes('/') || !(await ref.get()).exists) {
+  const relation = (await ref.get()).data()
+  if (!other || other.includes('/') || !relation) {
     throw new RequestError(404, 'Player not found.')
   }
-  res.json(publicProfile(await requireProfile(other)))
+  const profile = await requireProfile(other)
+  res.set('Cache-Control', 'no-store').json({
+    ...publicProfile(profile),
+    ...(relation.status === 'accepted' ? { lastSeenAt: profile.lastSeenAt } : {}),
+  })
 })
 
 api.post('/friends', async (req, res) => {

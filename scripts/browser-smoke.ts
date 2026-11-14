@@ -69,7 +69,10 @@ async function player(browser: Browser, name: string, touch: boolean) {
     await page.getByLabel('Learning language').selectOption('English')
   }
   await button(page, 'Save profile').click()
-  await page.getByRole('navigation').waitFor()
+  await button(page, 'Play').waitFor()
+  await button(page, 'Play').click()
+  await button(page, 'Save language assessment').click()
+  await button(page, 'Play').waitFor()
   return page
 }
 
@@ -107,29 +110,65 @@ async function drag(page: Page, from: number, to: number, touch: boolean) {
   }
 }
 
+async function agree(host: Page, guest: Page, label: string) {
+  await button(host, label).click()
+  await host.getByText('Waiting for your partner…', { exact: true }).waitFor()
+  await guest.getByText('Your partner is ready.', { exact: true }).waitFor()
+  await button(guest, label).click()
+}
+
+async function startGame(host: Page, guest: Page) {
+  await agree(host, guest, 'I’m ready!')
+  await guest.reload()
+  await guest.getByRole('heading', { name: 'Meet your partner!' }).waitFor()
+  await button(host, 'Test mic').click()
+  await host.getByRole('meter', { name: 'Microphone level' }).waitFor()
+  await button(host, 'Stop test').click()
+  await button(host, 'Join Voice').click()
+  await button(guest, 'Join Voice').click()
+  await Promise.all([assertVoice(host), assertVoice(guest)])
+  if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
+    for (const page of [host, guest]) {
+      await button(page, 'Play partner audio').click()
+      await page.waitForFunction(() => {
+        const audio = document.querySelector('audio')
+        return audio && !audio.paused
+      })
+    }
+  }
+  await agree(host, guest, 'I’m ready to play!')
+}
+
 async function run(browser: Browser, touch: boolean, icons = false, tandem = false) {
   const [host, guest] = await Promise.all([
     player(browser, icons ? (touch ? 'TapHost' : 'IconHost') : touch ? 'Lina' : 'Alice', touch),
     player(browser, icons ? (touch ? 'TapGuest' : 'IconGuest') : touch ? 'Remy' : 'Bob', touch),
   ])
   try {
-    await button(host, 'Play').first().click()
+    if (!touch && !icons && !tandem) {
+      await host.setViewportSize({ width: 1280, height: 800 })
+      assert.equal(await host.getByRole('navigation').count(), 0)
+      await host.getByRole('heading', { name: /Lost in.*Translation/ }).waitFor()
+      await button(host, 'Open profile and settings').click()
+      await host.getByRole('heading', { name: 'Settings' }).waitFor()
+      await button(host, '← Back to home').click()
+      await button(host, 'Play With Friends').click()
+      await host.getByRole('heading', { name: 'Friends', exact: true }).waitFor()
+      await button(host, '← Back to home').click()
+      await host.setViewportSize({ width: 320, height: 700 })
+    }
     await Promise.all([
       host.waitForResponse(response => response.url().endsWith('/api/matchmaking') && response.request().method() === 'POST' && response.ok()),
-      button(host, 'Quick Play').click(),
+      button(host, 'Play').click(),
     ])
-    await host.getByText('Finding your language partner…').waitFor()
-    await button(guest, 'Play').first().click()
-    await button(guest, 'Quick Play').click()
+    await host.getByText('Finding your partner…').waitFor()
+    await button(guest, 'Play').click()
     await Promise.all([host, guest].map(page => page.getByText('Reciprocal match', { exact: true }).waitFor()))
 
-    await button(host, 'Join Voice').click()
-    await button(guest, 'Join Voice').click()
-    await Promise.all([assertVoice(host), assertVoice(guest)])
     if (process.env.IDLE_TEST_SPOT === 'true') {
       await host.getByLabel('Minigame').selectOption('spot-difference')
       await guest.getByRole('heading', { name: 'Spot the Difference', exact: true }).waitFor()
-      await button(host, 'Start Game').click()
+      await startGame(host, guest)
       await host.getByLabel('Player 1 scene', { exact: true }).waitFor()
       await guest.getByLabel('Player 2 scene', { exact: true }).waitFor()
       await button(guest, 'Finish Round').click()
@@ -137,7 +176,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         await page.getByRole('heading', { name: /Round finished/ }).waitFor()
         assert.equal(await page.locator('.results-confetti').count(), 0)
       }
-      await button(host, 'Play Again').click()
+      await agree(host, guest, 'Play Again')
       for (const name of ['Plant', 'Clock', 'Lamp', 'Cat', 'Book']) {
         await guest.getByRole('button', { name: new RegExp('^' + name + ':') }).click()
       }
@@ -151,7 +190,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     if (process.env.IDLE_TEST_MAP === 'true') {
       await host.getByLabel('Minigame').selectOption('map-navigator')
       await guest.getByRole('heading', { name: 'Map Navigator' }).waitFor()
-      await button(host, 'Start Game').click()
+      await startGame(host, guest)
       await guest.getByRole('grid', { name: 'Sunnyville city map' }).waitFor()
       assert.equal(await guest.getByRole('gridcell').count(), 49)
       assert.equal(await guest.getByRole('gridcell', { name: /Destination|Checkpoint/ }).count(), 0)
@@ -169,19 +208,10 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
       }
       return
     }
-    if (process.env.IDLE_TEST_BLOCKED_AUDIO === 'true') {
-      for (const page of [host, guest]) {
-        await button(page, 'Play partner audio').click()
-        await page.waitForFunction(() => {
-          const audio = document.querySelector('audio')
-          return audio && !audio.paused
-        })
-      }
-    }
     if (tandem) {
       await host.getByLabel('Minigame').selectOption('tandem-drive')
       await guest.getByRole('heading', { name: 'Tandem Drive' }).waitFor()
-      await button(host, 'Start Game').click()
+      await startGame(host, guest)
       await host.getByText('Optic · Navigation', { exact: true }).waitFor()
       await guest.getByText('Radar · Cadence', { exact: true }).waitFor()
       assert.equal(await host.locator('canvas').count(), 1)
@@ -205,7 +235,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     if (icons) {
       await host.getByLabel('Minigame').selectOption('icon-communication')
       await guest.getByRole('heading', { name: 'Icon Communication' }).waitFor()
-      await button(host, 'Start Game').click()
+      await startGame(host, guest)
       await guest.getByText('Get ready! Your next icon is coming…').waitFor()
       const grid = host.locator('.icon-tile')
       assert.equal(await grid.count(), 9)
@@ -251,12 +281,12 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
         await assertVoice(page)
       }
       assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
-      await button(host, 'Play Again').click()
+      await agree(host, guest, 'Play Again')
       await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
       await Promise.all([assertVoice(host), assertVoice(guest)])
       return
     }
-    await button(host, 'Start Game').click()
+    await startGame(host, guest)
     await host.getByText(/Starts in/).waitFor()
     assert.equal(await host.getByText('Your private instruction').count(), 0)
     await host.getByText('Your private instruction').waitFor()
@@ -328,7 +358,7 @@ async function run(browser: Browser, touch: boolean, icons = false, tandem = fal
     }
     assert.equal(await host.locator('.game-results').innerText(), await guest.locator('.game-results').innerText())
     await host.evaluate(() => Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined }))
-    await button(host, 'Play Again').click()
+    await agree(host, guest, 'Play Again')
     await guest.getByText('0 solved · 0 points', { exact: true }).waitFor()
     await Promise.all([assertVoice(host), assertVoice(guest)])
     await host.locator('.lost-spoken-text').first().getByText('This browser does not support pronunciation.').waitFor()

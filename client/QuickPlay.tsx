@@ -40,6 +40,7 @@ export function QuickPlay({ profile, joined, done }: {
         const started = performance.now() - initial.waitedMs
         let failures = 0
         while (active && !canceled) {
+          if (performance.now() - started >= 120000) throw new Error('No partner found this time. Select Play to search again.')
           let result: SearchStatus
           try {
             result = await api<SearchStatus>('/matchmaking')
@@ -59,7 +60,7 @@ export function QuickPlay({ profile, joined, done }: {
             else await room.leave()
             return
           }
-          if (result.status === 'idle') throw new Error('The search ended. Try Quick Play again.')
+          if (result.status === 'idle') throw new Error('The search ended. Select Play to try again.')
           setSeconds(Math.floor((performance.now() - started) / 1000))
           await pause()
         }
@@ -92,10 +93,11 @@ export function QuickPlay({ profile, joined, done }: {
     }
   }, [])
 
-  return <section className="panel stack">
-    <h2>{connecting ? 'Joining your partner…' : 'Finding your language partner…'}</h2>
-    <p>Fluent in {profile.fluentLanguage} · Learning {profile.learningLanguage}</p>
-    <p>Searching for {seconds}s</p>
+  return <section className="panel stack stage-card matchmaking-card">
+    <div className="search-pulse" aria-hidden="true"><i /><i /><i /></div>
+    <h1 role="status">{connecting ? 'Joining your partner…' : 'Finding your partner…'}</h1>
+    <p className="language-chip">Learning {profile.learningLanguage}</p>
+    <p className="muted">Searching for {seconds}s</p>
     <button className="secondary" disabled={cancel || connecting} onClick={() => cancelSearch.current()}>Cancel</button>
   </section>
 }

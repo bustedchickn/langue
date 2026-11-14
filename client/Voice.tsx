@@ -223,7 +223,8 @@ export function Voice({ room, host }: { room?: Room; host: boolean }) {
     <h2>Voice</h2>
     {stream ? <>
       <p role="status">{status}</p>
-      <p className="muted">{!muted && speaking[0] ? 'You are speaking. ' : ''}{speaking[1] ? 'Your partner is speaking.' : ''}</p>
+      <p className="muted">{muted ? 'Microphone muted.' : speaking[0] ? 'You are speaking.' : 'Microphone on.'}
+        {speaking[1] && ' Your partner is speaking.'}</p>
       <div className="actions">
         <button className="secondary" onClick={() => {
           stream.getAudioTracks().forEach(track => { track.enabled = muted })

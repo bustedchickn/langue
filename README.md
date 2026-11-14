@@ -26,24 +26,22 @@ Open this folder in VS Code, then run **Terminal → Run Task → Install depend
 
 The workspace uses Command Prompt for its integrated terminal so Windows PowerShell execution-policy settings do not block npm. You can also run `npm.cmd run dev` manually from the project folder.
 
-Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. You can also join from Play using a room code or invitation link. Each player selects **Join Voice** to start audio.
-Open [Lost in Translation on localhost](http://localhost:5173). Use separate browser profiles or a regular and a private window to play as two people. Create profiles, search for a friend by their full username, accept the request, and send a game invitation. Each player selects **Join Voice** to start audio.
 ### Play with two browsers
 
 Run `npx playwright install chromium` once, then `npm run dev:players` to open two isolated browser windows. You can also use two separate browser profiles or a private window. Optionally add `VITE_QUICK_GUEST=true` to `.env` and restart Vite. Select **Quick test guest** in each window to create independent Firebase emulator accounts and profiles.
 
-1. Set the first profile to fluent English and learning French. Set the other to fluent French and learning English. Select **Play** and **Quick Play** in both windows. Both should enter the same lobby and see **Reciprocal match**.
-2. Join voice or use the room chat. The host selects **Start Game**.
+1. Set the first profile to fluent English and learning French. Set the other to fluent French and learning English. Select **Play** in both windows. Both should see **You found a partner!** and **Reciprocal match**.
+2. Both players select **I’m ready!**. On **Meet your partner!**, use **Test mic**, then join voice or use chat to say hello. Both players select **I’m ready to play!** to start.
 3. After the countdown, the Instructor reads their private clue. The Operator drags shapes to swap them or selects one shape and then its destination. Select **Check arrangement** to submit.
-4. Solve three puzzles within 90 seconds. The host can select **Play Again** from the shared results screen while both players stay in the same room.
+4. Solve three puzzles within 90 seconds. Select **Play Again** on both devices to stay together, or **Back to home** to leave.
 
-The countdown and timer continue during disconnects. Moves are blocked until both players are back. A reconnect restores the seat, clue or board, and score. If the match times out during the grace period, the returning player sees the results.
+The countdown and timer continue during disconnects. Moves are blocked until both players are back. A reconnect or refresh in the same tab restores the seat, clue or board, and score within the reconnect window. If the match times out during the grace period, the returning player sees the results.
 
 ### Check matchmaking
 
 - For a shared-learning match, use English → French and Spanish → French. Both players become eligible after 10 seconds.
 - For an incompatible pair, use English → French and English → Spanish. Both stay in search even after 10 seconds. Select **Cancel** on both devices.
-- To play with a friend, add and accept a friend request first. Open **Play With Friends**, choose a **Minigame**, then select **Invite to Play**. After your friend joins, you can change the minigame in the lobby before selecting **Start Game**.
+- To play with a friend, add and accept a friend request first. Open **Play With Friends**, choose a **Minigame**, then select **Invite to Play**. Your friend can accept from **Play With Friends**. The inviter can change the minigame until either player confirms the match.
 
 The server keeps one in-memory queue and room-ownership map per deployment. A heartbeat expires after 15 seconds, a matched pair has up to 25 seconds to join, and a joined player keeps their seat during the existing 30-second reconnect window. Restarting the server clears the queue and active rooms. Run a single instance until the matchmaking and room ownership state is coordinated across instances. Set `MATCH_RECIPROCAL_PRIORITY_MS` on the server to adjust the default 10-second window. Reciprocal pairs take precedence among currently queued players, and shared-learning pairs become eligible after both have waited through the window.
 
@@ -64,7 +62,7 @@ The [Lost in Translation Firebase project](https://console.firebase.google.com/p
 
 On the Windows host, `.env.cloud` holds the Firebase web app configuration and tells the server to listen on loopback port 2568. To rebuild and restart the cloud-connected test server, run `npm run build:cloud` and then `npm run start:cloud`. The server uses Google Application Default Credentials. The emulator workflow still uses `.env`.
 
-Connect both test devices to the same Tailscale network and enable **Use Tailscale DNS** on each. Open the [private playtest URL](https://coco.tail4285d5.ts.net:8443/) on both devices. Keep the Windows host online while testing. Use a different account on each device and select Quick Play, or send an invitation from Play With Friends. Tailscale Serve forwards the HTTPS and WebSocket traffic to the local game server.
+Connect both test devices to the same Tailscale network and enable **Use Tailscale DNS** on each. Open the [private playtest URL](https://coco.tail4285d5.ts.net:8443/) on both devices. Keep the Windows host online while testing. Use a different account on each device and select **Play**, or send an invitation from **Play With Friends**. Tailscale Serve forwards the HTTPS and WebSocket traffic to the local game server.
 
 ## Deploy
 

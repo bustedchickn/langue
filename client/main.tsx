@@ -2,17 +2,22 @@ import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth'
 import type { Room } from 'colyseus.js'
-import type { UserProfile } from '../shared/types'
+import { languages, type Language, type UserProfile } from '../shared/types'
 import { api, auth, devGuest, errorText, multiplayer } from './backend'
 import { Account, Profile } from './Account'
 import { Friends, PlayerName, useInvitations } from './Friends'
 import { RoomScreen } from './RoomScreen'
 import { useSession } from './session'
 import { QuickPlay } from './QuickPlay'
+import { Avatar, flags } from './PlayerIdentity'
+import { LanguageAssessments } from './LanguageAssessments'
 import './style.css'
 
-type Page = 'welcome' | 'play' | 'friends' | 'profile' | 'settings'
-const pages = ['welcome', 'play', 'friends', 'profile', 'settings'] as const
+type Page = 'home' | 'friends' | 'profile'
+
+function Logo() {
+  return <h1 className="game-logo">Lost in<br />Translation<span>.</span></h1>
+}
 
 function App() {
   const [user, setUser] = useState<User | null>()
@@ -20,12 +25,15 @@ function App() {
   const [profile, setProfile] = useState<UserProfile | null>()
   const [profileError, setProfileError] = useState('')
   const [profileAttempt, setProfileAttempt] = useState(0)
-  const [page, setPage] = useState<Page>('welcome')
+  const [page, setPage] = useState<Page>('home')
+  const [savingLanguage, setSavingLanguage] = useState(false)
+  const [assessing, setAssessing] = useState(false)
   const [searching, setSearching] = useState(false)
   const [notice, setNotice] = useState('')
   const [joining, setJoining] = useState(false)
   const [invitePicker, setInvitePicker] = useState(false)
-  const session = useSession(setNotice)
+  const uid = user?.uid
+  const session = useSession(uid, setNotice)
   const invitations = useInvitations(profile?.uid, setNotice)
   const inRoom = !!session.room || session.reconnecting
 
@@ -34,7 +42,14 @@ function App() {
     setAnonymous(!!value?.isAnonymous)
   }), [])
 
-  const uid = user?.uid
+  const profileUid = profile?.uid === uid ? profile?.uid : undefined
+  useEffect(() => {
+    if (!profileUid) return
+    const heartbeat = () => void api('/presence', 'POST').catch(() => {})
+    heartbeat()
+    const timer = setInterval(heartbeat, 30000)
+    return () => clearInterval(timer)
+  }, [profileUid])
   useEffect(() => {
     let active = true
     setProfile(undefined)
@@ -54,6 +69,7 @@ function App() {
   const { attach } = session
   const joinedMatch = useCallback((room: Room) => {
     setSearching(false)
+    setNotice('')
     attach(room)
   }, [attach])
   const doneSearching = useCallback((message?: string) => {
@@ -61,12 +77,13 @@ function App() {
     if (message) setNotice(message)
   }, [])
   async function enter(action: () => Promise<Room>) {
-    if (joining || inRoom || searching) return
+    if (joining || inRoom || searching || savingLanguage) return
     setNotice('')
     setJoining(true)
     try {
       multiplayer.auth.token = await auth.currentUser?.getIdToken() ?? ''
       session.attach(await action())
+      setPage('home')
     } catch (failure) {
       setNotice(errorText(failure))
     } finally { setJoining(false) }
@@ -83,7 +100,10 @@ function App() {
         target = await multiplayer.create('duo', { gameId })
       }
       await api('/invites', 'POST', { to, roomId: target.roomId })
-      if (created) session.attach(target)
+      if (created) {
+        session.attach(target)
+        setPage('home')
+      }
       setInvitePicker(false)
       setNotice('Invitation sent.')
     } catch (failure) {
@@ -98,27 +118,32 @@ function App() {
     setNotice('')
   }
 
+  async function saveLanguage(learningLanguage: Language) {
+    if (!currentProfile || savingLanguage) return
+    setSavingLanguage(true)
+    setNotice('')
+    try {
+      const { username, displayName, fluentLanguage } = currentProfile
+      const saved = await api<UserProfile>('/profile', 'PUT', { username, displayName, fluentLanguage, learningLanguage })
+      setProfile(saved)
+      if (!saved.assessments?.[learningLanguage]) setAssessing(true)
+    } catch (error) {
+      setNotice(errorText(error))
+    } finally {
+      setSavingLanguage(false)
+    }
+  }
+
   const currentProfile = profile?.uid === uid ? profile : undefined
-  return <>
-    <header className="masthead">
-      <div className="bar">
-        <button className="brand" disabled={inRoom || joining || searching} onClick={() => navigate('welcome')}>Lost in Translation<span>.</span></button>
-        <span className="tagline">Language co-op</span>
-        {currentProfile && <span className="identity">@{currentProfile.username}</span>}
-      </div>
-    </header>
-    <main className="stack">
-      {currentProfile && !inRoom && <nav aria-label="Main navigation">
-        {pages.map(item => <button key={item} className="secondary" aria-current={page === item ? 'page' : undefined}
-          disabled={joining || searching} onClick={() => navigate(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}
-      </nav>}
+  return (
+    <main className={inRoom ? 'app-shell session-shell stack' : 'app-shell stack'}>
       {notice && <p className="notice" role="status">{notice}</p>}
       {user === undefined && <p>Loading…</p>}
       {user === null && <>
-        <section className="intro"><h1>Find your words together.</h1><p>A two-player language practice game.</p></section>
+        <section className="sign-in-intro"><Logo /><p>A two-player language practice game.</p></section>
         {devGuest && <button disabled={joining} onClick={() => {
           setJoining(true)
-          void signInAnonymously(auth).then(() => navigate('play'))
+          void signInAnonymously(auth).then(() => navigate('home'))
             .catch(error => setNotice(errorText(error))).finally(() => setJoining(false))
         }}>Quick test guest</button>}
         <Account />
@@ -131,12 +156,14 @@ function App() {
       {user && !profileError && profile === undefined && <p>Loading profile…</p>}
       {user && profile === null && <Profile key={uid} user={user} onSave={setProfile} />}
       {user && currentProfile && <>
-        {invitations.length > 0 && <section className="panel stack">
+        {!inRoom && !searching && page !== 'home' && <button className="secondary contextual-back" disabled={joining}
+          onClick={() => navigate('home')}>← Back to home</button>}
+        {!inRoom && !searching && page === 'friends' && invitations.length > 0 && <section className="panel stack">
           <h2>Game invitations</h2>
           {invitations.map(invitation => <div className="card" key={invitation.id}>
             <PlayerName uid={invitation.from} />
             <div className="actions">
-              <button disabled={inRoom || joining || searching} onClick={() => void enter(async () =>
+              <button disabled={joining} onClick={() => void enter(async () =>
                 multiplayer.consumeSeatReservation(await api('/invites/' + invitation.id + '/join', 'POST'))
               )}>Join game</button>
               <button className="secondary" disabled={joining} onClick={() => {
@@ -147,43 +174,65 @@ function App() {
         </section>}
         {inRoom && <RoomScreen {...session} leave={() => {
           session.reset()
-          navigate('play')
+          navigate('home')
         }} invite={() => setInvitePicker(value => !value)} />}
-        {invitePicker && <Friends uid={user.uid} invite={invite} inviteOnly inLobby={inRoom} />}
-        {searching && <QuickPlay profile={currentProfile} joined={joinedMatch} done={doneSearching} />}
-        {!inRoom && !invitePicker && !searching && <>
-          {page === 'welcome' && <section className="intro stack">
-            <h1>Find your words together.</h1>
-            <p>Practice English, French, or Spanish with a partner.</p>
-            <button disabled={joining} onClick={() => navigate('play')}>Play</button>
-          </section>}
-          {page === 'play' && <section className="panel stack play-menu">
-            <h2>Play</h2>
-            <div className="play-options">
-              <button aria-label="Quick Play" disabled={joining} onClick={() => { setNotice(''); setSearching(true) }}>
-                <strong>Quick Play</strong><span>Find a language partner</span>
-              </button>
-              <button aria-label="Play With Friends" className="secondary" disabled={joining} onClick={() => setInvitePicker(true)}>
-                <strong>Play With Friends</strong><span>Pick a game and send an invite</span>
-              </button>
+        {invitePicker && inRoom && <Friends uid={user.uid} invite={invite} inviteOnly inLobby />}
+        {searching && <div className="solo-stage"><QuickPlay profile={currentProfile} joined={joinedMatch} done={doneSearching} /></div>}
+        {!inRoom && !searching && <>
+          {page === 'home' && assessing && <LanguageAssessments profile={currentProfile} onSave={saved => {
+            setProfile(saved)
+            setAssessing(false)
+          }} />}
+          {page === 'home' && assessing && <button className="secondary" onClick={() => setAssessing(false)}>Back to home</button>}
+          {page === 'home' && !assessing && <section className="home-screen">
+            <button className="profile-access" aria-label="Open profile and settings" disabled={savingLanguage || joining}
+              onClick={() => navigate('profile')}><Avatar name={currentProfile.displayName} photo={user.photoURL} /></button>
+            <div className="home-content">
+              <Logo />
+              <div className="learning-picker">
+                <span aria-hidden="true">{flags[currentProfile.learningLanguage]}</span>
+                <label htmlFor="practice-language">Learning</label>
+                <select id="practice-language" value={currentProfile.learningLanguage} disabled={savingLanguage || joining}
+                  onChange={event => void saveLanguage(event.target.value as Language)}>
+                  {languages.map(language => <option key={language}>{language}</option>)}
+                </select>
+              </div>
+              <div className="home-actions">
+                <button className="large-action" disabled={joining || savingLanguage} onClick={() => {
+                  setNotice('')
+                  if (!currentProfile.assessments?.[currentProfile.learningLanguage]) setAssessing(true)
+                  else setSearching(true)
+                }}>
+                  <span aria-hidden="true">▶</span> Play
+                </button>
+                <button className="secondary large-action" aria-label={invitations.length ? 'Play With Friends, ' + invitations.length + ' pending' : undefined}
+                  disabled={joining || savingLanguage} onClick={() => navigate('friends')}>
+                  Play With Friends{invitations.length > 0 && <span className="invite-count" aria-label={invitations.length + ' invitations'}>{invitations.length}</span>}
+                </button>
+              </div>
             </div>
           </section>}
           {page === 'friends' && <Friends key={uid} uid={user.uid} invite={invite} />}
-          {page === 'profile' && <Profile key={uid} profile={currentProfile} user={user} onSave={setProfile} />}
-          {page === 'settings' && <div className="stack">
+          {page === 'profile' && <div className="stack">
+            <section className="panel profile-identity">
+              <Avatar name={currentProfile.displayName} photo={user.photoURL} />
+              <div><h1>{currentProfile.displayName}</h1><p>@{currentProfile.username} · Learning {currentProfile.learningLanguage}</p></div>
+            </section>
+            <Profile key={uid} profile={currentProfile} user={user} onSave={setProfile} />
+            <LanguageAssessments profile={currentProfile} onSave={setProfile} />
             {anonymous && <Account guest={user} onLinked={() => {
               setAnonymous(false)
               setNotice('Your account is linked.')
             }} />}
             <section className="panel stack"><h2>Settings</h2><button className="secondary" onClick={() => {
-              void signOut(auth).then(() => navigate('welcome')).catch(error => setNotice(errorText(error)))
+              void signOut(auth).then(() => navigate('home')).catch(error => setNotice(errorText(error)))
             }}>Sign out</button></section>
           </div>}
         </>}
-        {invitePicker && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Back</button>}
+        {invitePicker && inRoom && <button className="secondary" disabled={joining} onClick={() => setInvitePicker(false)}>Close friends</button>}
       </>}
     </main>
-  </>
+  )
 }
 
 createRoot(document.getElementById('root')!).render(<App />)

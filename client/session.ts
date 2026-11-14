@@ -4,7 +4,9 @@ import type { Session } from '../shared/types'
 import type { PrivateGameView } from '../shared/minigames/contracts'
 import { auth, errorText, multiplayer } from './backend'
 
-export function useSession(report: (message: string) => void) {
+const recoveryKey = (uid: string) => 'langue:room:' + uid
+
+export function useSession(uid: string | undefined, report: (message: string) => void) {
   const [room, setRoom] = useState<Room>()
   const [session, setSession] = useState<Session>()
   const [host, setHost] = useState(false)
@@ -12,10 +14,14 @@ export function useSession(report: (message: string) => void) {
   const [reconnecting, setReconnecting] = useState(false)
   const current = useRef<Room | undefined>(undefined)
   const generation = useRef(0)
+  const owner = useRef<string | undefined>(undefined)
 
   function attach(connection: Room) {
+    owner.current = uid
+    if (uid) sessionStorage.setItem(recoveryKey(uid), connection.reconnectionToken)
     current.current = connection
     connection.onMessage('session', (snapshot: Session) => {
+      if (current.current !== connection) return
       if (snapshot.phase !== 'game') setView(undefined)
       setSession(snapshot)
     })
@@ -41,7 +47,7 @@ export function useSession(report: (message: string) => void) {
     setReconnecting(false)
   }
 
-  async function reconnect(token: string) {
+  async function reconnect(token: string, restoring = false) {
     const attempt = generation.current
     setReconnecting(true)
     setRoom(undefined)
@@ -54,6 +60,7 @@ export function useSession(report: (message: string) => void) {
         else void next.leave()
         return
       } catch {
+        if (restoring && Date.now() >= deadline - 25000) break
         await new Promise(resolve => setTimeout(resolve, 1200))
       }
     }
@@ -66,6 +73,8 @@ export function useSession(report: (message: string) => void) {
   function reset() {
     generation.current += 1
     const active = current.current
+    if (owner.current) sessionStorage.removeItem(recoveryKey(owner.current))
+    owner.current = undefined
     current.current = undefined
     setRoom(undefined)
     setSession(undefined)
@@ -78,6 +87,16 @@ export function useSession(report: (message: string) => void) {
   useEffect(() => {
     if (room) room.send('sync')
   }, [room])
+
+  useEffect(() => {
+    if (owner.current && owner.current !== uid) reset()
+    if (!uid || current.current) return
+    const token = sessionStorage.getItem(recoveryKey(uid))
+    if (token) {
+      owner.current = uid
+      void reconnect(token, true)
+    }
+  }, [uid])
 
   return { room, session, host, view, reconnecting, attach, reset }
 }

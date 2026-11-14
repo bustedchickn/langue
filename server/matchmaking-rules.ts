@@ -12,7 +12,7 @@ if (!Number.isSafeInteger(matchmakingConfig.reciprocalPriorityMs) || matchmaking
   throw new Error('MATCH_RECIPROCAL_PRIORITY_MS must be a nonnegative integer.')
 }
 
-type Preferences = Pick<UserProfile, 'fluentLanguage' | 'learningLanguage'>
+type Preferences = Pick<UserProfile, 'fluentLanguage' | 'learningLanguage' | 'assessments'>
 export type QueueEntry = { profile: UserProfile; joinedAt: number; lastSeenAt: number }
 
 export function hasLanguages(profile: Preferences) {
@@ -21,7 +21,9 @@ export function hasLanguages(profile: Preferences) {
 
 export function compatibility(first: Preferences, second: Preferences): MatchType | undefined {
   if (!hasLanguages(first) || !hasLanguages(second)) return
-  if (first.fluentLanguage === second.learningLanguage && first.learningLanguage === second.fluentLanguage) return 'reciprocal'
+  const speaks = (profile: Preferences, language: UserProfile['learningLanguage']) =>
+    profile.assessments?.[language]?.fluent ?? profile.fluentLanguage === language
+  if (speaks(first, second.learningLanguage) && speaks(second, first.learningLanguage)) return 'reciprocal'
   if (first.learningLanguage === second.learningLanguage) return 'shared-learning'
 }
 
