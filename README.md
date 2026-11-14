@@ -87,7 +87,60 @@ npx --yes firebase-tools@15.36.0 deploy --only hosting --project lost-in-transla
 Remove-Item Env:VITE_GAME_SERVER
 ```
 
-The game server's `CLIENT_ORIGIN` setting includes the Firebase Hosting domains. The Funnel forwards port 10000 to loopback port 2568. For a server that can stay available when the PC is off, deploy the backend to a WebSocket-capable host. Cloud Run requires a billing account on the Firebase project.
+The game server's `CLIENT_ORIGIN` setting includes the Firebase Hosting domains. The Funnel forwards port 10000 to loopback port 2568.
+
+### Run the game server on Render
+
+In the [Render dashboard](https://dashboard.render.com/), sign in with GitHub, create a Blueprint, and connect `bustedchickn/langue`. Grant Render access to that repository. Select the branch containing `render.yaml`. The Blueprint creates a single Free Docker web service named `langue-game`.
+
+In Google Cloud IAM for `lost-in-translation-langue`, create a dedicated service account for Render with `roles/datastore.user` and `roles/firebaseauth.viewer`. Add a JSON key for that account as a Render Secret File named `firebase-admin.json`. The Blueprint points Firebase Admin at `/etc/secrets/firebase-admin.json`.
+
+After Render deploys, verify `/healthz` on the Render URL returns `200`, `/api/profile` returns `401` without a token, and two Firebase accounts can join a game. Build the public client with `VITE_GAME_SERVER` set to the service's HTTPS URL, then run the Firebase Hosting deploy command above. Verify matchmaking from the public site before switching off the Windows server.
+
+Render's Free service sleeps after 15 minutes without inbound traffic and can take about a minute to wake. Restarts clear active rooms. Voice still requires a configured TURN relay.
+
+### Run the game server on Cloud Run
+
+Cloud Run can serve the Colyseus HTTP API and WebSockets directly while Firebase Hosting continues to serve the browser app at the same URL. Linking a Cloud Billing account upgrades the Firebase project to Blaze. Sign in with `gcloud auth login` using an account with deployment access to the project.
+
+For the first deployment, enable the deployment APIs and create the runtime identity:
+
+```powershell
+$project = 'lost-in-translation-langue'
+$runtime = "langue-game@$project.iam.gserviceaccount.com"
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com --project $project
+gcloud iam service-accounts create langue-game --project $project
+foreach ($role in 'roles/datastore.user', 'roles/firebaseauth.viewer') {
+  gcloud projects add-iam-policy-binding $project --member "serviceAccount:$runtime" --role $role
+}
+```
+
+The deployer needs permission to use that runtime account. The Cloud Build service account needs the [Cloud Run Builder role](https://docs.cloud.google.com/run/docs/configuring/services/build-service-account). Deploy from the repository root:
+
+```powershell
+$region = 'us-central1'
+$service = 'langue-game'
+gcloud run deploy $service --project $project --region $region --source . `
+  --service-account $runtime --no-invoker-iam-check --max 1 --min 0 --timeout 3600 `
+  --update-env-vars '^|^FIREBASE_PROJECT_ID=lost-in-translation-langue|CLIENT_ORIGIN=https://lost-in-translation-langue.web.app,https://lost-in-translation-langue.firebaseapp.com'
+```
+
+The app continues to require Firebase ID tokens for its API and room entry. The single-instance limit keeps room and matchmaking state in one process. A restart can clear active rooms, and Cloud Run WebSockets time out after at most one hour. For voice, configure the TURN service below and inject `TURN_SECRET` from Secret Manager.
+
+Check that the service's `/api/profile` returns `401` without a token. Then set `VITE_GAME_SERVER` to its HTTPS URL and run the existing Firebase Hosting build and deploy commands:
+
+```powershell
+$env:VITE_GAME_SERVER = gcloud run services describe $service --project $project --region $region --format 'value(status.url)'
+if ($LASTEXITCODE -ne 0 -or !$env:VITE_GAME_SERVER) { throw 'Cloud Run service URL unavailable.' }
+npx vite build --mode cloud --outDir dist-public
+if ($LASTEXITCODE -ne 0) { throw 'Public build failed.' }
+npx --yes firebase-tools@15.36.0 deploy --only hosting --project $project
+Remove-Item Env:VITE_GAME_SERVER
+```
+
+From the hosted site, sign in with two accounts and verify matchmaking and game actions before shutting down the Windows server.
+
+### Set up another Firebase project
 
 1. Create a Firebase project and a Cloud Firestore database. Enable Google, Email/Password, and Anonymous sign-in, and authorize your frontend domain in Firebase Authentication.
 2. Set the public `VITE_FIREBASE_*` web app settings, set `VITE_USE_EMULATORS=false`, and set the server's `FIREBASE_PROJECT_ID` to the same project. Remove both emulator host variables. Give the backend Firebase Admin access through Application Default Credentials.

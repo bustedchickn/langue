@@ -9,7 +9,7 @@ import type { Friendship, Invitation } from '../shared/types'
 import { DuoRoom, rooms } from './room'
 import { searchStatus, startSearch, stopSearch } from './matchmaking'
 import { activity } from './participation'
-import { issueVoiceConfiguration, voiceSettings } from './voice'
+import { issueCloudflareVoiceConfiguration, issueVoiceConfiguration, voiceSettings } from './voice'
 import {
   db, friendshipRef, getProfile, profileRef, publicProfile,
   RequestError, requireProfile, saveAssessment, saveProfile, usernameKey, verify,
@@ -17,6 +17,7 @@ import {
 
 const app = express()
 app.disable('x-powered-by')
+app.get('/healthz', (_req, res) => res.sendStatus(200))
 if (process.env.CLIENT_ORIGIN) app.use(cors({ origin: process.env.CLIENT_ORIGIN.split(',') }))
 app.use(express.json({ limit: '4kb' }))
 
@@ -173,12 +174,19 @@ api.post('/invites/:id/decline', async (req, res) => {
 })
 
 const voice = voiceSettings(process.env)
-api.get('/voice', (req, res) => {
+api.get('/voice', async (req, res) => {
   const roomId = req.query.roomId
   if (typeof roomId !== 'string' || !rooms.get(roomId)?.hasConnectedPlayer(res.locals.uid)) {
     throw new RequestError(403, 'Join a room before connecting voice.')
   }
   if (voice.unavailableReason) throw new RequestError(503, voice.unavailableReason)
+  if (voice.cloudflare) {
+    const configuration = await issueCloudflareVoiceConfiguration(voice.cloudflare, voice.credentialTtlSeconds).catch(() => {
+      throw new RequestError(503, 'Voice relay is temporarily unavailable. You can keep using text chat.')
+    })
+    res.json(configuration)
+    return
+  }
   res.json(issueVoiceConfiguration(voice, res.locals.uid))
 })
 

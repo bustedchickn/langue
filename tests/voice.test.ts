@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { test } from 'node:test'
-import { issueVoiceConfiguration, parseVoiceSignal, voiceSettings } from '../server/voice'
+import { issueCloudflareVoiceConfiguration, issueVoiceConfiguration, parseVoiceSignal, voiceSettings } from '../server/voice'
 
 const secret = 'a-strong-test-only-shared-secret-of-64-characters-xxxxxxxxxxxxxxxx'
 const turnUrls = [
@@ -11,6 +11,24 @@ const turnUrls = [
   'turns:turn.example.com:443?transport=tcp',
 ]
 const configured = { NODE_ENV: 'production', TURN_SECRET: secret, TURN_URLS: turnUrls.join(',') }
+
+test('exchanges a server-only Cloudflare token for expiring relay credentials', async () => {
+  const settings = voiceSettings({ NODE_ENV: 'production', CLOUDFLARE_TURN_KEY_ID: 'key', CLOUDFLARE_TURN_API_TOKEN: secret })
+  assert.equal(settings.unavailableReason, undefined)
+  const urls = turnUrls.map(url => url.replace('turn.example.com', 'turn.cloudflare.com'))
+  const config = await issueCloudflareVoiceConfiguration(settings.cloudflare!, 3600, async (url, options) => {
+    assert.equal(url, 'https://rtc.live.cloudflare.com/v1/turn/keys/key/credentials/generate-ice-servers')
+    assert.equal(new Headers(options?.headers).get('Authorization'), `Bearer ${secret}`)
+    assert.equal(options?.body, '{"ttl":3600}')
+    return Response.json({ iceServers: [{ urls, username: 'player', credential: 'temporary' }] })
+  })
+  assert.equal(config.relayConfigured, true)
+  assert.ok(config.expiresAt! > config.serverTime)
+  assert.ok(!JSON.stringify(config).includes(secret))
+  assert.equal(config.iceServers[1].credential, 'temporary')
+  await assert.rejects(issueCloudflareVoiceConfiguration(settings.cloudflare!, 3600, async () =>
+    Response.json({ iceServers: [{ urls: urls.slice(0, 2), username: 'player', credential: 'temporary' }] })), /transports/)
+})
 
 test('issues expiring coturn REST credentials without exposing secret or Firebase UID', () => {
   const settings = voiceSettings(configured)

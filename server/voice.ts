@@ -5,6 +5,7 @@ interface VoiceSettings {
   stunUrls: string[]
   turnUrls: string[]
   turnSecret?: string
+  cloudflare?: { keyId: string; apiToken: string }
   credentialTtlSeconds: number
   unavailableReason?: string
 }
@@ -27,6 +28,9 @@ export function voiceSettings(env: NodeJS.ProcessEnv): VoiceSettings {
   const stunUrls = urls(env.STUN_URLS ?? 'stun:stun.l.google.com:19302', ['stun', 'stuns'], 'STUN_URLS')
   const turnUrls = urls(env.TURN_URLS ?? '', ['turn', 'turns'], 'TURN_URLS')
   const turnSecret = env.TURN_SECRET
+  const keyId = env.CLOUDFLARE_TURN_KEY_ID?.trim()
+  const apiToken = env.CLOUDFLARE_TURN_API_TOKEN?.trim()
+  const cloudflare = keyId && apiToken && /^[a-zA-Z0-9_-]+$/.test(keyId) ? { keyId, apiToken } : undefined
   if (turnUrls.length && (!turnSecret || turnSecret.length < 32)) {
     throw new Error('TURN_URLS requires a server-only TURN_SECRET of at least 32 characters.')
   }
@@ -35,14 +39,40 @@ export function voiceSettings(env: NodeJS.ProcessEnv): VoiceSettings {
     throw new Error('TURN_CREDENTIAL_TTL_SECONDS must be between 120 and 86400.')
   }
   let unavailableReason: string | undefined
-  if (env.NODE_ENV === 'production' && env.VOICE_ALLOW_STUN_ONLY !== 'true') {
+  if ((keyId || apiToken) && !cloudflare) {
+    unavailableReason = 'Voice relay credentials are incomplete. You can keep using text chat.'
+  } else if (!cloudflare && env.NODE_ENV === 'production' && env.VOICE_ALLOW_STUN_ONLY !== 'true') {
     if (!turnUrls.some(url => /^turn:.*\?transport=udp$/i.test(url)) ||
         !turnUrls.some(url => /^turn:.*\?transport=tcp$/i.test(url)) ||
         !turnUrls.some(url => /^turns:.*:443\?transport=tcp$/i.test(url))) {
       unavailableReason = 'Voice relay is not configured with UDP, TCP, and TLS on port 443. You can keep using text chat.'
     }
   }
-  return { stunUrls, turnUrls, turnSecret, credentialTtlSeconds, unavailableReason }
+  return { stunUrls, turnUrls, turnSecret, cloudflare, credentialTtlSeconds, unavailableReason }
+}
+
+export async function issueCloudflareVoiceConfiguration(
+  { keyId, apiToken }: NonNullable<VoiceSettings['cloudflare']>, ttl: number, request = fetch,
+): Promise<VoiceConfiguration> {
+  const issuedAt = Date.now()
+  const response = await request(`https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ttl }),
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!response.ok) throw new Error('TURN credential request failed.')
+  const { iceServers } = await response.json() as { iceServers?: RTCIceServer[] }
+  const turn = Array.isArray(iceServers) && iceServers.find(server =>
+    typeof server?.username === 'string' && server.username &&
+    typeof server.credential === 'string' && server.credential && Array.isArray(server.urls))
+  const urls = ['turn:turn.cloudflare.com:3478?transport=udp', 'turn:turn.cloudflare.com:3478?transport=tcp',
+    'turns:turn.cloudflare.com:443?transport=tcp']
+  if (!turn || !urls.every(url => turn.urls.includes(url))) throw new Error('TURN relay transports unavailable.')
+  return {
+    iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls, username: turn.username, credential: turn.credential }],
+    serverTime: Date.now(), expiresAt: issuedAt + ttl * 1000, relayConfigured: true,
+  }
 }
 
 export function issueVoiceConfiguration(settings: VoiceSettings, uid: string, now = Date.now()): VoiceConfiguration {
