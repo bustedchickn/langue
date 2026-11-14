@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import type { Friendship, Invitation, ProfileFields } from '../shared/types'
 import { api, db, errorText } from './backend'
+import { minigames } from './minigames/registry'
 
 type RecordWithId<T> = T & { id: string }
 export type Person = ProfileFields & { uid: string }
@@ -49,8 +50,8 @@ export function PlayerName({ uid }: { uid: string }) {
   </div>
 }
 
-export function Friends({ uid, invite, inviteOnly }: {
-  uid: string; invite: (uid: string) => Promise<void>; inviteOnly?: boolean
+export function Friends({ uid, invite, inviteOnly, inLobby }: {
+  uid: string; invite: (uid: string, gameId?: string) => Promise<void>; inviteOnly?: boolean; inLobby?: boolean
 }) {
   const [records, setRecords] = useState<RecordWithId<Friendship>[]>([])
   const [showSearch, setShowSearch] = useState(false)
@@ -58,6 +59,7 @@ export function Friends({ uid, invite, inviteOnly }: {
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [working, setWorking] = useState(false)
+  const [gameId, setGameId] = useState(() => minigames.keys().next().value)
 
   useEffect(() => onSnapshot(query(collection(db, 'friendships'), where('members', 'array-contains', uid)), snapshot => {
     setRecords(snapshot.docs.map(doc => ({ ...doc.data() as Friendship, id: doc.id })))
@@ -105,12 +107,17 @@ export function Friends({ uid, invite, inviteOnly }: {
           onClick={() => void run(() => api('/friends', 'POST', { uid: result.uid }), 'Friend request sent.')}>Send request</button>
       </div>}
       {accepted.length === 0 && <p className="muted">No friends yet.</p>}
+      {accepted.length > 0 && !inLobby && <label>Minigame
+        <select value={gameId} disabled={working} onChange={event => setGameId(event.target.value)}>
+          {[...minigames.values()].map(({ config }) => <option key={config.id} value={config.id}>{config.name}</option>)}
+        </select>
+      </label>}
       {accepted.map(record => {
         const other = record.from === uid ? record.to : record.from
         return <div className="card" key={record.id}>
           <PlayerName uid={other} />
           <div className="actions">
-            <button disabled={working} onClick={() => void run(() => invite(other), 'Invitation sent.')}>Invite to Play</button>
+            <button disabled={working} onClick={() => void run(() => invite(other, gameId), 'Invitation sent.')}>Invite to Play</button>
             {!inviteOnly && <button className="secondary" disabled={working} onClick={() => change(record.id, 'remove')}>Remove</button>}
           </div>
         </div>

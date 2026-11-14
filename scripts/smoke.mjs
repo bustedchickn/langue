@@ -87,12 +87,14 @@ try {
   assert.notEqual(alice.profile.learningLanguage, bob.profile.learningLanguage)
   assert.notEqual(alice.profile.fluentLanguage, bob.profile.learningLanguage)
 
-  const host = await alice.client.create('duo')
+  const host = await alice.client.create('duo', { gameId: 'icon-communication' })
   rooms.push(host)
   const lobby = message(host, 'session')
   host.send('phase', 'game')
   host.send('sync')
-  assert.equal((await lobby).phase, 'lobby')
+  const initialLobby = await lobby
+  assert.equal(initialLobby.phase, 'lobby')
+  assert.equal(initialLobby.gameId, 'icon-communication')
   const created = await alice.request('/invites', 'POST', { to: bob.uid, roomId: host.roomId })
   assert.equal(created.status, 200)
   const invites = query(collection(bob.firestore, 'invitations'), where('to', '==', bob.uid))
@@ -107,6 +109,12 @@ try {
   assert.equal(seat.status, 200)
   const guest = await bob.client.consumeSeatReservation(seat.data)
   rooms.push(guest)
+  const invitedLobby = message(guest, 'session')
+  guest.send('sync')
+  assert.equal((await invitedLobby).gameId, 'icon-communication')
+  const changedGame = message(guest, 'session', state => state.gameId === 'lost-instructions' && state)
+  host.send('phase', { gameId: 'lost-instructions' })
+  await changedGame
   await assert.rejects(carol.client.joinById(host.roomId))
   assert.equal((await bob.request(join, 'POST')).status, 409)
 

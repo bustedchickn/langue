@@ -47,7 +47,7 @@ The countdown and timer continue during disconnects. Moves are blocked until bot
 
 - For a shared-learning match, use English → French and Spanish → French. Both players become eligible after 10 seconds.
 - For an incompatible pair, use English → French and English → Spanish. Both stay in search even after 10 seconds. Select **Cancel** on both devices.
-- To play with the incompatible pair, add and accept a friend request first. Open **Play With Friends**, invite the other account, then accept the invitation there.
+- To play with a friend, add and accept a friend request first. Open **Play With Friends**, choose a **Minigame**, then select **Invite to Play**. After your friend joins, you can change the minigame in the lobby before selecting **Start Game**.
 
 The server keeps one in-memory queue and room-ownership map per deployment. A heartbeat expires after 15 seconds, a matched pair has up to 25 seconds to join, and a joined player keeps their seat during the existing 30-second reconnect window. Restarting the server clears the queue and active rooms. Run a single instance until the matchmaking and room ownership state is coordinated across instances. Set `MATCH_RECIPROCAL_PRIORITY_MS` on the server to adjust the default 10-second window. Reciprocal pairs take precedence among currently queued players, and shared-learning pairs become eligible after both have waited through the window.
 
